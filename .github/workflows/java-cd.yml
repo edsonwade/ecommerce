@@ -1,22 +1,21 @@
 name: E-COMMERCE CI/CD
-
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
-
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 17
         uses: actions/setup-java@v2
         with:
           java-version: '17'
-          distribution: 'corretto'
+          distribution: 'amazon-corretto'
       - name: Build with Maven
         run: mvn clean install
       - name: Run tests
