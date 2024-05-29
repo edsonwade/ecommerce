@@ -3,6 +3,7 @@
   <component name="CompilerConfiguration">
     <excludeFromCompile>
       <directory url="file://$PROJECT_DIR$/configuration-service/src/main/resources/archetype-resources" includeSubdirectories="true" />
+      <directory url="file://$PROJECT_DIR$/backend/discovery-service/src/main/resources/archetype-resources" includeSubdirectories="true" />
     </excludeFromCompile>
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
@@ -10,13 +11,24 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="configuration-service" />
+        <module name="config-service" />
+        <module name="discovery-service" />
+      </profile>
+      <profile name="Annotation profile for department-service" enabled="true">
+        <sourceOutputDir name="../backend/department-service/target/generated-sources/annotations" />
+        <sourceTestOutputDir name="../backend/department-service/target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
         <module name="department-service" />
+      </profile>
+      <profile name="Annotation profile for employee-service" enabled="true">
+        <sourceOutputDir name="../backend/employee-service/target/generated-sources/annotations" />
+        <sourceTestOutputDir name="../backend/employee-service/target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
         <module name="employee-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="config-service" target="17" />
+      <module name="configuration-service" target="17" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
@@ -24,6 +36,7 @@
       <module name="config-service" options="-parameters" />
       <module name="configuration-service" options="-parameters" />
       <module name="department-service" options="-parameters" />
+      <module name="discovery-service" options="-parameters" />
       <module name="employee-service" options="-parameters" />
     </option>
   </component>
