@@ -75,3 +75,15 @@ F
 `config-service/src/test/java/code/with/vanilson/configservice/ConfigServiceApplicationTests.java,5\9\593b7bb76b7225501b2f08d6d5364c594231da57
 I
 config-service/.gitignore,b\8\b8b4d87bad0b81445f0f41298ce46f1d64f37464
+M
+configuration-service/pom.xml,8\9\8963f5e599e9ff53221161fa536816601b8efda7
+P
+ configuration-service/.gitignore,9\9\990c20db7f4af2c4512aa4b0222b1bb905a814ce
+F
+config-service/HELP.md,4\7\4767b9b3f3d2edb08974a2e2cb0a1c33563c94b2
+’
+bconfiguration-service/src/main/java/code/with/vanilson/configservice/ConfigServiceApplication.java,9\a\9a1feb86b660830444ec165535699b334d105dfb
+_
+/configuration-service/data/follow-this-info.txt,e\0\e0a7f638382aa97ad508e8bbf986c5765ee6d368
+—
+gconfiguration-service/src/test/java/code/with/vanilson/configservice/ConfigServiceApplicationTests.java,8\4\849c3e355abf3945a947047aa27aa77de772eeb0
