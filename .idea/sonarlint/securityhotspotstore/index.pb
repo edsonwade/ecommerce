@@ -51,3 +51,25 @@ Temployee-service/src/main/java/net/javaguides/employeeservice/dto/DepartmentDto
 -.idea/httpRequests/2024-04-19T204822.500.json,7\3\7357c0bbe6ccd3af8656b5cbde8726cf8a850085
 ü
 odepartment-service/src/main/java/net/javaguides/departmentservice/service/impl/DepartmentNotFoundException.java,f\b\fb3a283d6747e2a560a619ff07607a90b3280f18
+:
+
+.gitignore,a\5\a5cc2925ca8258af241be7e5b0381edf30266302
+9
+	README.md,8\e\8ec9a00bfd09b3190ac6b22251dbb1aa95a0579d
+B
+docker-compose.yml,3\5\35b8c13cf2eb2a194eada000eb310d65aed53b2a
+M
+.github/workflows/java-cd.yml,6\e\6ea50946b49f3376d354d9755bea4c1b4c322792
+:
+
+Dockerfile,6\6\6651ddff6eb82c840ced7c1dddee15c6e1913dd4
+I
+data/follow-this-info.txt,5\f\5f5fcbfef952e86d0d86018b541df44dfb129c60
+O
+diagramas/micro-services.drawio,3\f\3f87fdec786c1caa8f9f96fc6fbf37dddca58b09
+ã
+[config-service/src/main/java/code/with/vanilson/configservice/ConfigServiceApplication.java,f\6\f6cabe6529e6b6e5e49ab8935be88fe596c7a9a2
+F
+config-service/pom.xml,9\3\93d3996e8089bcf62c0f63dc8ae952567bec29ae
+ê
+`config-service/src/test/java/code/with/vanilson/configservice/ConfigServiceApplicationTests.java,5\9\593b7bb76b7225501b2f08d6d5364c594231da57
