@@ -1,4 +1,4 @@
-name: E-COMMERCE CI/CD
+name: E-COMMERCE CI/CD 2024
 on:
   push:
     branches:
