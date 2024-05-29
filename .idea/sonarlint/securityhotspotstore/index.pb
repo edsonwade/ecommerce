@@ -73,3 +73,5 @@ F
 config-service/pom.xml,9\3\93d3996e8089bcf62c0f63dc8ae952567bec29ae
 ê
 `config-service/src/test/java/code/with/vanilson/configservice/ConfigServiceApplicationTests.java,5\9\593b7bb76b7225501b2f08d6d5364c594231da57
+I
+config-service/.gitignore,b\8\b8b4d87bad0b81445f0f41298ce46f1d64f37464
