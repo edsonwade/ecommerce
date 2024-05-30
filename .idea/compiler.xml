@@ -12,18 +12,9 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="config-service" />
-        <module name="discovery-service" />
-      </profile>
-      <profile name="Annotation profile for department-service" enabled="true">
-        <sourceOutputDir name="../backend/department-service/target/generated-sources/annotations" />
-        <sourceTestOutputDir name="../backend/department-service/target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
+        <module name="customer-service" />
         <module name="department-service" />
-      </profile>
-      <profile name="Annotation profile for employee-service" enabled="true">
-        <sourceOutputDir name="../backend/employee-service/target/generated-sources/annotations" />
-        <sourceTestOutputDir name="../backend/employee-service/target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
+        <module name="discovery-service" />
         <module name="employee-service" />
       </profile>
     </annotationProcessing>
@@ -35,6 +26,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="config-service" options="-parameters" />
       <module name="configuration-service" options="-parameters" />
+      <module name="customer-service" options="-parameters" />
       <module name="department-service" options="-parameters" />
       <module name="discovery-service" options="-parameters" />
       <module name="employee-service" options="-parameters" />
