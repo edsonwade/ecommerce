@@ -6,17 +6,20 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK 17
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AdoptOpenJDK 17
         uses: actions/setup-java@v2
         with:
           java-version: '17'
-          distribution: 'amazon-corretto'
-      - name: Build with Maven
-        run: mvn clean install
-      - name: Run tests
-        run: mvn test
+          distribution: 'adopt'
+
+      - name: Build and Test with Maven
+        run: mvn -B clean install

@@ -1,0 +1,71 @@
+vanilson
+mongo-pwd=MVQzTkSWXykmWXQN
+
+
+mongodb+srv://vanilson:MVQzTkSWXykmWXQN@dev.4ezbsq2.mongodb.net/
+customer_service_db
+Authentication:SCRAM-SHA-1
+
+
+
+mongodb+srv://teste:MVQwertyy@dev.4ezbsq2.mongodb.net/
+Authentication:SCRAM-SHA-1
+
+
+customer_service_db
+
+
+spring:
+  data:
+    mongodb:
+      host: ${MONGODB_HOST}
+      port: ${MONGODB_PORT}
+      database: ${MONGODB_DATABASE}
+      username: ${MONGODB_USERNAME}
+      password: ${MONGODB_PASSWORD}
+      authentication-mechanism: ${MONGODB_AUTH_MECHANISM}
+      ssl: ${MONGODB_SSL_ENABLED:false} # Default to false if not provided
+
+  # Flyway Migration Configuration
+  flyway:
+    locations: classpath:db/migration
+
+# Prometheus Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+server:
+  port: 8081
+
+
+  # PostgreSQL Configuration
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/customer_service_db # change later for mongodb
+#    username: ${POSTGRES_USERNAME}
+#    password: ${POSTGRES_PASSWORD}
+#    driver-class-name: org.postgresql.Driver
+#  jpa:
+#    database-platform: org.hibernate.dialect.PostgreSQLDialect
+#    hibernate:
+#      ddl-auto: update
+#    show-sql: true
+
+
+EXAMPLE TO CONFIG ,MONGOD ON YML
+spring:
+  data:
+    mongodb:
+      host: dev.4ezbsq2.mongodb.net
+      port: 27017 # Note: For MongoDB Atlas, the default port is usually 27017
+      database: your_database_name
+      username: teste
+      password: MVQwertyy
+      authentication-database: admin
+      authentication-mechanism: SCRAM-SHA-1
+      ssl: true # Enable SSL for secure connections

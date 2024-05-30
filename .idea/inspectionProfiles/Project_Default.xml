@@ -6,15 +6,27 @@
       <option name="ignoredModules">
         <list>
           <option value="employee-service" />
+          <option value="customer-service" />
+          <option value="customer-service" />
+          <option value="customer-service" />
+          <option value="customer-service" />
         </list>
       </option>
       <option name="ignoredPackages">
         <list>
           <option value="org.springframework:spring-core:6.0.6" />
+          <option value="com.fasterxml.woodstox:woodstox-core:6.2.1" />
+          <option value="com.google.guava:guava:19.0" />
+          <option value="com.thoughtworks.xstream:xstream:1.4.19" />
+          <option value="org.apache.httpcomponents:httpclient:4.5.3" />
         </list>
       </option>
       <option name="ignoredReasons">
         <list>
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
           <option value="Not exploitable" />
         </list>
       </option>
