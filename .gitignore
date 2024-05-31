@@ -21,6 +21,7 @@ backend/config-service/target/
 .idea/sonarlint
 .idea/sonarlint/securityhotspotstore/index.pb
 .idea/sonarlint/issuestore/index.pb
+backend/customer-service/src/main/java/code/with/vanilson/customerservice/MongoConfig.java
 
 
 

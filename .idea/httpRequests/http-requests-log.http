@@ -1,3 +1,423 @@
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T195515.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T195153.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T195143.200.json
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 258
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "4",
+  "firstname": "victor",
+  "lastname": "oliveira",
+  "email": "victor@example.com",
+  "address": {
+    "street": "fortaleza 120",
+    "houseNumber": "00",
+    "zipCode":"0000-000",
+    "city": "Fortaleza",
+    "country": "Brazil"
+  }
+}
+
+<> 2024-05-31T195127.201.txt
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 262
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "4",
+  "firstname": "victor",
+  "lastname": "oliveira",
+  "email": "jane.smith@example.com",
+  "address": {
+    "street": "fortaleza 120",
+    "houseNumber": "00",
+    "zipCode":"0000-000",
+    "city": "Fortaleza",
+    "country": "Brazil"
+  }
+}
+
+<> 2024-05-31T195031.400.txt
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 262
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "4",
+  "firstname": "victor",
+  "lastname": "oliveira",
+  "email": "jane.smith@example.com",
+  "address": {
+    "street": "fortaleza 120",
+    "houseNumber": "00",
+    "zipCode":"0000-000",
+    "city": "Fortaleza",
+    "country": "Brazil"
+  }
+}
+
+<> 2024-05-31T194542.500.json
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 262
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "4",
+  "firstname": "victor",
+  "lastname": "oliveira",
+  "email": "jane.smith@example.com",
+  "address": {
+    "street": "fortaleza 120",
+    "houseNumber": "00",
+    "zipCode":"0000-000",
+    "city": "Fortaleza",
+    "country": "Brazil"
+  }
+}
+
+<> 2024-05-31T194029.500.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T193924.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T193000.200.json
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 259
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "3",
+  "firstname": "maria",
+  "lastname": "Smith",
+  "email": "jane.smith@example.com",
+  "address": {
+    "street": "568 Avenue dr. leny",
+    "houseNumber": "124",
+    "zipCode":"9000-000",
+    "city": "Austra",
+    "country": "USA"
+  }
+}
+
+<> 2024-05-31T192945.201.txt
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 254
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "2",
+  "firstname": "Jane",
+  "lastname": "Smith",
+  "email": "jane.smith@example.com",
+  "address": {
+    "street": "456 Avenue",
+    "houseNumber": "149",
+    "zipCode":"4000-000",
+    "city": "Lisbon",
+    "country": "Portugal"
+  }
+}
+
+<> 2024-05-31T192838.201.txt
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T192819.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T192625.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T192605.200.json
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 248
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "1",
+  "firstname": "sonia",
+  "lastname": "rosa",
+  "email": "sonia@example.com",
+  "address": {
+    "street": "Arantzazu",
+    "house_number": "123",
+    "zip_code": "9999-000",
+    "city": "Madrid",
+    "country": "Spain"
+  }
+}
+
+<> 2024-05-31T192540.201.txt
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 247
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+{
+  "customerId": "1",
+  "firstname": "sonia",
+  "lastname": "rosa",
+  "email": "sonia@example.com",
+  "address": {
+    "street": "Aranguaz",
+    "house_number": "123",
+    "zip_code": "9999-000",
+    "city": "Madrid",
+    "country": "Spain"
+  }
+}
+
+<> 2024-05-31T191258.404.txt
+
+###
+
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+Content-Length: 281
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+  {
+    "customerId": "1",
+    "firstname": "sonia",
+    "lastname": "rosa",
+    "email": "sonia@example.com",
+    "address": {
+        "street": "Aranguaz",
+        "house_number": "123",
+        "zip_code": "9999-000",
+        "city": "Madrid",
+        "country": "Spain"
+    }
+}
+
+<> 2024-05-31T190320.405.json
+
+###
+
+POST http://localhost:8081/api/v1/customers
+Content-Type: application/json
+Content-Length: 281
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+  {
+    "customerId": "1",
+    "firstname": "sonia",
+    "lastname": "rosa",
+    "email": "sonia@example.com",
+    "address": {
+        "street": "Aranguaz",
+        "house_number": "123",
+        "zip_code": "9999-000",
+        "city": "Madrid",
+        "country": "Spain"
+    }
+}
+
+<> 2024-05-31T190252.404.txt
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T190150.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T190147.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T185446.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T185435.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T185429.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T183915.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T183911.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T183802.200.json
+
+###
+
+GET http://localhost:8081/api/v1/customers/list-customers
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+content-length: 0
+
+<> 2024-05-31T183739.200.json
+
+###
+
 GET http://localhost:8081/api/employees/1
 User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
 Accept-Encoding: br, deflate, gzip, x-gzip
@@ -225,327 +645,6 @@ Accept: */*
 content-length: 0
 
 <> 2024-04-19T204037.405.json
-
-###
-
-GET http://localhost:8081/api/employees/1
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-content-length: 0
-
-<> 2024-04-19T203309.500.json
-
-###
-
-GET http://localhost:8081/api/employees/1
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-content-length: 0
-
-<> 2024-04-19T202704.500.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 131
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 7,
-  "firstName": "Matthew",
-  "lastName": "Garcia",
-  "email": "matthew.garcia@example.com",
-  "departmentCode": "MKT"
-}
-
-<> 2024-04-19T202554.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 144
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 7,
-  "departmentName": "Customer Service",
-  "departmentDescription": "Responsible for customer support",
-  "departmentCode": "MKT"
-
-}
-
-<> 2024-04-19T202524.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 144
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 4,
-  "departmentName": "Customer Service",
-  "departmentDescription": "Responsible for customer support",
-  "departmentCode": "MKT"
-
-}
-
-<> 2024-04-19T202511.201.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 117
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 6,
-  "firstName": "Brow",
-  "lastName": "David",
-  "email": "brown@example.com",
-  "departmentCode": "CS"
-}
-
-<> 2024-04-19T202433.201.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 124
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 5,
-  "firstName": "David",
-  "lastName": "Brown",
-  "email": "david.brown@example.com",
-  "departmentCode": "CS"
-}
-
-<> 2024-04-19T202411.201.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 130
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 4,
-  "firstName": "Emily",
-  "lastName": "Williams",
-  "email": "emily.williams@example.com",
-  "departmentCode": "HR"
-}
-
-<> 2024-04-19T202400.201.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 133
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 3,
-  "firstName": "Michael",
-  "lastName": "Johnson",
-  "email": "michael.johnson@example.com",
-  "departmentCode": "FIN"
-}
-
-<> 2024-04-19T202348.201.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 123
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 2,
-  "firstName": "Jane",
-  "lastName": "Smith",
-  "email": "jane.smith@example.com",
-  "departmentCode": "MKT"
-}
-
-<> 2024-04-19T202037.201.json
-
-###
-
-POST http://localhost:8081/api/employees
-Content-Type: application/json
-Content-Length: 119
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 1,
-  "firstName": "John",
-  "lastName": "Doe",
-  "email": "john.doe@example.com",
-  "departmentCode": "ENG"
-}
-
-<> 2024-04-19T202025.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 143
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 4,
-  "departmentName": "Customer Service",
-  "departmentDescription": "Responsible for customer support",
-  "departmentCode": "CS"
-
-}
-
-<> 2024-04-19T201829.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 145
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 3,
-  "departmentName": "Human Resources",
-  "departmentDescription": "Responsible for employee management",
-  "departmentCode": "HR"
-
-}
-
-<> 2024-04-19T201816.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 139
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 2,
-  "departmentName": "Finance",
-  "departmentDescription": "Responsible for financial management",
-  "departmentCode": "FIN"
-
-}
-
-<> 2024-04-19T201753.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 143
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 2,
-  "departmentName": "Engineering",
-  "departmentDescription": "Responsible for software development",
-  "departmentCode": "ENG"
-
-}
-
-<> 2024-04-19T201743.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 128
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "departmentName": "Marketing",
-  "departmentDescription": "Responsible for promoting products",
-  "departmentCode": "MKT"
-
-}
-
-<> 2024-04-19T201731.500.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 143
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "id": 1,
-  "departmentName": "Engineering",
-  "departmentDescription": "Responsible for software development",
-  "departmentCode": "ENG"
-
-}
-
-<> 2024-04-19T201715.201.json
-
-###
-
-POST http://localhost:8082/api/departments
-Content-Type: application/json
-Content-Length: 131
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-
-{
-  "departmentName": "Engineering",
-  "departmentDescription": "Responsible for software development",
-  "departmentCode": "ENG"
-}
-
-<> 2024-04-19T201632.500.json
 
 ###
 

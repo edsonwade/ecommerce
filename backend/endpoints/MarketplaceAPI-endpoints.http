@@ -1,0 +1,4 @@
+###
+GET http://localhost:8081/api/products
+
+<> 2024-02-22T145438.200.json
