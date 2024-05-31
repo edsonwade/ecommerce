@@ -1,0 +1,664 @@
+GET http://localhost:8080/api/v1/appointment
+
+###
+GET http://localhost:8080/api/availability
+
+<> 2023-09-06T121002.500.json
+<> 2023-09-06T114007.500.json
+<> 2023-09-06T113708.500.json
+<> 2023-09-06T105957.500.json
+
+###
+GET http://localhost:8080/api/student
+
+<> 2023-09-06T113456.200.json
+<> 2023-09-06T112123.200.json
+
+###
+GET http://localhost:8080/api/degree
+
+<> 2023-09-06T121318.200.json
+<> 2023-09-06T120902.200.json
+<> 2023-09-06T112133.500.json
+<> 2023-09-06T110351.500.json
+<> 2023-09-06T110215.500.json
+
+###
+GET http://localhost:8080/api/v1/course
+
+<> 2023-09-06T182744.200.json
+<> 2023-09-06T182728.404.json
+<> 2023-09-06T120929.200.json
+<> 2023-09-06T120917.200.json
+<> 2023-09-06T120717.500.json
+<> 2023-09-06T113451.200.json
+<> 2023-09-06T110342.500.json
+
+###
+GET http://localhost:8080/api/v1/college
+
+<> 2023-09-06T182810.200.json
+<> 2023-09-06T182805.200.json
+<> 2023-09-06T182751.404.json
+<> 2023-09-06T120912.200.json
+
+###
+GET http://localhost:8080/api/availability
+
+<> 2023-09-06T121247.500.json
+
+###
+GET http://localhost:8080/api/student
+
+###
+GET http://localhost:8080/api/v1/degree
+
+<> 2023-09-06T182700.200.json
+
+###
+GET http://localhost:8080/api/v1/appointment
+
+<> 2023-09-06T195854.200.json
+
+###
+GET http://localhost:8080/api/v1/appointment
+
+<> 2023-09-07T000050.404.json
+
+###
+GET http://localhost:8080/api/v1/appointment/1
+
+<> 2023-09-07T000724.404.json
+
+###
+GET http://localhost:8080/api/products
+
+<> 2023-09-12T094446.500.json
+<> 2023-09-12T094434.404.json
+
+###
+GET http://localhost:8080/api/products/1
+
+###
+GET http://localhost:8080/api/products/1
+
+###
+GET http://localhost:8081/api/products
+
+###
+GET http://localhost:8081/api/customers
+
+###
+GET http://localhost:8081/api/customers/3
+
+###
+PUT http://localhost:8081/api/customers/update/7
+Content-Type: application/json
+
+{
+  "customerId": 7,
+  "name": null,
+  "email": "wayne@test.test",
+  "address": "Street NPBT 1234"
+}
+
+###
+DELETE http://localhost:8081/api/customers/delete/9
+
+###
+POST http://localhost:8081/api/customers/create
+Content-Type: application/json
+
+{
+  "name": "Sonia Rosa",
+  "email": "soniarosa@test.test",
+  "address": "street araujez 45"
+}
+
+###
+GET http://localhost:8081/api/customers
+
+###
+GET http://localhost:8081/api/orders
+
+<> 2023-09-25T122438.200.json
+<> 2023-09-25T121203.200.json
+<> 2023-09-25T120903.200.json
+<> 2023-09-25T120337.200.json
+
+###
+PUT http://localhost:8081/api/orders/update/7
+Content-Type: application/json
+
+{
+  "localDateTime":"2023-09-25T00:00:00",
+  "customer": {
+    "customerId":1
+  },
+  "orderItems": [
+    {
+      "orderItemId": 1,
+      "product": {
+        "id": 2,
+        "name": "Computer Apple",
+        "quantity":12,
+        "version": 12
+      },
+      "quantity": 10
+    }
+  ]
+}
+
+<> 2023-09-25T150920.200.json
+<> 2023-09-25T150851.200.json
+<> 2023-09-25T145536.200.json
+<> 2023-09-25T145055.200.json
+<> 2023-09-25T144801.200.json
+<> 2023-09-25T144728.200.json
+<> 2023-09-25T144348.500.json
+<> 2023-09-25T144229.200.json
+<> 2023-09-25T144102.200.json
+<> 2023-09-25T144029.200.json
+<> 2023-09-25T142743.200.json
+<> 2023-09-25T142348.200.json
+<> 2023-09-25T141437.200.json
+<> 2023-09-25T141155.200.json
+<> 2023-09-25T140840.200.json
+<> 2023-09-25T140706.200.json
+<> 2023-09-25T140401.200.json
+<> 2023-09-25T135708.200.json
+<> 2023-09-25T135522.500.json
+<> 2023-09-25T135235.500.json
+<> 2023-09-25T135006.500.json
+<> 2023-09-25T134747.500.json
+<> 2023-09-25T134613.500.json
+<> 2023-09-25T133010.500.json
+<> 2023-09-25T132447.500.json
+<> 2023-09-25T132128.500.json
+<> 2023-09-25T132035.500.json
+<> 2023-09-25T131638.500.json
+<> 2023-09-25T130726.500.json
+<> 2023-09-25T130506.500.json
+
+###
+POST http://localhost:8081/api/orders/create
+Content-Type: application/json
+
+{
+  "localDateTime": "2023-09-25T00:00:00",
+  "customer": {
+    "name": "sonia rosa",
+    "email": "sonia23@test233.com",
+    "address": "spain"
+  },
+  "orderItems": [
+    {
+    "product": {
+      "id": 2,
+      "name": "Apple",
+      "quantity":12,
+      "version": 12
+    },
+    "quantity": 10
+    }
+  ]
+}
+
+<> 2023-10-13T165433.201.json
+<> 2023-10-13T164908.201.json
+<> 2023-10-13T163729.500.json
+<> 2023-09-25T153337.500.json
+<> 2023-09-25T153318.500.json
+<> 2023-09-25T153257.500.json
+
+###
+GET http://localhost:8081/api/orders/8
+
+<> 2023-10-13T164225.200.json
+<> 2023-10-13T164143.200.json
+<> 2023-10-12T115733.500.json
+<> 2023-10-12T115649.500.json
+
+###
+POST http://localhost:8081/api/orders/create
+Content-Type: application/json
+
+{
+  "localDateTime": "2023-09-25T00:00:00",
+  "customer": {
+    "name": "sonia",
+    "email": "soniarodriguez@test.com",
+    "address": "aranguez spain"
+  },
+  "orderItems": []
+}
+
+<> 2023-10-13T164124.201.json
+
+###
+
+Content-Type: application/json
+
+###
+GET http://localhost:8081/api/orders/1
+
+<> 2023-11-03T155525.200.json
+
+###
+GET http://localhost:8081/api/books
+
+<> 2023-11-10T174738.200.json
+<> 2023-11-10T174708.200.json
+<> 2023-11-10T174412.200.json
+<> 2023-11-10T174311.200.json
+<> 2023-11-10T170148.200.json
+<> 2023-11-10T170047.200.json
+<> 2023-11-10T153611.200.json
+<> 2023-11-10T152045.200.json
+
+###
+
+
+<> 2023-11-10T153551.403.html
+
+###
+###
+GET http://localhost:8081/api/books/7
+
+<> 2023-11-10T170421.200.json
+<> 2023-11-10T170156.200.json
+<> 2023-11-10T170122.200.json
+
+###
+###
+POST http://localhost:8081/api/books/create
+Content-Type: application/json
+
+{
+  "title": "Data access java 17 2023"
+}
+
+<> 2023-11-10T174730.201.json
+<> 2023-11-10T174644.201.json
+<> 2023-11-10T174606.201.json
+<> 2023-11-10T174221.405.json
+<> 2023-11-10T174202.201.json
+<> 2023-11-10T174132.201.json
+
+###
+GET http://localhost:8081/api/v1/grades
+
+<> 2023-11-19T203014.404.json
+
+###
+POST http://localhost:8081/api/v1/customers
+Content-Type: application/json
+
+{
+  "email": "jameas@wayne.pt",
+  "firstName": "wayne",
+  "lastName": "james"
+}
+
+###
+POST http://localhost:8081/api/v1/customers
+Content-Type: application/json
+
+{
+  "email": "sonia@now.here",
+  "firstName": "sonia",
+  "lastName": "rosa"
+}
+
+###
+POST http://localhost:8081/api/v1/messages
+Content-Disposition: form-data; name="element-name"
+Content-Type: text/plain
+
+Its works very well i guess .
+Its not very difficult to see this configuration, just need patient.
+
+
+<> 2024-02-14T211814.200.txt
+<> 2024-02-14T211650.200.txt
+<> 2024-02-14T211556.403.html
+
+###
+POST http://localhost:8081/api/v1/messages/students-messages
+Content-Type: application/json
+
+{
+  "studentId": 2,
+  "firstName": "sonia",
+  "lastName": "rosa"
+}
+
+<> 2024-02-14T235709.200.txt
+<> 2024-02-14T235037.200.txt
+<> 2024-02-14T233949.200.txt
+<> 2024-02-14T233659.200.txt
+<> 2024-02-14T233225.200.txt
+
+###
+GET http://localhost:8081/api/v1/wikimedia
+
+###
+GET http://localhost:8080/api/v1/wikimedia
+
+###
+POST http://localhost:8081/api/v1/login
+Content-Type: application/json
+
+{
+  "username": "username123",
+  "password": "test123"
+}
+
+<> 2024-03-05T231909.403.json
+
+###
+POST http://localhost:8082/api/departments/create-department
+Content-Type: application/json
+
+{
+  "departmentName": "Sales",
+  "departmentDescription": "Responsible for selling company products and services",
+  "departmentCode": "SAL"
+}
+
+<> 2024-03-20T225736.201.json
+<> 2024-03-20T225710.201.json
+<> 2024-03-20T225139.201.json
+
+###
+GET  http://localhost:8081/api/employees
+
+###
+GET  http://localhost:8081/api/employees/11
+
+###
+
+DELETE  http://localhost:8081/api/employees/delete-employee/11
+
+###
+POST http://localhost:8081/api/employees/create-employee
+Content-Type: application/json
+
+{
+  "firstName": "walter",
+  "lastName": "wayne",
+  "email": "walter@example.com"
+}
+
+###
+
+GET http://localhost:8081/api/employees/by-email?email=walter@example.com
+
+###
+GET http://localhost:8081/api/employees
+
+###
+GET http://localhost:8081/api/employees/1
+
+###
+GET http://localhost:8081/api/employees
+
+<> 2024-04-19T170513.200.json
+###
+GET http://localhost:8081/api/employees/department/2
+
+###
+
+GET http://localhost:8082/api/departments
+
+###
+
+GET http://localhost:8082/api/departments/2
+
+###
+POST http://localhost:8082/api/departments
+Content-Type: application/json
+
+{
+  "id": 7,
+  "departmentName": "Customer Service",
+  "departmentDescription": "Responsible for customer support",
+  "departmentCode": "MKT"
+
+}
+
+###
+POST http://localhost:8081/api/employees/create-employee
+Content-Type: application/json
+
+{
+  "firstName": "Emma",
+  "lastName": "Taylor",
+  "email": "emma@example.com",
+  "departmentCode": "LEGAL"
+}
+
+<> 2024-04-26T180639.409.json
+<> 2024-04-26T180635.201.json
+<> 2024-04-26T180617.201.json
+<> 2024-04-26T180607.201.json
+<> 2024-04-26T180554.201.json
+<> 2024-04-26T180543.201.json
+<> 2024-04-26T180531.201.json
+<> 2024-04-26T180512.201.json
+<> 2024-04-26T180450.201.json
+<> 2024-04-26T180438.405.json
+
+###
+GET http://localhost:8081/api/employees/id/2
+
+<> 2024-04-26T180655.200.json
+<> 2024-04-26T175953.200.json
+<> 2024-04-26T175848.200.json
+<> 2024-04-26T175821.404.json
+<> 2024-04-26T175813.200.json
+<> 2024-04-26T164142.200.json
+<> 2024-04-26T164133.404.json
+<> 2024-04-26T163528.404.json
+<> 2024-04-26T163523.404.json
+
+
+###
+GET http://localhost:8081/api/employees
+
+<> 2024-04-26T180659.200.json
+<> 2024-04-26T180135.200.json
+<> 2024-04-26T175838.200.json
+
+
+###
+GET http://localhost:8082/api/departments/id/2
+
+<> 2024-04-19T210319.404.json
+<> 2024-04-19T210305.404.json
+<> 2024-04-19T210015.404.json
+<> 2024-04-19T205948.404.json
+
+###
+GET http://localhost:8082/api/departments
+
+<> 2024-04-26T180310.200.json
+<> 2024-04-19T211149.200.json
+<> 2024-04-19T211011.200.json
+<> 2024-04-19T210933.200.json
+<> 2024-04-19T210316.200.json
+
+###
+GET http://localhost:8083/api/departments/FIN
+
+<> 2024-04-26T163649.200.json
+<> 2024-04-26T163629.200.json
+<> 2024-04-26T163543.200.json
+<> 2024-04-26T163519.404.json
+<> 2024-04-26T163507.200.json
+<> 2024-04-26T163425.200.json
+<> 2024-04-19T211208.200.json
+<> 2024-04-19T211035.500.json
+<> 2024-04-19T210946.500.json
+
+###
+GET http://localhost:8081/api/employees/id/4
+
+<> 2024-04-26T175803.404.json
+<> 2024-04-26T175741.404.json
+<> 2024-04-26T163926.200.json
+<> 2024-04-26T163917.200.json
+<> 2024-04-26T163804.200.json
+<> 2024-04-26T163704.500.json
+<> 2024-04-26T163645.404.json
+<> 2024-04-26T163032.404.json
+<> 2024-04-26T163027.404.json
+<> 2024-04-26T145922.200.json
+<> 2024-04-19T212120.200.json
+<> 2024-04-19T211249.500.json
+
+
+###
+@departmentCode =FIN
+GET http://localhost:8082/api/departments/code/MKT
+
+<> 2024-04-26T175938.200.json
+<> 2024-04-26T175908.200.json
+<> 2024-04-26T175754.404.json
+<> 2024-04-26T175717.404.json
+<> 2024-04-26T164155.404.json
+<> 2024-04-26T163951.404.json
+<> 2024-04-26T163910.200.json
+<> 2024-04-26T163836.200.json
+<> 2024-04-26T163829.404.json
+<> 2024-04-26T163406.404.json
+<> 2024-04-26T163019.200.json
+<> 2024-04-26T162532.200.json
+
+### SEARCH BY ID
+GET http://localhost:8082/api/departments/id/2
+
+
+<> 2024-04-26T175935.200.json
+<> 2024-04-26T175723.200.json
+<> 2024-04-26T164309.200.json
+<> 2024-04-26T164303.404.json
+<> 2024-04-26T164250.404.json
+<> 2024-04-26T164243.404.json
+
+### Return the employee with  the associate departments
+GET http://localhost:8081/api/employees/departments/2
+
+<> 2024-04-27T030420.200.json
+<> 2024-04-27T030316.500.json
+<> 2024-04-27T030304.500.json
+<> 2024-04-26T180726.200.json
+<> 2024-04-26T180710.200.json
+<> 2024-04-26T180036.200.json
+
+### Return the employee with the associate departments we need to provide employee-service
+GET http://localhost:9191/employee-service/api/employees/departments/2
+
+<> 2024-04-27T031027.200.json
+<> 2024-04-27T031009.404.json
+<> 2024-04-27T030448.404.json
+<> 2024-04-27T030437.404.json
+<> 2024-04-27T030215.404.json
+<> 2024-04-27T030136.500.json
+
+
+### api gateway route departments service
+GET http://localhost:9191/department-service/api/departments/code/MKT
+
+<> 2024-04-27T031808.200.json
+
+###
+GET http://localhost:8081/
+contenty-type: apllication/json
+{
+   "username":"user",
+   "password":"user123"
+}
+
+
+### Basic authorization with variables.
+GET http://localhost:8081/basic-auth/username/password
+Authorization: Basic user user123
+
+<> 2024-05-26T114505.404.json
+<> 2024-05-26T114426.404.json
+
+###
+GET http://localhost:8081/api/v1/customers/list-customers
+
+<> 2024-05-31T195153.200.json
+<> 2024-05-31T195143.200.json
+<> 2024-05-31T192625.200.json
+<> 2024-05-31T190150.200.json
+<> 2024-05-31T185446.200.json
+<> 2024-05-31T185435.200.json
+<> 2024-05-31T183911.200.json
+<> 2024-05-31T183739.200.json
+###
+GET http://localhost:8081/api/v1/customers
+
+<> 2024-05-31T195515.200.json
+<> 2024-05-31T193924.200.json
+<> 2024-05-31T193000.200.json
+<> 2024-05-31T192819.200.json
+<> 2024-05-31T192605.200.json
+<> 2024-05-31T190147.200.json
+<> 2024-05-31T185429.200.json
+<> 2024-05-31T183915.200.json
+<> 2024-05-31T183802.200.json
+
+
+
+####
+#POST http://localhost:8081/api/v1/customers/create-customer
+#Content-Type: application/json
+#
+#{
+#    "customerId": "1",
+#    "firstname": "sonia",
+#    "lastname": "rosa",
+#    "email": "sonia@example.com",
+#    "address": {
+#        "street": "Aranguaz",
+#        "house_number": "123",
+#        "zip_code": "9999-000",
+#        "city": "Madrid",
+#        "country": "Spain"
+#    }
+#}
+
+<> 2024-05-31T190320.405.json
+<> 2024-05-31T190252.404.txt
+
+###
+POST http://localhost:8081/api/v1/customers/create-customer
+Content-Type: application/json
+
+
+{
+  "customerId": "4",
+  "firstname": "victor",
+  "lastname": "oliveira",
+  "email": "victor@example.com",
+  "address": {
+    "street": "fortaleza 120",
+    "houseNumber": "00",
+    "zipCode":"0000-000",
+    "city": "Fortaleza",
+    "country": "Brazil"
+  }
+}
+
+<> 2024-05-31T195127.201.txt
+<> 2024-05-31T195031.400.txt
+<> 2024-05-31T194542.500.json
+<> 2024-05-31T194029.500.json
+<> 2024-05-31T192945.201.txt
+<> 2024-05-31T192838.201.txt
+<> 2024-05-31T192540.201.txt
+<> 2024-05-31T191258.404.txt

@@ -1,0 +1,13 @@
+//
+//    public String createCustomers(CustomerRequest customerRequest) {
+//        // Check if a customer with the provided email already exists
+//        Optional<Customer> existingCustomer = customerRepository.findById(customerRequest.email());
+//        if (existingCustomer.isPresent()) {
+//            throw new EmailAlreadyExistsException(MessageFormat.format("Customer with email {0} already exists", customerRequest.email()));
+//        }
+//
+//        // Save the new customer if the email is unique
+//        Customer customer = customerRepository.save(customerMapper.toCustomer(customerRequest));
+//        log.info("Customer created: {}", customer);
+//        return customer.getCustomerId();
+//    }
