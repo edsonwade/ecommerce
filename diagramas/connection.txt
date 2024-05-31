@@ -69,3 +69,4 @@ spring:
       authentication-database: admin
       authentication-mechanism: SCRAM-SHA-1
       ssl: true # Enable SSL for secure connections
+Janina1.
