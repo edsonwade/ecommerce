@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/product_service_db
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    jpa:
+      database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+    # Flyway Migration Configuration
+
+    flyway:
+      locations: classpath:db/migration
+      baseline-on-migrate: true
+      enabled: true
+      baseline-description: "init"
+      baseline-version: 0
+      repair: true
+
+server:
+  port: 8082
+

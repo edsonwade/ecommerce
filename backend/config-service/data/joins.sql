@@ -1,0 +1,51 @@
+-- delete
+-- from flyway_schema_history
+-- where version = '1';
+-- select *
+-- from category;
+--
+-- select *
+-- from product;
+--
+-- SELECT p.id, p.available_quantity, p.description, p.name, p.price, p.category_id
+-- FROM product p
+--          JOIN category c ON p.category_id = c.id
+-- WHERE p.id = c.id;
+-- /*
+--  Left Join:
+-- A left join returns all rows from the left table (product), along with matching rows from the right table (category).
+--  If there are no matches, NULL values are included from the right table.
+--  */
+-- SELECT p.id, p.available_quantity, p.description, p.name, p.price, p.category_id
+-- FROM product p
+--          LEFT JOIN category c ON p.category_id = c.id
+-- WHERE p.id = c.id;
+--
+-- /*
+-- Outer Join:
+-- An outer join is a general term that includes both left and right joins.
+-- In SQL, it typically refers to a full outer join that returns all rows when there is a match in either the left or right table.
+-- */
+-- SELECT p.id, p.available_quantity, p.description, p.name, p.price, p.category_id
+-- FROM product p
+--     FULL OUTER JOIN category c ON p.category_id = c.id
+-- WHERE p.id = c.id;
+-- /*
+-- SELECT p.id, p.available_quantity, p.description, p.name, p.price, p.category_id
+-- FROM product p
+-- RIGHT JOIN category c ON p.category_id = c.id
+-- WHERE p.id = c.id;
+-- */
+-- SELECT p.id, p.available_quantity, p.description, p.name, p.price, p.category_id
+-- FROM product p
+--          RIGHT JOIN category c ON p.category_id = c.id
+-- WHERE p.id = c.id;
+--
+-- /*
+--  n these queries:
+--
+-- p is an alias for the product table.
+-- c is an alias for the category table.
+-- We are selecting specific columns from the product table.
+-- We are performing different types of joins based on the relationship between product and category tables.
+--  */
