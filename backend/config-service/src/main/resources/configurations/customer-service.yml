@@ -14,10 +14,6 @@ spring:
 #        ssl: ${MONGODB_SSL_ENABLED:false} # Default to false if not provided
 
 
-  # Flyway Migration Configuration
-
-  flyway:
-    locations: classpath:db/migration
 
 # Prometheus Configuration
 management:

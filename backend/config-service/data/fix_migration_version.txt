@@ -1,0 +1,2 @@
+delete from flyway_schema_history where version = '1';
+https://www.baeldung.com/spring-boot-flyway-repair

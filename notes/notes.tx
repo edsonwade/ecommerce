@@ -1,0 +1,22 @@
+//
+//    public String createCustomers(CustomerRequest customerRequest) {
+//        // Check if a customer with the provided email already exists
+//        Optional<Customer> existingCustomer = customerRepository.findById(customerRequest.email());
+//        if (existingCustomer.isPresent()) {
+//            throw new EmailAlreadyExistsException(MessageFormat.format("Customer with email {0} already exists", customerRequest.email()));
+//        }
+//
+//        // Save the new customer if the email is unique
+//        Customer customer = customerRepository.save(customerMapper.toCustomer(customerRequest));
+//        log.info("Customer created: {}", customer);
+//        return customer.getCustomerId();
+//    }
+
+<!-- https://mvnrepository.com/artifact/jakarta.validation/jakarta.validation-api -->
+        <!--        <dependency>-->
+        <!--            <groupId>jakarta.validation</groupId>-->
+        <!--            <artifactId>jakarta.validation-api</artifactId>-->
+        <!--            <version>3.0.2</version>-->
+        <!--        </dependency>-->
+
+        <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-data-mongodb -->

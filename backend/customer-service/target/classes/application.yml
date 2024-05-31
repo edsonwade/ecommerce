@@ -6,26 +6,6 @@ spring:
   config:
     import: optional:configserver:http://localhost:8888
 
-
-  # MongoDB Configuration
-  # Payment Service MongoDB Configuration
-#
-#    data:
-#      mongodb:
-#       uri: mongodb://payment_db_user:payment_db_password@localhost:27017/payment_service_db?authSource=admin
-#
-#  # Payment Service MongoDB Configuration
-#  spring:
-#    data:
-#      mongodb:
-#        host: localhost
-#        port: 27017
-#        database: payment_service_db
-#        authentication-database: admin
-#        username: payment_db_user
-#        password: payment_db_password
-
-
-
-  # PostgreSQL Configuration
-
+  output:
+    ansi:
+      enabled: always

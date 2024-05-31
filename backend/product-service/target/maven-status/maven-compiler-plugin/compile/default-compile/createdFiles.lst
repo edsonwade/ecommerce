@@ -1,0 +1,10 @@
+code\with\vanilson\productservice\exception\ErrorResponse.class
+code\with\vanilson\productservice\exception\handler\GlobalExceptionHandler.class
+code\with\vanilson\productservice\exception\Product.class
+code\with\vanilson\productservice\exception\ProductBadRequestException.class
+code\with\vanilson\productservice\exception\EmailAlreadyExistsException.class
+code\with\vanilson\productservice\category\Category.class
+code\with\vanilson\productservice\exception\ProductNotFoundException.class
+code\with\vanilson\productservice\ProductServiceApplication.class
+code\with\vanilson\productservice\exception\Product$ProductBuilder.class
+code\with\vanilson\productservice\category\Category$CategoryBuilder.class
