@@ -1,6 +1,6 @@
 package code.with.vanilson.productservice.category;
 
-import code.with.vanilson.productservice.exception.Product;
+import code.with.vanilson.productservice.Product;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
