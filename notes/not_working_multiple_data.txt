@@ -1,0 +1,76 @@
+//
+//    @PostMapping("/create-products")
+//    public ResponseEntity<List<ProductRequest>> createProducts(@RequestBody @Valid List<Product> productDTOs) {
+//        // Convert ProductDTO to Product entity
+//        List<Product> products = productDTOs.stream().map(dto -> {
+//            Category category = new Category();
+//            category.setId(dto.getCategory().getId());
+//
+//            Product product = new Product();
+//            product.setName(dto.getName());
+//            product.setDescription(dto.getDescription());
+//            product.setAvailableQuantity(dto.getAvailableQuantity());
+//            product.setPrice(dto.getPrice());
+//            product.setCategory(category);
+//
+//            return product;
+//        }).toList();
+//
+//        List<ProductRequest> createdProducts = productService.createProducts(products);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(createdProducts);
+//    }
+
+
+better version
+ /**
+     * Processes the purchase of products based on the provided list of purchase requests.
+     *
+     * @param requests The list of product purchase requests containing product IDs and quantities.
+     * @return A list of product purchase responses indicating the success of each purchase.
+     * @throws ProductPurchaseException If there are any issues with purchasing the products, such as insufficient stock or non-existing products.
+     */
+    @Transactional(rollbackFor = ProductPurchaseException.class)
+    public List<ProductPurchaseResponse> purchaseProducts(List<ProductPurchaseRequest> requests) {
+        // Extract product IDs from the purchase requests
+        List<Integer> productIds = requests.stream()
+                .map(ProductPurchaseRequest::productId)
+                .collect(Collectors.toList());
+
+        // Retrieve stored products from the database
+        List<Product> storedProducts = productRepository.findAllById(productIds);
+
+        // Check if all requested products exist in the database
+        if (storedProducts.size() != productIds.size()) {
+            throw new ProductPurchaseException("One or more products does not exist");
+        }
+
+        // Sort the purchase requests by product ID for consistent processing
+        List<ProductPurchaseRequest> sortedRequests = requests.stream()
+                .sorted(Comparator.comparing(ProductPurchaseRequest::productId))
+                .toList();
+
+        // Process each purchase request
+        List<ProductPurchaseResponse> purchasedProducts = new ArrayList<>();
+        Iterator<Product> storedProductIterator = storedProducts.iterator();
+        for (ProductPurchaseRequest request : sortedRequests) {
+            Product storedProduct = storedProductIterator.next();
+
+            // Check if available quantity is sufficient for the purchase
+            if (storedProduct.getAvailableQuantity() < request.quantity()) {
+                throw new ProductPurchaseException(
+                        "Insufficient stock quantity for product with ID: " + storedProduct.getId());
+            }
+
+            // Update available quantity and save the product
+            int newAvailableQuantity = (int) (storedProduct.getAvailableQuantity() - request.quantity());
+            storedProduct.setAvailableQuantity(newAvailableQuantity);
+            productRepository.save(storedProduct);
+
+            // Construct a purchase response and add it to the list
+            ProductPurchaseResponse purchaseResponse =
+                    productMapper.toproductPurchaseResponse(storedProduct, request.quantity());
+            purchasedProducts.add(purchaseResponse);
+        }
+
+        return purchasedProducts;
+    }

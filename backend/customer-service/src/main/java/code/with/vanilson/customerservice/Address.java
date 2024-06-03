@@ -2,9 +2,7 @@ package code.with.vanilson.customerservice;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import jakarta.persistence.Enumerated;
 import lombok.*;
-import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.validation.annotation.Validated;
 
 @Embeddable

@@ -34,6 +34,24 @@
           <option value="discovery-service" />
           <option value="discovery-service" />
           <option value="discovery-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="employee-service" />
+          <option value="department-service" />
+          <option value="department-service" />
         </list>
       </option>
       <option name="ignoredPackages">
@@ -61,6 +79,24 @@
           <option value="com.google.guava:guava:19.0" />
           <option value="com.thoughtworks.xstream:xstream:1.4.19" />
           <option value="org.apache.httpcomponents:httpclient:4.5.3" />
+          <option value="org.springframework.boot:spring-boot-autoconfigure:3.0.4" />
+          <option value="org.springframework:spring-webmvc:6.0.6" />
+          <option value="org.springframework:spring-expression:6.0.6" />
+          <option value="ch.qos.logback:logback-classic:1.4.5" />
+          <option value="org.yaml:snakeyaml:1.33" />
+          <option value="ch.qos.logback:logback-core:1.4.5" />
+          <option value="io.netty:netty-codec-http2:4.1.89.Final" />
+          <option value="io.netty:netty-handler:4.1.89.Final" />
+          <option value="org.apache.tomcat.embed:tomcat-embed-core:10.1.5" />
+          <option value="org.apache.tomcat.embed:tomcat-embed-websocket:10.1.5" />
+          <option value="org.springframework.boot:spring-boot:3.0.4" />
+          <option value="io.projectreactor.netty:reactor-netty-http:1.1.4" />
+          <option value="org.springframework:spring-web:6.0.6" />
+          <option value="com.jayway.jsonpath:json-path:2.7.0" />
+          <option value="net.minidev:json-smart:2.4.8" />
+          <option value="commons-fileupload:commons-fileupload:1.5" />
+          <option value="com.jayway.jsonpath:json-path:2.7.0" />
+          <option value="net.minidev:json-smart:2.4.8" />
         </list>
       </option>
       <option name="ignoredReasons">
@@ -88,6 +124,24 @@
           <option value="In progress" />
           <option value="Not exploitable" />
           <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="In progress" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="In progress" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Fixed in branch" />
+          <option value="Fixed in branch" />
+          <option value="Fixed in branch" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Not exploitable" />
+          <option value="Fixed in branch" />
         </list>
       </option>
     </inspection_tool>

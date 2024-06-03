@@ -1,17 +1,17 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.category.Category;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
+import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +34,8 @@ public class ProductServiceTest {
      * Service for handling business logic related to products.
      */
     private ProductService productService;
+
+    private final Category category = new Category();
 
     /**
      * Initializes the test environment before each test method execution.
@@ -64,9 +66,12 @@ public class ProductServiceTest {
 
         List<ProductResponse> expectedProductResponses = new ArrayList<>();
         expectedProductResponses.add(
-                new ProductResponse(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0)));
+                new ProductResponse(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0), 1,
+                        "Game", "Game for kids"));
         expectedProductResponses.add(
-                new ProductResponse(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0)));
+                new ProductResponse(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0),
+                        2,
+                        "PC", "Apple Mac12"));
 
         when(productMapper.toProductResponse(productList)).thenReturn(expectedProductResponses);
 
@@ -87,9 +92,11 @@ public class ProductServiceTest {
     @DisplayName("Test getProductById method - Success")
     public void testGetProductById_Success() {
         // Arrange
-        Product product = new Product(1, "Product Name", "Description", 10.0, BigDecimal.valueOf(100.0));
+        Product product = new Product(1, "Product Name", "Description", 10.0, BigDecimal.valueOf(100.0)
+        );
         ProductResponse expectedResponse =
-                new ProductResponse(1, "Product Name", "Description", 10.0, BigDecimal.valueOf(100.0));
+                new ProductResponse(1, "Product Name", "Description", 10.0, BigDecimal.valueOf(100.0), 1, "Game",
+                        "Game for kids");
 
         when(productRepository.findById(1)).thenReturn(Optional.of(product));
         when(productMapper.fromProduct(product)).thenReturn(expectedResponse);
@@ -115,10 +122,13 @@ public class ProductServiceTest {
     @DisplayName("Test createProduct method")
     public void testCreateProduct() {
         // Arrange
-        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0));
-        Product savedProduct = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0));
+
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+        Product savedProduct =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
         ProductRequest productRequest =
-                new ProductRequest(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0));
+                new ProductRequest(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), 1);
 
         when(productRepository.save(product)).thenReturn(savedProduct);
         when(productMapper.toProductRequest(savedProduct)).thenReturn(productRequest);
@@ -141,6 +151,23 @@ public class ProductServiceTest {
         assertThrows(ProductNullException.class, () -> productService.createProduct(product));
     }
 
+
+    /*
+    if (product.getCategory() == null) {
+            throw new ProductNullException("Product category must not be null");
+        }
+     */
+
+
+    @Test
+    @DisplayName("Test createProduct method throws ProductNullException with null category")
+    public void testCreateProductThrowsProductNullExceptionWithNullCategory() {
+        // Arrange
+        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), null);
+        // Act & Assert
+        assertThrows(ProductNullException.class, () -> productService.createProduct(product));
+    }
+
     @Test
     void testCreateProducts_Success() {
         // Arrange
@@ -149,8 +176,8 @@ public class ProductServiceTest {
                 new Product(2, "Product 2", "Description 2", 20, BigDecimal.valueOf(200))
         );
         List<ProductRequest> productRequests = Arrays.asList(
-                new ProductRequest(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100)),
-                new ProductRequest(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200))
+                new ProductRequest(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100), 1),
+                new ProductRequest(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200), 2)
         );
         when(productRepository.saveAll(products)).thenReturn(products);
         when(productMapper.toProductRequests(products)).thenReturn(productRequests);
@@ -190,7 +217,8 @@ public class ProductServiceTest {
         when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
         when(productRepository.save(any(Product.class))).thenReturn(updatedProduct);
         when(productMapper.toProductRequest(updatedProduct)).thenReturn(
-                new ProductRequest(productId, "Updated Name", "Updated Description", 20.0, BigDecimal.valueOf(200.0)));
+                new ProductRequest(productId, "Updated Name", "Updated Description", 20.0, BigDecimal.valueOf(200.0),
+                        1));
 
         // Act
         var result = productService.updateProduct(productId, productRequest);
@@ -297,5 +325,107 @@ public class ProductServiceTest {
         // Act & Assert
         assertThrows(ProductNullException.class, () -> productService.updateProduct(productId, productRequest));
     }
+
+
+    @Test
+    @DisplayName("Test purchaseProducts method - Success")
+    public void testPurchaseProducts_Success() {
+        // Arrange
+        List<ProductPurchaseRequest> requests = new ArrayList<>();
+        requests.add(new ProductPurchaseRequest(1, 1)); // Product with ID 1, Quantity: 1
+        requests.add(new ProductPurchaseRequest(2, 1)); // Product with ID 2, Quantity: 1
+
+        Iterable<Integer> expectedProductIds = List.of(1, 2); // Expected product IDs
+
+        // Define the expected products
+        List<Product> storedProducts = new ArrayList<>();
+        storedProducts.add(new Product(1, "Product 1", "Description 1", 10, BigDecimal.valueOf(100)));
+        storedProducts.add(new Product(2, "Product 2", "Description 2", 20, BigDecimal.valueOf(200)));
+
+        // Mock behavior of productRepository
+        when(productRepository.findAllByIdInOrderById(any())).thenAnswer(invocation -> {
+            Iterable<Integer> ids = invocation.getArgument(0);
+            // Check if the provided IDs match the expected IDs
+            assertEquals(expectedProductIds, ids);
+            return storedProducts;
+        });
+
+        // Mock behavior of productMapper
+        when(productMapper.toproductPurchaseResponse(any(), anyDouble())).thenAnswer(invocation -> {
+            Product product = invocation.getArgument(0);
+            double quantity = invocation.getArgument(1);
+            // Create and return a dummy ProductPurchaseResponse
+            return new ProductPurchaseResponse(
+                    product.getId(),
+                    product.getName(),
+                    product.getDescription(),
+                    product.getPrice(),
+                    quantity
+            );
+        });
+
+        // Act
+        List<ProductPurchaseResponse> response = productService.purchaseProducts(requests);
+
+        // Assert
+        Assertions.assertNotNull(response);
+        assertEquals(requests.size(), response.size());
+        // Assert other conditions if necessary
+    }
+
+
+    @Test
+    @DisplayName("Test purchaseProducts method - Products Not Found")
+    public void testPurchaseProducts_ProductsNotFound() {
+        // Arrange
+        List<ProductPurchaseRequest> requests = new ArrayList<>();
+        requests.add(new ProductPurchaseRequest(1, 1)); // Product with ID 1, Quantity: 1
+        requests.add(new ProductPurchaseRequest(2, 1)); // Product with ID 2, Quantity: 1
+
+        Iterable<Integer> expectedProductIds = List.of(1, 2); // Expected product IDs
+
+        // Mock behavior of productRepository to return an empty list (no products found)
+        when(productRepository.findAllByIdInOrderById(any())).thenReturn(Collections.emptyList());
+
+        // Act & Assert
+        assertThrows(ProductPurchaseException.class, () -> productService.purchaseProducts(requests));
+    }
+
+    @Test
+    @DisplayName("Test purchaseProducts method - Insufficient Stock")
+    public void testPurchaseProducts_InsufficientStock() {
+        // Arrange
+        List<Product> storedProducts = new ArrayList<>();
+        storedProducts.add(new Product(2, "Product 2", "Description 2", 5, BigDecimal.valueOf(200))); // Insufficient stock
+
+        // Mock behavior of productRepository
+        when(productRepository.findAllByIdInOrderById(any())).thenReturn(storedProducts);
+
+        // Act & Assert
+        assertThrows(ProductPurchaseException.class, () -> productService.purchaseProducts(new ArrayList<>()),
+                "Insufficient stock quantity for product");
+    }
+
+    @Test
+    @DisplayName("Test purchaseProducts method - Insufficient Stock")
+    public void testPurchaseProducts_InsufficientStocks() {
+        // Arrange
+        List<ProductPurchaseRequest> requests = new ArrayList<>();
+        requests.add(new ProductPurchaseRequest(2, 10)); // Product with ID 2, Quantity: 10 (exceeding available stock)
+
+        // Define the expected stored products
+        List<Product> storedProducts = new ArrayList<>();
+        storedProducts.add(new Product(2, "Product 2", "Description 2", 5, BigDecimal.valueOf(200))); // Insufficient stock
+
+        // Mock behavior of productRepository
+        when(productRepository.findAllByIdInOrderById(any())).thenReturn(storedProducts);
+
+        // Act & Assert
+        assertThrows(ProductPurchaseException.class, () -> productService.purchaseProducts(requests),
+                "Insufficient stock quantity for product with ID:: 2");
+    }
+
+
+
 
 }

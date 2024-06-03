@@ -1,7 +1,6 @@
 package code.with.vanilson.customerservice;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Id;
 import jakarta.validation.constraints.Email;

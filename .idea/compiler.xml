@@ -14,13 +14,13 @@
         <module name="product-service" />
         <module name="config-service" />
         <module name="customer-service" />
-        <module name="department-service" />
         <module name="discovery-service" />
-        <module name="employee-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="configuration-service" target="17" />
+      <module name="department-service" target="17" />
+      <module name="employee-service" target="17" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">

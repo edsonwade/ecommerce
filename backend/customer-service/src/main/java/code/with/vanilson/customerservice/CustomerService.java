@@ -21,13 +21,11 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
-    private final MongoTemplate mongoTemplate;
 
     public CustomerService(CustomerMapper customerMapper, CustomerRepository customerRepository,
                            MongoTemplate mongoTemplate) {
         this.customerMapper = customerMapper;
         this.customerRepository = customerRepository;
-        this.mongoTemplate = mongoTemplate;
     }
 
     /**

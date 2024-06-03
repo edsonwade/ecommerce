@@ -24,8 +24,9 @@ public class ProductController {
      * @return A ResponseEntity containing a list of ProductResponse if available, or an empty list if no products are found.
      */
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> listAllProducts() {
-        return ResponseEntity.ok().body(productService.getAllProducts());
+    public ResponseEntity<List<ProductResponse>> getAllProducts() {
+        return ResponseEntity.ok()
+                .body(productService.getAllProducts());
     }
 
     /**
@@ -53,6 +54,19 @@ public class ProductController {
     public ResponseEntity<ProductRequest> createProduct(@RequestBody @Valid Product product) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.createProduct(product));
+    }
+
+    /**
+     * Endpoint for purchasing products based on the provided list of purchase requests.
+     *
+     * @param request The list of product purchase requests containing product IDs and quantities.
+     * @return A ResponseEntity containing a list of product purchase responses indicating the success of each purchase.
+     */
+    @PostMapping("/purchase")
+    public ResponseEntity<List<ProductPurchaseResponse>> purchaseProducts(
+            @RequestBody List<ProductPurchaseRequest> request
+    ) {
+        return ResponseEntity.ok(productService.purchaseProducts(request));
     }
 
     /**
@@ -91,4 +105,5 @@ public class ProductController {
         productService.deleteProduct(id);
         return ResponseEntity.accepted().build();
     }
+
 }
