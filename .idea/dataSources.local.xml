@@ -1,34 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="dataSourceStorageLocal" created-in="IU-241.14494.240">
-    <data-source name="employee_microservice" uuid="def4a0de-76cb-4379-a415-f806deb5ec9a">
-      <database-info product="PostgreSQL" version="16.0" jdbc-version="4.2" driver-name="PostgreSQL JDBC Driver" driver-version="42.6.0" dbms="POSTGRES" exact-version="16.0" exact-driver-version="42.6">
-        <identifier-quote-string>&quot;</identifier-quote-string>
-      </database-info>
-      <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
-      <secret-storage>master_key</secret-storage>
-      <user-name>postgres</user-name>
-      <schema-mapping>
-        <introspection-scope>
-          <node kind="database" qname="employee_microservice" />
-        </introspection-scope>
-      </schema-mapping>
-    </data-source>
-    <data-source name="department_microservice" uuid="7494ab09-3255-40af-b7a5-f3cf7f9d8284">
-      <database-info product="PostgreSQL" version="16.0" jdbc-version="4.2" driver-name="PostgreSQL JDBC Driver" driver-version="42.6.0" dbms="POSTGRES" exact-version="16.0" exact-driver-version="42.6">
-        <identifier-quote-string>&quot;</identifier-quote-string>
-      </database-info>
-      <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
-      <secret-storage>master_key</secret-storage>
-      <user-name>postgres</user-name>
-      <schema-mapping>
-        <introspection-scope>
-          <node kind="database" qname="department_microservice">
-            <node kind="schema" negative="1" />
-          </node>
-        </introspection-scope>
-      </schema-mapping>
-    </data-source>
     <data-source name="cutomers_db" uuid="b36a38d3-69e8-4afa-b9b3-6a7b5442c9be">
       <database-info product="Mongo DB" version="7.0.11" jdbc-version="4.2" driver-name="MongoDB JDBC Driver" driver-version="1.18" dbms="MONGO" exact-version="7.0.11" exact-driver-version="1.18" />
       <case-sensitivity plain-identifiers="mixed" quoted-identifiers="mixed" />
@@ -58,6 +30,21 @@
               <name qname="@" />
               <name qname="postgres" />
             </node>
+          </node>
+        </introspection-scope>
+      </schema-mapping>
+    </data-source>
+    <data-source name="order_service_db" uuid="e72434a3-d840-4c39-a12c-8b89dfbba51b">
+      <database-info product="PostgreSQL" version="16.0" jdbc-version="4.2" driver-name="PostgreSQL JDBC Driver" driver-version="42.6.0" dbms="POSTGRES" exact-version="16.0" exact-driver-version="42.6">
+        <identifier-quote-string>&quot;</identifier-quote-string>
+      </database-info>
+      <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
+      <secret-storage>master_key</secret-storage>
+      <user-name>postgres</user-name>
+      <schema-mapping>
+        <introspection-scope>
+          <node kind="database" qname="@">
+            <node kind="schema" qname="@" />
           </node>
         </introspection-scope>
       </schema-mapping>

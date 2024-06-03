@@ -77,6 +77,12 @@
 
             <dependency>
                 <groupId>code.with.vanilson</groupId>
+                <artifactId>order-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>code.with.vanilson</groupId>
                 <artifactId>customer-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
