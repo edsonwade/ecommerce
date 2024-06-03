@@ -5,10 +5,8 @@ on:
     branches:
       - main
   push:
-    branches: # Specify your branches here
-      - main # The 'main' branch
-#      - master # The 'master' branch
-#      - 'releases/*' # The release branches
+    branches:
+      - main
 
 jobs:
   qodana:
@@ -20,8 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
-          fetch-depth: 0  # a full history is required for pull request analysis
+          ref: ${{ github.event.pull_request.head.sha }}  # Check out the actual pull request commit
+          fetch-depth: 0  # Full history required for pull request analysis
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2024.1
         env:

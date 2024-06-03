@@ -1,0 +1,8 @@
+version: 1.0
+
+# Specific inspection profile for code analysis
+profile:
+  name: qodana.recommended
+
+# Specific Qodana linter for analysis (applied in CI/CD pipeline)
+linter: jetbrains/qodana-jvm:2024.1
