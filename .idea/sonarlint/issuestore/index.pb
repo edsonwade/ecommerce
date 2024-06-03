@@ -160,8 +160,6 @@ ubackend/product-service/src/main/java/code/with/vanilson/productservice/excepti
 î
 dbackend/product-service/src/main/java/code/with/vanilson/productservice/exception/ErrorResponse.java,d\6\d62364016e55c91ba29140ef59bb661030bd189e
 é
-^backend/product-service/src/main/java/code/with/vanilson/productservice/exception/Product.java,7\d\7df33780c4caa287d1d7ce30fc27eeffb764c2c0
-é
 ^backend/product-service/src/main/java/code/with/vanilson/productservice/category/Category.java,a\4\a4bb92602bf9a016c044ffa42a5578213682e1ac
 e
 5backend/config-service/data/fix_migration_version.txt,7\a\7a0e2b79bd24d3fc36df4703e2fc66a91caa6e59
@@ -201,15 +199,24 @@ Zbackend/product-service/src/main/java/code/with/vanilson/productservice/Product
 \backend/product-service/src/main/java/code/with/vanilson/productservice/productResponse.java,3\4\3421d07e276a1aad73e3b2588a4142e196615226
 ã
 [backend/product-service/src/main/java/code/with/vanilson/productservice/ProductRequest.java,9\a\9adb4799c209658ffb5e2a292d35baf67cd46103
-é
-^backend/product-service/src/main/java/code/with/vanilson/productservice/exception/Service.java,8\8\88129c397ed099e842e588af1895a8f770027429
 õ
 kbackend/product-service/src/main/java/code/with/vanilson/productservice/exception/ProductNullException.java,6\0\609a2848ea1974e0cd46cf24569c32c15f77a711
 å
 \backend/product-service/src/main/java/code/with/vanilson/productservice/ProductResponse.java,9\a\9ad726c96a698690e40996e42f8dac290853923a
-ñ
-fbackend/product-service/src/main/java/code/with/vanilson/productservice/exception/ErrorResponseEx.java,6\7\6704e6ff7be7c681f34443967337961390e3e524
 è
 _backend/product-service/src/test/java/code/with/vanilson/productservice/ProductServiceTest.java,6\0\6031629d5f2ea495637b852455d1c4c153f12fd4
 é
 ^backend/product-service/src/test/java/code/with/vanilson/productservice/ProductMapperTest.java,0\6\069186ff770b06a92512902004a48ae153e4107a
+R
+".github/workflows/code_quality.yml,c\6\c6ed56f2aa6147736ad29f3a4b117aa1f00b8499
+:
+
+qodana.yml,c\0\c03fc7c66a5f7d9fc01a3b92932c75293324e587
+S
+#.idea/sonarlint/issuestore/index.pb,9\f\9fe84ebb15faf917b7def6236dba604453cc61e0
+]
+-.idea/sonarlint/securityhotspotstore/index.pb,8\8\88a9255124c95bdc913197c120a8d560edc59c8e
+9
+	qodana.sh,2\f\2f1541ae8032f0454799097f4b56fbd7853d9d60
+G
+data/project/qodana.yml,7\e\7e4af3228a3981220377d5390090433eb8125a9f
