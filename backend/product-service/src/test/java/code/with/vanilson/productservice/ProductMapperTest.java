@@ -1,5 +1,6 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.category.Category;
 import code.with.vanilson.productservice.exception.ProductBadRequestException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,16 +18,20 @@ class ProductMapperTest {
 
     private ProductMapper productMapper;
 
+    private Category category;
+
     @BeforeEach
     void setUp() {
         productMapper = new ProductMapper();
+        category = new Category(1, "Game", "Game for kids");
     }
 
     @Test
     @DisplayName("Convert Product to ProductRequest - Expect success")
     void testToProductRequest_Success() {
         // Arrange
-        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0));
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
 
         // Act
         ProductRequest productRequest = productMapper.toProductRequest(product);
@@ -44,8 +49,8 @@ class ProductMapperTest {
     void testToProductResponse_Success() {
         // Arrange
         List<Product> products = new ArrayList<>();
-        products.add(new Product(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0)));
-        products.add(new Product(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0)));
+        products.add(new Product(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0), category));
+        products.add(new Product(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0), category));
 
         // Act
         List<ProductResponse> productResponses = productMapper.toProductResponse(products);
@@ -68,8 +73,8 @@ class ProductMapperTest {
     void testToProductRequests_Success() {
         // Arrange
         List<Product> products = new ArrayList<>();
-        products.add(new Product(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0)));
-        products.add(new Product(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0)));
+        products.add(new Product(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0), category));
+        products.add(new Product(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0), category));
 
         // Act
         List<ProductRequest> productRequests = productMapper.toProductRequests(products);
@@ -144,11 +149,23 @@ class ProductMapperTest {
         assertThrows(ProductNullException.class, () -> productMapper.validateProduct(product));
     }
 
+
+    @Test
+    @DisplayName("Validate Product - Missing Category - Expect failure")
+    void testValidateProduct_MissingCategory_ThrowsException() {
+        // Arrange
+        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), null);
+
+        // Act & Assert
+        assertThrows(ProductNullException.class, () -> productMapper.validateProduct(product));
+    }
+
     @Test
     @DisplayName("Convert Product to ProductResponse - Expect success")
     void testFromProduct_Success() {
         // Arrange
-        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0));
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
 
         // Act
         ProductResponse productResponse = productMapper.fromProduct(product);
@@ -161,4 +178,95 @@ class ProductMapperTest {
         assertEquals(product.getPrice(), productResponse.price());
     }
 
+    @Test
+    @DisplayName("Convert Product to ProductResponse - Expect success")
+    void testToProductResponse_Success_V1() {
+        // Arrange
+        Category category = new Category(1, "Game", "Game for kids");
+        Product product = new Product(1, "Game", "Game for kids", 10.0, BigDecimal.valueOf(100.0), category);
+
+        // Act
+        ProductResponse productResponse = productMapper.toProductResp(product);
+
+        // Assert
+        assertEquals(product.getId(), productResponse.id());
+        assertEquals(product.getName(), productResponse.name());
+        assertEquals(product.getDescription(), productResponse.description());
+        assertEquals(product.getAvailableQuantity(), productResponse.availableQuantity());
+        assertEquals(product.getPrice(), productResponse.price());
+        assertEquals(product.getCategory().getId(), productResponse.categoryId());
+        assertEquals(product.getCategory().getName(), productResponse.categoryName());
+        assertEquals(product.getCategory().getDescription(), productResponse.categoryDescription());
+    }
+
+    @Test
+    @DisplayName("Convert Product to ProductResponse - Null Category - Expect ProductNullException")
+    void testToProductResponse_NullCategory_ThrowsException() {
+        // Arrange
+        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0));
+
+        // Act & Assert
+        assertThrows(ProductNullException.class, () -> productMapper.toProductResp(product));
+    }
+
+    @Test
+    @DisplayName("Convert Product to ProductPurchaseResponse - Expect success")
+    void testToproductPurchaseResponse_Success() {
+        // Arrange
+        Category category = new Category(1, "Game", "Game for kids");
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+        double quantity = 5.0;
+
+        // Act
+        ProductPurchaseResponse purchaseResponse = productMapper.toproductPurchaseResponse(product, quantity);
+
+        // Assert
+        assertEquals(product.getId(), purchaseResponse.productId());
+        assertEquals(product.getName(), purchaseResponse.name());
+        assertEquals(product.getDescription(), purchaseResponse.description());
+        assertEquals(product.getPrice(), purchaseResponse.price());
+        assertEquals(quantity, purchaseResponse.quantity());
+    }
+
+    @Test
+    @DisplayName("Convert ProductRequest to Product - Expect success")
+    void testToProduct_Success() {
+        // Arrange
+        ProductRequest request =
+                new ProductRequest(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), 1);
+
+        // Act
+        Product product = productMapper.toProduct(request);
+
+        // Assert
+        assertEquals(request.id(), product.getId());
+        assertEquals(request.name(), product.getName());
+        assertEquals(request.description(), product.getDescription());
+        assertEquals(request.availableQuantity(), product.getAvailableQuantity());
+        assertEquals(request.price(), product.getPrice());
+        assertEquals(request.categoryId(), product.getCategory().getId());
+    }
+
+    @Test
+    @DisplayName("Convert Product to ProductResponse - Expect success")
+    void testToProductResponse_Success_V2() {
+        // Arrange
+        Category category = new Category(1, "Game", "Game for kids");
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+
+        // Act
+        ProductResponse productResponse = productMapper.toProductResponse(product);
+
+        // Assert
+        assertEquals(product.getId(), productResponse.id());
+        assertEquals(product.getName(), productResponse.name());
+        assertEquals(product.getDescription(), productResponse.description());
+        assertEquals(product.getAvailableQuantity(), productResponse.availableQuantity());
+        assertEquals(product.getPrice(), productResponse.price());
+        assertEquals(product.getCategory().getId(), productResponse.categoryId());
+        assertEquals(product.getCategory().getName(), productResponse.categoryName());
+        assertEquals(product.getCategory().getDescription(), productResponse.categoryDescription());
+    }
 }

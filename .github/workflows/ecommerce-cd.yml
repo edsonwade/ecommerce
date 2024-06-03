@@ -1,10 +1,11 @@
 name: Ecommerce CI
 
 on:
-  push:
+  workflow_dispatch:
+  pull_request:
     branches:
       - main
-  pull_request:
+  push:
     branches:
       - main
 
@@ -24,3 +25,19 @@ jobs:
 
       - name: Build and Test with Maven
         run: mvn -B clean install
+
+  qodana:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}  # Check out the actual pull request commit
+          fetch-depth: 0  # Full history required for pull request analysis
+      - name: 'Qodana Scan'
+        uses: JetBrains/qodana-action@v2024.1
+        env:
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}

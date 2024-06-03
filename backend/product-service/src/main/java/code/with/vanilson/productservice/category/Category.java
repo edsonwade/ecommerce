@@ -1,15 +1,10 @@
 package code.with.vanilson.productservice.category;
 
 import code.with.vanilson.productservice.Product;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-import java.io.Serial;
-import java.io.Serializable;
 import java.util.List;
 
 @AllArgsConstructor
@@ -19,9 +14,7 @@ import java.util.List;
 @Setter
 @Entity
 @Table(name = "category")
-public class Category implements Serializable {
-    @Serial
-    private static final long serialVersionUID = 1L;
+public class Category {
 
     @Id
     @GeneratedValue
@@ -29,5 +22,12 @@ public class Category implements Serializable {
     private String name;
     private String description;
     @OneToMany(mappedBy = "category", cascade = CascadeType.REMOVE)
+    @JsonProperty("products")
     private List<Product> products;
+
+    public Category(Integer id, String name, String description) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+    }
 }

@@ -1,16 +1,23 @@
 package code.with.vanilson.productservice;
 
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
 public record ProductRequest(
-        @NotNull Integer id,
-        @NotNull @NotEmpty String name,
-        @NotNull @NotEmpty String description,
-        @NotNull Double availableQuantity, // Changed to Double
-        @NotNull BigDecimal price
+
+        Integer id,
+        @NotNull(message = "Product name is required")
+        String name,
+        @NotNull(message = "Product description is required")
+        String description,
+        @Positive(message = "Available quantity should be positive")
+        double availableQuantity,
+        @Positive(message = "Price should be positive")
+        BigDecimal price,
+        @NotNull(message = "Product category is required")
+        Integer categoryId
 ) {
 }
 

@@ -1,5 +1,6 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.category.Category;
 import code.with.vanilson.productservice.exception.ProductBadRequestException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import jakarta.validation.constraints.NotNull;
@@ -28,7 +29,8 @@ public class ProductMapper {
                 product.getName(),
                 product.getDescription(),
                 product.getAvailableQuantity(),
-                product.getPrice()
+                product.getPrice(),
+                product.getCategory().getId()
         );
     }
 
@@ -48,12 +50,12 @@ public class ProductMapper {
                     product.getName(),
                     product.getDescription(),
                     product.getAvailableQuantity(),
-                    product.getPrice()
+                    product.getPrice(),
+                    product.getCategory().getId()
             ));
         }
         return productRequests;
     }
-
 
     protected void validateProduct(@NotNull Product product) {
         if (product.getId() == null) {
@@ -71,6 +73,9 @@ public class ProductMapper {
         if (product.getPrice() == null) {
             throw new ProductNullException("Product price must not be null");
         }
+        if (product.getCategory() == null) {
+            throw new ProductNullException("Product category must not be null");
+        }
     }
 
     /**
@@ -82,9 +87,32 @@ public class ProductMapper {
     protected List<ProductResponse> toProductResponse(List<Product> products) {
         return products
                 .stream()
-                .map(product -> new ProductResponse(product.getId(), product.getName(), product.getDescription(),
-                        product.getAvailableQuantity(), product.getPrice()))
+                .map(product -> new ProductResponse(
+                        product.getId(),
+                        product.getName(),
+                        product.getDescription(),
+                        product.getAvailableQuantity(),
+                        product.getPrice(),
+                        product.getCategory().getId(),
+                        product.getName(),
+                        product.getDescription()))
                 .toList();
+    }
+
+    public ProductResponse toProductResp(Product product) {
+        if (product.getCategory() == null) {
+            throw new ProductNullException("Product category must not be null");
+        }
+        return new ProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getAvailableQuantity(),
+                product.getPrice(),
+                product.getCategory().getId(),
+                product.getName(),
+                product.getDescription());
+
     }
 
     protected ProductResponse fromProduct(Product product) {
@@ -97,6 +125,48 @@ public class ProductMapper {
                 product.getName(),
                 product.getDescription(),
                 product.getAvailableQuantity(),
-                product.getPrice());
+                product.getPrice(),
+                product.getCategory().getId(),
+                product.getName(),
+                product.getDescription());
+
+    }
+
+    public ProductPurchaseResponse toproductPurchaseResponse(Product product, double quantity) {
+        return new ProductPurchaseResponse(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getPrice(),
+                quantity
+        );
+    }
+
+    public Product toProduct(ProductRequest request) {
+        return Product.builder()
+                .id(request.id())
+                .name(request.name())
+                .description(request.description())
+                .availableQuantity(request.availableQuantity())
+                .price(request.price())
+                .category(
+                        Category.builder()
+                                .id(request.categoryId())
+                                .build()
+                )
+                .build();
+    }
+
+    public ProductResponse toProductResponse(Product product) {
+        return new ProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getAvailableQuantity(),
+                product.getPrice(),
+                product.getCategory().getId(),
+                product.getCategory().getName(),
+                product.getCategory().getDescription()
+        );
     }
 }

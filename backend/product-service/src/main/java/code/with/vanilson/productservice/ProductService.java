@@ -2,10 +2,14 @@ package code.with.vanilson.productservice;
 
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
+import code.with.vanilson.productservice.exception.ProductPurchaseException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,6 +64,9 @@ public class ProductService {
     public ProductRequest createProduct(Product product) {
         if (product == null) {
             throw new ProductNullException("Product must not be null");
+        }
+        if (product.getCategory() == null) {
+            throw new ProductNullException("Product category must not be null");
         }
         var savedProduct = productRepository.save(product);
         log.info("createProduct with saved product {}", savedProduct);
@@ -147,4 +154,42 @@ public class ProductService {
         }
     }
 
+    /**
+     * Processes the purchase of products based on the provided list of purchase requests.
+     *
+     * @param request The list of product purchase requests containing product IDs and quantities.
+     * @return A list of product purchase responses indicating the success of each purchase.
+     * @throws ProductPurchaseException If there are any issues with purchasing the products, such as insufficient stock or non-existing products.
+     */
+    @Transactional(rollbackFor = ProductPurchaseException.class)
+    public List<ProductPurchaseResponse> purchaseProducts(
+            List<ProductPurchaseRequest> request
+    ) {
+        var productIds = request
+                .stream()
+                .map(ProductPurchaseRequest::productId)
+                .toList();
+        var storedProducts = productRepository.findAllByIdInOrderById(productIds);
+        if (productIds.size() != storedProducts.size()) {
+            throw new ProductPurchaseException("One or more products does not exist");
+        }
+        var sortedRequest = request
+                .stream()
+                .sorted(Comparator.comparing(ProductPurchaseRequest::productId))
+                .toList();
+        var purchasedProducts = new ArrayList<ProductPurchaseResponse>();
+        for (int i = 0; i < storedProducts.size(); i++) {
+            var product = storedProducts.get(i);
+            var productRequest = sortedRequest.get(i);
+            if (product.getAvailableQuantity() < productRequest.quantity()) {
+                throw new ProductPurchaseException(
+                        "Insufficient stock quantity for product with ID:: " + productRequest.productId());
+            }
+            var newAvailableQuantity = product.getAvailableQuantity() - productRequest.quantity();
+            product.setAvailableQuantity(newAvailableQuantity);
+            productRepository.save(product);
+            purchasedProducts.add(productMapper.toproductPurchaseResponse(product, productRequest.quantity()));
+        }
+        return purchasedProducts;
+    }
 }

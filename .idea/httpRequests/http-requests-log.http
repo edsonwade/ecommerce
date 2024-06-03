@@ -1,3 +1,21 @@
+POST http://localhost:8082/api/v1/products/purchase
+Content-Type: application/json
+Content-Length: 49
+User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
+Accept-Encoding: br, deflate, gzip, x-gzip
+Accept: */*
+
+[
+  {
+    "productId": 1,
+    "quantity": 1
+  }
+]
+
+<> 2024-06-03T204449.200.json
+
+###
+
 GET http://localhost:8081/api/v1/customers
 User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
 Accept-Encoding: br, deflate, gzip, x-gzip
@@ -635,16 +653,6 @@ Accept: */*
 content-length: 0
 
 <> 2024-04-19T204054.405.json
-
-###
-
-GET http://localhost:8082/api/departments
-User-Agent: IntelliJ HTTP Client/IntelliJ IDEA 2024.1
-Accept-Encoding: br, deflate, gzip, x-gzip
-Accept: */*
-content-length: 0
-
-<> 2024-04-19T204037.405.json
 
 ###
 
