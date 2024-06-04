@@ -27,3 +27,5 @@ P
  backend/order-service/Dockerfile,4\6\462414882b8a65a69aae5053f35feca355b7dae5
 R
 "backend/product-service/Dockerfile,7\7\77748a078d569c9f199aba5fb023809c20943ac3
+L
+notes/dockerfile_product.txt,e\f\efb3781543c0c074b63dc22522b5e3adbc1d09e2
