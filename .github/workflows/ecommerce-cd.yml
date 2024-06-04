@@ -10,7 +10,8 @@ on:
       - main
 
 jobs:
-  build:
+  build-deploy:
+    name: Build and deploy ecommerce microservice
     runs-on: ubuntu-latest
 
     steps:
@@ -23,8 +24,35 @@ jobs:
           java-version: '17'
           distribution: 'adopt'
 
-      - name: Build and Test with Maven
-        run: mvn -B clean install
+      - name: Build Unit tests with maven
+        run: mvn -B test --file pom.xml
+
+      - name: Build teh application
+        run:
+          mvn clean
+          mvn -B package --file pom.xml
+
+      - name: Build docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          dockerfile: Dockerfile
+          push: false
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/E-Commerce-Microservice:latest
+
+      - name: Login to Dokcer
+        uses: docker/login-action@v1
+        with:
+          username: ${{secrets.DOCKER_HUB_USERNAME }}
+          password: ${{secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Push to Docker hub
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          dockerfile: Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/E-Commerce-Microservice:latest
 
   qodana:
     runs-on: ubuntu-latest

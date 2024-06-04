@@ -1,5 +1,5 @@
 
-ENTRYPOINT ["top", "-b"]# Use the official OpenJDK image for Java 17
+ENTRYPOINT ["top", "-b"] #Use the official OpenJDK image for Java 17
 FROM openjdk:17
 
 # Set the working directory in the container
