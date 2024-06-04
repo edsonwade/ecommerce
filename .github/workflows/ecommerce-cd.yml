@@ -24,39 +24,43 @@ jobs:
           java-version: '17'
           distribution: 'adopt'
 
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
       - name: Build all services with Maven
-        run: |
-          mvn clean package --file pom.xml
+        run: mvn clean package --file pom.xml
 
       - name: Build and push config-service Docker image
         run: |
+          echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
           cd backend/config-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/config-service:latest .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/config-service:latest
+      
 
-      - name: Build and push discovery-service Docker image
-        run: |
-          cd ../discovery-service
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest
-
-      - name: Build and push customer-service Docker image
-        run: |
-          cd ../customer-service
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:latest
-
-      - name: Build and push product-service Docker image
-        run: |
-          cd ../product-service
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:latest
-
-      - name: Build and push order-service Docker image
-        run: |
-          cd ../order-service
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:latest
+#      - name: Build and push discovery-service Docker image
+#        run: |
+#          cd ../discovery-service
+#          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest .
+#          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest
+#
+#      - name: Build and push customer-service Docker image
+#        run: |
+#          cd ../customer-service
+#          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:latest .
+#          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:latest
+#
+#      - name: Build and push product-service Docker image
+#        run: |
+#          cd ../product-service
+#          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:latest .
+#          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:latest
+#
+#      - name: Build and push order-service Docker image
+#        run: |
+#          cd ../order-service
+#          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:latest .
+#          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:latest
 
   qodana:
     runs-on: ubuntu-latest
