@@ -41,28 +41,28 @@ jobs:
       - name: Build and push discovery-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd discovery-service
+          cd backend/discovery-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest
 
       - name: Build and push customer-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd customer-service
+          cd backend/customer-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:today
 
       - name: Build and push product-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd product-service
+          cd backend/product-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:today
 
       - name: Build and push order-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd order-service
+          cd backend/order-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:today
 
