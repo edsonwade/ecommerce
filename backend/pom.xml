@@ -16,8 +16,12 @@
         <module>customer-service</module>
         <module>discovery-service</module>
         <module>config-service</module>
-        <module>product-service</module>
         <module>order-service</module>
+        <module>product-service</module>
+        <module>orderLine-service</module>
+        <module>gateway-api-service</module>
+        <module>notification-service</module>
+        <module>payment-service</module>
     </modules>
 
     <properties>
