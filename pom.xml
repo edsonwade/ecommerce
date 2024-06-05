@@ -90,6 +90,29 @@
                 <artifactId>discovery-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>code.with.vanilson</groupId>
+                <artifactId>gateway-api-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>code.with.vanilson</groupId>
+                <artifactId>notification-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>code.with.vanilson</groupId>
+                <artifactId>payment-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>code.with.vanilson</groupId>
+                <artifactId>orderLine-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <build>
