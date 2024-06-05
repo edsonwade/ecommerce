@@ -1,4 +1,4 @@
-package code.with.vanilson.productservice.exception;
+package code.with.vanilson.productservice.except;
 
 import lombok.Getter;
 import lombok.Setter;

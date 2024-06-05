@@ -1,8 +1,8 @@
 package code.with.vanilson.productservice;
 
 import code.with.vanilson.productservice.category.Category;
-import code.with.vanilson.productservice.exception.ProductBadRequestException;
-import code.with.vanilson.productservice.exception.ProductNullException;
+import code.with.vanilson.productservice.except.ProductBadRequestException;
+import code.with.vanilson.productservice.except.ProductNullException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

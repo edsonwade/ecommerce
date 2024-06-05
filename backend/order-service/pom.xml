@@ -71,7 +71,10 @@
         <dependency>
             <groupId>code.with.vanilson</groupId>
             <artifactId>customer-service</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>code.with.vanilson</groupId>
+            <artifactId>product-service</artifactId>
         </dependency>
     </dependencies>
     <dependencyManagement>

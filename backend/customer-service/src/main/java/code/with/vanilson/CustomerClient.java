@@ -1,13 +1,16 @@
-package code.with.vanilson.customer;
+package code.with.vanilson;
 
-import code.with.vanilson.CustomerResponse;
-import org.springframework.stereotype.Service;
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.Optional;
 
-@Service
+
+@FeignClient(
+        name = "customer-service",
+        url = "${application.config.customer-url}"
+)
 public interface CustomerClient {
 
     @GetMapping("/{customer-id}")
