@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="dataSourceStorageLocal" created-in="IU-231.9414.13">
+  <component name="dataSourceStorageLocal" created-in="IU-241.14494.240">
     <data-source name="cutomers_db" uuid="b36a38d3-69e8-4afa-b9b3-6a7b5442c9be">
       <database-info product="Mongo DB" version="7.0.11" jdbc-version="4.2" driver-name="MongoDB JDBC Driver" driver-version="1.18" dbms="MONGO" exact-version="7.0.11" exact-driver-version="1.18" />
       <case-sensitivity plain-identifiers="mixed" quoted-identifiers="mixed" />
@@ -35,7 +35,12 @@
       </schema-mapping>
     </data-source>
     <data-source name="order_service_db" uuid="e72434a3-d840-4c39-a12c-8b89dfbba51b">
-      <database-info product="" version="" jdbc-version="" driver-name="" driver-version="" dbms="POSTGRES" exact-version="0" />
+      <database-info product="" version="" jdbc-version="" driver-name="" driver-version="" dbms="POSTGRES" exact-version="0">
+        <identifier-quote-string>&quot;</identifier-quote-string>
+      </database-info>
+      <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
+      <secret-storage>master_key</secret-storage>
+      <user-name>postgres</user-name>
       <schema-mapping />
     </data-source>
   </component>
