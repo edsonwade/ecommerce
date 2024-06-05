@@ -107,12 +107,6 @@
                 <artifactId>payment-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>orderLine-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
     <build>
