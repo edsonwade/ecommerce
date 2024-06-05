@@ -15,7 +15,7 @@ import static java.util.Objects.*;
 public class CustomerMapper {
 
     private final static String CUSTOMER_CANNOT_BE_NULL = "Customer cannot be null";
-    private final static String CUSTOMER_IS_NULL = "Customer is null: {}";
+    private final static String CUSTOMER_IS_NULL = "Customer is null";
 
     /**
      * Converts a CustomerRequest object to a Customer entity.
@@ -26,7 +26,7 @@ public class CustomerMapper {
      */
     public Customer toCustomer(CustomerRequest customerRequest) {
         if (isNull(customerRequest)) {
-            log.error("CustomerRequest is null: {}", customerRequest);
+            log.error("CustomerRequest is null");
             throw new CustomerBadRequestException("CustomerRequest cannot be null");
         }
 
@@ -41,7 +41,7 @@ public class CustomerMapper {
 
     public CustomerRequest toCustomerRequest(Customer customerRequest) {
         if (isNull(customerRequest)) {
-            log.error(CUSTOMER_IS_NULL, customerRequest);
+            customerIsNull();
             throw new CustomerBadRequestException(CUSTOMER_CANNOT_BE_NULL);
         }
         return new CustomerRequest(
@@ -56,7 +56,7 @@ public class CustomerMapper {
 
     protected CustomerResponse fromCustomer(Customer customer) {
         if (isNull(customer)) {
-            log.error(CUSTOMER_IS_NULL, customer);
+            customerIsNull();
             throw new CustomerBadRequestException(CUSTOMER_CANNOT_BE_NULL);
         }
         return new CustomerResponse(
@@ -104,4 +104,11 @@ public class CustomerMapper {
         }
     }
 
+    /**
+     * return message when the object is null.
+     */
+
+    private static void customerIsNull() {
+        log.error(CUSTOMER_IS_NULL);
+    }
 }

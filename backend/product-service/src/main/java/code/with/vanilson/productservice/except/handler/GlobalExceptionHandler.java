@@ -1,12 +1,9 @@
-package code.with.vanilson.productservice.exception.handler;
+package code.with.vanilson.productservice.except.handler;
 
-import code.with.vanilson.productservice.exception.ProductNotFoundException;
-import code.with.vanilson.productservice.exception.ProductNullException;
-import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.productservice.except.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import code.with.vanilson.productservice.exception.ErrorResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -42,6 +39,15 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 request.getDescription(false));
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> emailExceptionHandler(BusinessException ex, WebRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                request.getDescription(false));
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
 }

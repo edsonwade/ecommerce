@@ -1,8 +1,8 @@
 package code.with.vanilson.productservice;
 
-import code.with.vanilson.productservice.exception.ProductNotFoundException;
-import code.with.vanilson.productservice.exception.ProductNullException;
-import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.productservice.except.ProductNotFoundException;
+import code.with.vanilson.productservice.except.ProductNullException;
+import code.with.vanilson.productservice.except.ProductPurchaseException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
