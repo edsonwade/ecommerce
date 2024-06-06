@@ -1,3 +1,5 @@
+server:
+  port: 8083
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
@@ -17,7 +19,7 @@ spring:
         key-serializer: org.apache.kafka.common.serialization.StringSerializer
         value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
         properties:
-          spring.json.type.mapping: orderConfirmation:code.with.vanilson.kafka.OrderConfirmation
+          spring.json.type.mapping: orderConfirmation:code.with.vanilson.orderservice.kafka.OrderConfirmation
 
     # Flyway Migration Configuration
 
@@ -29,8 +31,6 @@ spring:
       baseline-version: 0
       repair: true
 
-server:
-  port: 8083
 
 application:
   config:

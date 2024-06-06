@@ -12,12 +12,12 @@ code\with\vanilson\orderservice\product\ProductClient.class
 code\with\vanilson\orderservice\exception\ErrorResponse.class
 code\with\vanilson\orderservice\exception\handler\GlobalExceptionHandler.class
 code\with\vanilson\orderservice\OrderRepository.class
-code\with\vanilson\orderservice\orderLine\OrderLineApplication.class
 code\with\vanilson\orderservice\OrderMapper.class
 code\with\vanilson\orderservice\payment\PaymentClient.class
 code\with\vanilson\orderservice\orderLine\OrderLineRequest.class
 code\with\vanilson\orderservice\OrderService.class
 code\with\vanilson\orderservice\OrderServiceApplication.class
+code\with\vanilson\orderservice\config\CustomerClientConfig.class
 code\with\vanilson\orderservice\orderLine\OrderLineService.class
 code\with\vanilson\orderservice\orderLine\OrderLineMapper.class
 code\with\vanilson\orderservice\orderLine\OrderLineRepository.class

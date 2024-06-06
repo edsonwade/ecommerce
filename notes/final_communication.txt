@@ -1,0 +1,19 @@
+After all service being running the communication, will be made using gateway
+Is the one responsible to render the request to specific service.
+
+GET http://localhost:8222/api/v1/customers -- Customer service
+GET http://localhost:8222/api/v1/products -- products service
+GET http://localhost:8222/api/v1/paymenta -- payment service
+GET http://localhost:8222/api/v1/orders -- orders service
+
+GATEWAY PORT -8222
+
+
+
+
+front-end ------API GATEWAY ----SERVICE(orders,payment,products,Customer- WITH RESPECTIVE DATABASES) -----KAFKA
+--NOTIFICATION --ZIKPAER
+|
+|
+|------------Discovery-service(Eureka)
+-----------------------------------------------------------------------------Config-service
