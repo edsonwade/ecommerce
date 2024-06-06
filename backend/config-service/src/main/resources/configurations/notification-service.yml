@@ -1,14 +1,32 @@
 server:
-  port: 8085
+  port: 8084
 spring:
-  data:
-    mongodb:
-      username: wayne
-      password: wayne
-      host: localhost
-      port: 27017
-      database: notification
-      authentication-database: admin
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+    # Payment Service MongoDB Configuration
+    data:
+      mongodb:
+        host: ${MONGODB_HOST}
+        port: ${MONGODB_PORT}
+        database: ${MONGODB_DATABASE}
+        username: ${MONGODB_USERNAME}
+        password: ${MONGODB_PASSWORD}
+        #        authentication-database: ${MONGODB_AUTH_DATABASE}
+        authentication-mechanism: ${MONGODB_AUTH_MECHANISM}
+#        ssl: ${MONGODB_SSL_ENABLED:false} # Default to false if not provided
+
+# Prometheus Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+  # kafka configuration
   kafka:
     consumer:
       bootstrap-servers: localhost:9092
@@ -18,7 +36,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: '*'
-        spring.json.type.mapping: orderConfirmation:com.alibou.ecommerce.kafka.order.OrderConfirmation,paymentConfirmation:com.alibou.ecommerce.kafka.payment.PaymentConfirmation
+        spring.json.type.mapping: orderConfirmation:code.with.vanilson.notification.kafka.order.OrderConfirmation,paymentConfirmation:code.with.vanilson.notification.kafka.payment.PaymentConfirmation
   mail:
     host: localhost
     port: 1025
@@ -34,3 +52,5 @@ spring:
         connection timeout: 5000
         timeout: 3000
         write timeout: 5000
+
+

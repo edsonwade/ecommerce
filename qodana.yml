@@ -4,5 +4,5 @@ version: 1.0
 profile:
   name: qodana.recommended
 
-# Specific Qodana linter for analysis (applied in CI/CD pipeline)
+# Specific Qodana linter for analysis (applied in CI/CD Jenkins)
 linter: jetbrains/qodana-jvm:2024.1

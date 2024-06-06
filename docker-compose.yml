@@ -99,9 +99,9 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus:/etc/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - ./resource/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml  # Corrected volume mapping
+    #    command:
+    #      - '--config.file=/etc/prometheus/prometheus.yml'
     restart: unless-stopped
 
   grafana:

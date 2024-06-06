@@ -61,7 +61,7 @@ public class CustomerService {
      * @throws CustomerNotFoundException if the customer is not found.
      */
     public CustomerRequest findCustomerById(String customerId) {
-        var customer = customerRepository.findById(customerId);
+        var customer = customerRepository.findByCustomerId(customerId);
         log.info("Customer found: {}", customer);
         if (customer.isPresent()) {
             return customerMapper.toCustomerById(customer);
@@ -164,7 +164,7 @@ public class CustomerService {
      */
     public CustomerRequest updateCustomer(String customerId, Customer updatedCustomerRequest) {
         // Check if the customer ID exists
-        Customer existingCustomer = customerRepository.findById(customerId)
+        Customer existingCustomer = customerRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
 
         // Validate if the email already exists

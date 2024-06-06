@@ -10,6 +10,7 @@ C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderProducer.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineRepository.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\OrderServiceApplication.java
+C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\config\CustomerClientConfig.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\Order.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLine.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\OrderService.java
@@ -18,7 +19,6 @@ C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentClient.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineMapper.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineController.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineApplication.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\OrderRequest.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\exception\handler\GlobalExceptionHandler.java
 C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderNotFoundException.java
