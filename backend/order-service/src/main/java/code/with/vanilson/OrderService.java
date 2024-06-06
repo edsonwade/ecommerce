@@ -1,7 +1,11 @@
 package code.with.vanilson;
 
+import code.with.vanilson.kafka.OrderConfirmation;
+import code.with.vanilson.kafka.OrderProducer;
 import code.with.vanilson.orderLine.OrderLineRequest;
 import code.with.vanilson.orderLine.OrderLineService;
+import code.with.vanilson.payment.PaymentClient;
+import code.with.vanilson.payment.PaymentRequest;
 import code.with.vanilson.productservice.ProductClient;
 import code.with.vanilson.productservice.except.BusinessException;
 import code.with.vanilson.productservice.purchase.PurchaseRequest;
@@ -16,29 +20,31 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderMapper orderMapper;
     private final CustomerClient customerClient;
+    private final PaymentClient paymentClient;
     private final ProductClient productClient;
     private final OrderLineService orderLineService;
+    private final OrderProducer orderProducer;
 
     public OrderService(OrderRepository orderRepository, CustomerClient customerClient, ProductClient productClient,
-                        OrderLineService orderLineService,
+                        PaymentClient paymentClient,
+                        OrderLineService orderLineService, OrderProducer orderProducer,
                         OrderMapper orderMapper) {
         this.orderRepository = orderRepository;
         this.customerClient = customerClient;
         this.productClient = productClient;
+        this.paymentClient = paymentClient;
         this.orderLineService = orderLineService;
+        this.orderProducer = orderProducer;
         this.orderMapper = orderMapper;
     }
-
-    private final OrderMapper orderMapper;
 
     @Transactional
     public Integer createOrder(OrderRequest request) {
         var customer = this.customerClient.findCustomerById(request.customerId())
                 .orElseThrow(
                         () -> new BusinessException("Cannot create order:: No customer exists with the provided ID"));
-
-        // purchase the products (RestTemplate)
 
         var purchasedProducts = productClient.purchaseProducts(request.products());
 
@@ -54,27 +60,26 @@ public class OrderService {
                     )
             );
         }
-////        var paymentRequest = new PaymentRequest(
-////                request.amount(),
-////                request.paymentMethod(),
-////                order.(),
-////                order.getReference(),
-////                customer
-////        );
-////        paymentClient.requestOrderPayment(paymentRequest);
-////
-////        orderProducer.sendOrderConfirmation(
-////                new OrderConfirmation(
-////                        request.reference(),
-////                        request.amount(),
-////                        request.paymentMethod(),
-////                        customer,
-////                        purchasedProducts
-////                )
-////        );
-////
-////        return order.getId();
-        return null;
+        var paymentRequest = new PaymentRequest(
+                request.amount(),
+                request.paymentMethod(),
+                order.getOrderId(),
+                order.getReference(),
+                customer
+        );
+        paymentClient.requestOrderPayment(paymentRequest);
+
+        orderProducer.sendOrderConfirmation(
+                new OrderConfirmation(
+                        request.reference(),
+                        request.amount(),
+                        request.paymentMethod(),
+                        customer,
+                        purchasedProducts
+                )
+        );
+
+        return order.getOrderId();
     }
 
     public List<OrderResponse> findAllOrders() {

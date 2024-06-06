@@ -19,7 +19,7 @@ public class OrderLineService {
     }
 
     public List<OrderLineResponse> findAllByOrderId(Integer orderId) {
-        return repository.findAllByOrderId(orderId)
+        return repository.findAllOrderById(orderId)
                 .stream()
                 .map(mapper::toOrderLineResponse)
                 .collect(Collectors.toList());
