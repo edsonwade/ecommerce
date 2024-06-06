@@ -1,9 +1,9 @@
 package code.with.vanilson.productservice;
 
 import code.with.vanilson.productservice.category.Category;
-import code.with.vanilson.productservice.except.ProductNotFoundException;
-import code.with.vanilson.productservice.except.ProductNullException;
-import code.with.vanilson.productservice.except.ProductPurchaseException;
+import code.with.vanilson.productservice.exception.ProductNotFoundException;
+import code.with.vanilson.productservice.exception.ProductNullException;
+import code.with.vanilson.productservice.exception.ProductPurchaseException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

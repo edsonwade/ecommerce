@@ -19,3 +19,6 @@ WHERE id NOT IN (
 
 ALTER TABLE category
     ADD CONSTRAINT unique_name UNIQUE (name);
+
+
+--DROP DATABASE IF EXISTS payment_db WITH (FORCE);

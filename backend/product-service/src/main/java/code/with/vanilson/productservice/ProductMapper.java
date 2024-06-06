@@ -1,8 +1,8 @@
 package code.with.vanilson.productservice;
 
 import code.with.vanilson.productservice.category.Category;
-import code.with.vanilson.productservice.except.ProductBadRequestException;
-import code.with.vanilson.productservice.except.ProductNullException;
+import code.with.vanilson.productservice.exception.ProductBadRequestException;
+import code.with.vanilson.productservice.exception.ProductNullException;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

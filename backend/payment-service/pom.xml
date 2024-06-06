@@ -25,10 +25,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-mongodb</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -118,6 +114,15 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-openfeign-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>code.with.vanilson</groupId>
+            <artifactId>customer-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>code.with.vanilson</groupId>
+            <artifactId>order-service</artifactId>
         </dependency>
     </dependencies>
     <dependencyManagement>
