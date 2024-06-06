@@ -13,7 +13,7 @@ spring:
     # Flyway Migration Configuration
 
     flyway:
-      locations: classpath:db/migration
+      locations: classpath:db/migration/product/postgresql
       baseline-on-migrate: true
       enabled: true
       baseline-description: "init"
@@ -22,4 +22,3 @@ spring:
 
 server:
   port: 8082
-
