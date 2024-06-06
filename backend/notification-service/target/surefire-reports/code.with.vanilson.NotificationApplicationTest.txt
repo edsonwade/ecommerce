@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: code.with.vanilson.NotificationApplicationTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.036 s -- in code.with.vanilson.NotificationApplicationTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.038 s -- in code.with.vanilson.NotificationApplicationTest

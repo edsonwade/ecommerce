@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="code.with.vanilson.NotificationApplicationTest" time="0.036" tests="1" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="code.with.vanilson.NotificationApplicationTest" time="0.038" tests="1" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="17"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -16,7 +16,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Java\jdk-17\bin"/>
-    <property name="sun.java.command" value="C:\Users\vamuhong\AppData\Local\Temp\surefire15771200767676850958\surefirebooter-20240606001707847_17.jar C:\Users\vamuhong\AppData\Local\Temp\surefire15771200767676850958 2024-06-06T00-16-34_574-jvmRun1 surefire-20240606001707847_15tmp surefire_3-20240606001707847_16tmp"/>
+    <property name="sun.java.command" value="C:\Users\vamuhong\AppData\Local\Temp\surefire3196982600261102998\surefirebooter-20240606141749877_17.jar C:\Users\vamuhong\AppData\Local\Temp\surefire3196982600261102998 2024-06-06T14-17-16_001-jvmRun1 surefire-20240606141749877_15tmp surefire_3-20240606141749877_16tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\notification-service\target\test-classes;C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\notification-service\target\classes;C:\Users\vamuhong\.m2\repository\org\modelmapper\modelmapper\3.2.0\modelmapper-3.2.0.jar;C:\Users\vamuhong\.m2\repository\org\projectlombok\lombok\1.18.32\lombok-1.18.32.jar;C:\Users\vamuhong\.m2\repository\org\junit\vintage\junit-vintage-engine\5.11.0-M2\junit-vintage-engine-5.11.0-M2.jar;C:\Users\vamuhong\.m2\repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;C:\Users\vamuhong\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\vamuhong\.m2\repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;C:\Users\vamuhong\.m2\repository\junit\junit\4.13.2\junit-4.13.2.jar;C:\Users\vamuhong\.m2\repository\org\hamcrest\hamcrest-core\2.2\hamcrest-core-2.2.jar;C:\Users\vamuhong\.m2\repository\org\hamcrest\hamcrest\2.2\hamcrest-2.2.jar;C:\Users\vamuhong\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -31,7 +31,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="C:\Users\vamuhong\AppData\Local\Temp\surefire15771200767676850958\surefirebooter-20240606001707847_17.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\vamuhong\AppData\Local\Temp\surefire3196982600261102998\surefirebooter-20240606141749877_17.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="17.0.8+9-LTS-211"/>
@@ -58,5 +58,5 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="61.0"/>
   </properties>
-  <testcase name="testApp" classname="code.with.vanilson.NotificationApplicationTest" time="0.023"/>
+  <testcase name="testApp" classname="code.with.vanilson.NotificationApplicationTest" time="0.021"/>
 </testsuite>
