@@ -1,0 +1,394 @@
+    1  sudo apt update && sudo apt upgrade
+    2  ls -al
+    3  sudp su
+    4  sudo su
+    5  sudo apt update -y && sudo apt upgrade -y
+    6  sudo apt insatll neo
+    7  sudo apt install neo
+    8  sudo apt install neofetch
+    9  sudo apt update -y && sudo apt upgrade -y
+   10  sudo apt install -y xfec4
+   11  source "$HOME/.sdkman/bin/sdkman-init.sh"
+   12  sdk version
+   13  sdk list
+   14  sdk 
+   15  java -v
+   16  java --version
+   17  sdk install java
+   18  sdk version java
+   19  sdk java version
+   20  java -v
+   21  java --version
+   22  sdk list java
+   23  sdk current java
+   24  sdk use java
+   25  sdk install java  21.0.2 
+   26  exit
+   27  logout
+   28  curl -s "https://get.sdkman.io" | bash
+   29  sudo apt update && sudo apt upgrade
+   30  curl
+   31  apt-get install curl
+   32  sudo apt-get install curl
+   33  curl -s "https://get.sdkman.io" | bash
+   34  source "$HOME/.sdkman/bin/sdkman-init.sh"
+   35  sudo apt install zip
+   36  zip -v
+   37  curl -s "https://get.sdkman.io" | bash
+   38  cd kafka_2.13-3.6.1
+   39  bin/kafka-console-consumer.sh --topic quickstart-events --from-beginning --bootstrap-server localhost:9092
+   40  cd
+   41  cd kafka_2.13-3.6.1
+   42  bin/kafka-topics.sh --create --topic quickstart-events --bootstrap-server localhost:9092
+   43  topiv
+   44  cd
+   45  cd kafka_2.13-3.6.1
+   46  bin/kafka-server-start.sh config/server.properties
+   47  cd 
+   48  kakfa
+   49  sudo apt update && sudo apt upgrade -y
+   50  java -v
+   51  java --version
+   52  javac -version
+   53  wget https://dlcdn.apache.org/kafka/3.6.1/kafka_2.13-3.6.1.tgz
+   54  sudo apt update
+   55  sudo apt install wget
+   56  wget https://dlcdn.apache.org/kafka/3.6.1/kafka_2.13-3.6.1.tgz
+   57  tar -xzf kafka_2.13-3.6.1.tgz
+   58  cd kafka_2.13-3.6.1
+   59  bin/zookeeper-server-start.sh config/zookeeper.properties
+   60  cd
+   61  history
+   62  cd kafka_2.13-3.6.1
+   63  history
+   64  sudo apt update && sudo apt upgrade -y
+   65  bin/zookeeper-server-start.sh config/zookeeper.properties
+   66  cd
+   67  java -version
+   68  cd /etc/
+   69  ls
+   70  cd opcd opt
+   71  cd opcd optcd opt
+   72  cd opt
+   73  l
+   74  ll
+   75  ls
+   76  cd ..
+   77  which java
+   78  /home/user/.sdkman/candidates/java/current/bin/java -version
+   79  cd ..
+   80  cd
+   81  sdk install java 11.0.14-open
+   82  sdk list java
+   83  sdk install java 17.0.10-amzn
+   84  java -version
+   85  sdk current java
+   86  ls -l ~/.sdkman/candidates/java/
+   87  ls -ld ~/.sdkman/candidates/java/17.0.10-amzn/
+   88  cd /home/user/
+   89  ls
+   90  ln -s ~/.sdkman/candidates/java/17.0.10-amz ~/.jdks/17.0.10-amz
+   91  mkdir -p ~/.jdks
+   92  ln -s ~/.sdkman/candidates/java/17.0.10-amzn ~/.jdks/17.0.10-amzn
+   93  cd ~/.sdkman/candidates/java/17.0.10-amzn/bin/
+   94  ls
+   95  cd
+   96  source "$HOME/.sdkman/bin/sdkman-init.sh"
+   97  source ~/.bashrc
+   98  sdk version
+   99  history
+  100  cd kafka_2.13-3.6.1
+  101  history´
+  102  history
+  103  sudo apt update && sudo apt upgrade -y
+  104  cd 
+  105  ls
+  106  mkdir Downloands /Documnets
+  107  sudo mkdir Downloands /Documnets
+  108  ls
+  109  pwd
+  110  mkdir Documents
+  111  mkdir Downloads
+  112  ls
+  113  cd Documents/
+  114  mkdir developments
+  115  cd developments/
+  116  cd Java
+  117  mkdir Java  spring projects
+  118  ls
+  119  cd spring/
+  120  git clone https://github.com/edsonwade/Apache-kafka-Spring-Boot-Reactive-Webflux.git
+  121  cd
+  122  sudo apt install git
+  123  maven --version
+  124  mvn --version
+  125  cd Documents/developments/spring/
+  126  git init
+  127  git config --global init.defaultBranch main
+  128  git branch -m master main
+  129  git branch
+  130  git clone https://github.com/edsonwade/Apache-kafka-Spring-Boot-Reactive-Webflux.git
+  131  ls
+  132  cd Apache-kafka-Spring-Boot-Reactive-Webflux/
+  133  ls
+  134  sdk version
+  135  sudo find / -name "java" -type f 2>/dev/null
+  136  cd ..
+  137  cd
+  138  cd kafka_2.13-3.6.1
+  139  ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic my-topic  --from-beginning
+  140  mvn clean install
+  141  netstat -tuln | grep 9092
+  142  cd 
+  143  cd kafka_2.13-3.6.1
+  144  cd kafka_2.13-3.6.1
+  145  kistory
+  146  history
+  147  bin\windows\kafka-server-start.bat config\server.properties
+  148  bin/zookeeper-server-start.sh config/zookeeper.properties
+  149  bin/kafka-server-start.sh config/server.properties
+  150  cd kafka_2.13-3.6.1
+  151  mvn clean install
+  152  bin\windows\kafka-server-start.bat config\server.properties
+  153  bin/zookeeper-server-start.sh config/zookeeper.properties
+  154  cd ..
+  155  cd
+  156  cd kafka_2.13-3.6.1
+  157  bin\windows\kafka-server-start.bat config\server.properties
+  158  bin/zookeeper-server-start.sh config/zookeeper.properties
+  159  ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic my-topic
+  160  ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+  161  exit
+  162  cd..
+  163  cd
+  164  cd kafka_2.13-3.6.1
+  165  bin/kafka-server-start.sh config/server.properties
+  166  exit
+  167  cd ..
+  168  cd
+  169  cd kafka_2.13-3.6.1
+  170  ping http://localhost:9092
+  171  telnet localhost 9092
+  172  exit
+  173  cd
+  174  telnet localhost 9092
+  175  nc -vz localhost 9092
+  176  sudo apt-get install netcat
+  177  sudo apt-get install netcat-traditional
+  178  nc -vz localhost 9092
+  179  exit
+  180  cd ..
+  181  cd
+  182  cd kafka_2.13-3.6.1
+  183  bin/kafka-topics.sh --create --topic wikimedia-stream --bootstrap-server localhost:9092
+  184  exit
+  185  sudo apt update && sudo apt upgrade
+  186  ls
+  187  cd kafka_2.13-3.6.1
+  188  ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+  189  cd 
+  190  sudo systemctl stop kafka
+  191  sudo systemctl stop zookeeper
+  192  kill $(pgrep -f kafka)
+  193  ps aux | grep kafka
+  194  sudo kill $(pgrep -f kafka)
+  195  ps aux | grep kafka
+  196  sudo rm -rf /opt/kafka
+  197  sudo rm -rf /tmp/zookeeper
+  198  nano /.bashrc
+  199  nano ~/.bashrc
+  200  sudo rm -rf /tmp/zookeeper
+  201  cd kafka_2.13-3.6.1
+  202  bin/zookeeper-server-start.sh config/zookeeper.properties
+  203  cd ..
+  204  ls´
+  205  ls
+  206  tar kafka_2.13-3.6.1.tgz 
+  207  cd kafka_2.13-3.6.1
+  208  ls
+  209  cd kafka_2.13-3.6.1
+  210  bin/zookeeper-server-start.sh config/zookeeper.properties
+  211  ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+  212  d ..
+  213  cd ..
+  214  rm -f kafka_2.13-3.6.1
+  215  rm -rf kafka_2.13-3.6.1
+  216  ls
+  217  bin/zookeeper-server-start.sh config/zookeeper.properties
+  218  cd
+  219  cd kafka_2.13-3.6.1
+  220  bin/kafka-server-start.sh config/server.properties
+  221  exit
+  222  cd
+  223  cd kafka_2.13-3.6.1
+  224  bin/zookeeper-server-start.sh config/zookeeper.properties
+  225  sudo apt update
+  226  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  227  sudo install minikube-linux-amd64 /usr/local/bin/minikube
+  228  minikube start
+  229  sudo apt udpate && sudo apt upgrade -y
+  230  sudo apt update && sudo apt upgrade -y
+  231  sudo apt install graphviz
+  232  graphviz
+  233  cd ..
+  234  ls
+  235  git clone https://github.com/edsonwade/Microservices-Architecture-Spring-Boot-Kafka.git
+  236  sudo apt update && sudo apt upgrade -y
+  237  ls
+  238  top
+  239  mkdir test
+  240  cd test/
+  241  touch test.txt;
+  242  echo " hello world" >> test.txt 
+  243  cat test.txt 
+  244  ps -a
+  245  ps -al
+  246  cd
+  247  logout
+  248  exit
+  249  ls
+  250  rm -rf kafka_2.13-3.6.1 kafka_2.13-3.6.1.tgz 
+  251  cd Documents/
+  252  ls
+  253  cd developments/
+  254  ls
+  255  user
+  256  exit
+  257  wsl
+  258  wls -v -l
+  259  docker
+  260  sudo apt update && sudo apt upgrade -y
+  261  sudo install docker.io
+  262  sudo apt install docker.io
+  263  sudo usermod -aG docker user
+  264  docker
+  265  docker login 
+  266  docker login  -u edsonwade126
+  267  docker run hello-world
+  268  sudo service docker start
+  269  docker run hello-world
+  270  sudo docker run hello-world
+  271  docker ps
+  272  sudo docker ps
+  273  sudo docker ps -a
+  274  docker-compose up
+  275  sudo docker-compose up
+  276  sudo docker-compose
+  277  sudo su
+  278  sudo docker-compose
+  279  sudo docker-compose up
+  280  sudo docker-compose down
+  281  docker prune
+  282  sudo docker prune
+  283  docker system prune
+  284  WARNING! This will remove:
+  285  Are you sure you want to continue? [y/N] y
+  286  Deleted Containers:
+  287  f44f9b81948b3919590d5f79a680d8378f1139b41952e219830a33027c80c867
+  288  792776e68ac9d75bce4092bc1b5cc17b779bc926ab04f4185aec9bf1c0d4641f
+  289  Deleted Networks:
+  290  network1
+  291  network2
+  292  Deleted Images:
+  293  untagged: hello-world@sha256:f3b3b28a45160805bb16542c9531888519430e9e6d6ffc09d72261b0d26ff74f
+  294  deleted: sha256:1815c82652c03bfd8644afda26fb184f2ed891d921b20a0703b46768f9755c57
+  295  deleted: sha256:45761469c965421a92a69cc50e92c01e0cfa94fe026cdd1233445ea00e96289a
+  296  Total reclaimed space: 1.84kB
+  297  docker system prune
+  298  sudo docker system prune
+  299  docker ps
+  300  sudo usermod -aG docker user@L-PT-5CG9060TFR
+  301  sudo usermod -aG docker L-PT-5CG9060TFR
+  302  sudo usermod -aG docker user
+  303  sud su
+  304  sudo su
+  305  docker
+  306  docker ps
+  307  sudo docker ps
+  308  sudo docker ps -all
+  309  sudo docker image
+  310  sudo docker images
+  311  sudo docker rmi c3 38 95 f9 cf ec 5b 7b 87 8a d2
+  312  sudo docker images
+  313  sudo docker system prune
+  314  sudo docker container
+  315  sudo docker container ls
+  316  sudo docker container prune
+  317  mvn clean install -U
+  318  mvn clean install  -rf :customer-service
+  319  history
+  320  docker
+  321  sudo docker-compose up
+  322  ls
+  323  docker-compose -f docker-compose.yml up
+  324  sudo docker-compose -f docker-compose.yml up
+  325  systemctl status docker
+  326  history
+  327  touch log.txt
+  328  echo history >> log.txt 
+  329  sudo service docker start
+  330  sudo service enable docker
+  331  sudo systemctl enable docker
+  332  dokcer-compose up -d
+  333  docker-compose up -d
+  334  docker ps -a
+  335  docker ps -all
+  336  docker  images
+  337  docker-compose ps
+  338  docker-compose ps -a
+  339  exit
+  340  rm -rf ~/.m2/repository/code/with/vanilson
+  341  mvn clean install
+  342  flyway -url=jdbc:postgresql://your_database_host:5432/payment_db -user=postgres -password=Janina1. repair
+  343  wget -qO- https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/10.14.0/flyway-commandline-10.14.0-linux-x64.tar.gz | tar -xvz && sudo ln -s `pwd`/flyway-10.14.0/flyway /usr/local/bin 
+  344  flyway -url=jdbc:postgresql://your_database_host:5432/payment_db -user=postgres -password=Janina1. repair
+  345  flyway
+  346  flyway -v
+  347  sudo flyway -v
+  348  cd
+  349  wget -qO- https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/10.14.0/flyway-commandline-10.14.0-linux-x64.tar.gz | tar -xvz && sudo ln -s `pwd`/flyway-10.14.0/flyway /usr/local/bin 
+  350  cd /usr/local/bin
+  351  ls .l
+  352  ls -l
+  353  rm  flyway -> 2023/e-commerce-microservice/flyway-10.14.0/flyway
+  354  sudo chmod +x /usr/local/bin/flyway
+  355  sudo ln -s /path/to/flyway-10.14.0/flyway /usr/local/bin/flyway
+  356  cd 
+  357  sudo ln -s /path/to/flyway-10.14.0/flyway /usr/local/bin/flyway
+  358  cd /usr/local/bin/flyway
+  359  sudo rm /usr/local/bin/flyway
+  360  sudo ln -s /path/to/flyway-10.14.0/flyway /usr/local/bin/flyway
+  361  flyway -v
+  362  ls /path/to/flyway-10.14.0
+  363  cd /path/to/flyway-10.14.0
+  364  cd ~/flyway-10.14.0
+  365  sudo ln -s `pwd`/flyway /usr/local/bin/flyway
+  366  ls -l /usr/local/bin | grep flyway
+  367  sudo ln -s "$(pwd)/flyway" /usr/local/bin/flyway
+  368  sudo rm /usr/local/bin/flyway
+  369  sudo ln -s "$(pwd)/flyway" /usr/local/bin/flyway
+  370  sudo ln -sf /path/to/flyway-10.14.0/flyway /usr/local/bin/flyway
+  371  flyway -v
+  372  ls
+  373  sudo ln -s "$(pwd)/flyway" /usr/local/bin/flyway
+  374  sudo rm /usr/local/bin/flyway
+  375  ls
+  376  sudo ln -s "$(pwd)/flyway" /usr/local/bin/flyway
+  377  flyway -v
+  378  flyway
+  379  flyway -v
+  380  flyway
+  381  flyway -url=jdbc:postgresql://your_database_host:5432/payment_db -user=postgres -password=Janina1. repair
+  382  flyway -url=jdbc:postgresql://localhost:5432/payment_db -user=postgres -password=Janina1. repair
+  383  cd backend/
+  384  cd payment-service/
+  385  flyway -url=jdbc:postgresql://localhost:5432/payment_db -user=postgres -password=Janina1. repair
+  386  docker
+  387  mvn clean install 
+  388  docker-compose up --build
+  389  touch log.txt
+  390  hitory << log.txt 
+  391  history << log.txt 
+  392  history >> log.txt 
+
+dckr_pat_aaZZ3FRkgb5tXZhZIbNmxiktnas

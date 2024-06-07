@@ -23,6 +23,7 @@ backend/config-service/target/
 .idea/sonarlint/issuestore/index.pb
 backend/customer-service/src/main/java/code/with/vanilson/customerservice/MongoConfig.java
 .idea/**
+.env
 
 
 ../configuration-service/data

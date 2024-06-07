@@ -1,34 +1,103 @@
-version: '3.5'
-services:
-  postgresql:
-    container_name: service_postgres
-    image: postgres:latest
-    environment:
-      POSTGRES_USER: wayne
-      POSTGRES_PASSWORD: wayne
-      PGDATA: /data/postgres
-    volumes:
-      - postgres:/data/postgres
-    ports:
-      - "5432:5432"
-    networks:
-      - microservices-net
-    restart: unless-stopped
+version: '3.8'
 
-  pgadmin:
-    container_name: service_pgadmin
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    volumes:
-      - pgadmin:/var/lib/pgadmin
-    ports:
-      - "5050:80"
-    networks:
-      - microservices-net
-    restart: unless-stopped
+services:
+
+#services:
+#  config-service:
+#    build:
+#      context: ./backend/config-service
+#      dockerfile: Dockerfile
+#    container_name: config-service
+#    ports:
+#      - "8888:8888"
+#    networks:
+#      - spring-cloud-network
+##    environment:
+##      - SPRING_PROFILES_ACTIVE=native
+##    restart: always
+##    healthcheck:
+##      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+##      interval: 30s
+##      timeout: 10s
+##      retries: 5
+#
+#  discovery-service:
+#    build:
+#      context: ./backend/discovery-service
+#      dockerfile: Dockerfile
+#    container_name: discovery-service
+#    ports:
+#      - "8761:8761"
+#    links:
+#      - config-service
+#    networks:
+#     - spring-cloud-network
+##    depends_on:
+##      config-service:
+##        condition: service_healthy
+##    environment:
+##      - CONFIG_SERVICE_URI=http://config-service:8888
+##    networks:
+##      - spring-cloud-network
+##    restart: unless-stopped
+##    healthcheck:
+##      test: [ "CMD-SHELL", "curl -f http://config-service:8888/actuator/health || exit 1" ]
+##      interval: 30s
+##      timeout: 10s
+##      retries: 5
+#
+##  gateway-service:
+##    build:
+##      context: ./backend/gateway-api-service
+##      dockerfile: Dockerfile
+##    ports:
+##      - "8222:8222"
+##    depends_on:
+##      config-service:
+##        condition: service_healthy
+##      discovery-service:
+##        condition: service_healthy
+##    environment:
+##      - CONFIG_SERVICE_URI=http://config-service:8888
+##      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+##    networks:
+##      - spring-cloud-network
+##    restart: unless-stopped
+##    healthcheck:
+##      test: ["CMD-SHELL", "curl -f http://localhost:8222/actuator/health || exit 1"]
+##      interval: 30s
+##      timeout: 10s
+##      retries: 5
+#
+#  #  postgresql:
+#  #    container_name: service_postgres
+#  #    image: postgres:latest
+#  #    environment:
+#  #      POSTGRES_USER: wayne
+#  #      POSTGRES_PASSWORD: wayne
+#  #      PGDATA: /data/postgres
+#  #    volumes:
+#  #      - postgres:/data/postgres
+#  #    ports:
+#  #      - "5432:5432"
+#  #    networks:
+#  #      - spring-cloud-network
+#  #    restart: unless-stopped
+#
+#  #  pgadmin:
+#  #    container_name: service_pgadmin
+#  #    image: dpage/pgadmin4
+#  #    environment:
+#  #      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+#  #      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+#  #      PGADMIN_CONFIG_SERVER_MODE: 'False'
+#  #    volumes:
+#  #      - pgadmin:/var/lib/pgadmin
+#  #    ports:
+#  #      - "5050:80"
+#  #    networks:
+#  #      - spring-cloud-network
+#  #    restart: unless-stopped
 
   zipkin:
     container_name: service_zipkin
@@ -36,29 +105,29 @@ services:
     ports:
       - "9411:9411"
     networks:
-      - microservices-net
+      - spring-cloud-network
 
-  mongodb:
-    image: mongo
-    container_name: service_mongo_db
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo:/data
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=wayne
-      - MONGO_INITDB_ROOT_PASSWORD=wayne
-
-  mongo-express:
-    image: mongo-express
-    container_name: service_mongo_express
-    restart: always
-    ports:
-      - 8081:8081
-    environment:
-      - ME_CONFIG_MONGODB_ADMINUSERNAME=wayne
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=wayne
-      - ME_CONFIG_MONGODB_SERVER=mongodb
+  #  mongodb:
+  #    image: mongo
+  #    container_name: service_mongo_db
+  #    ports:
+  #      - "27017:27017"
+  #    volumes:
+  #      - mongo:/data
+  #    environment:
+  #      - MONGO_INITDB_ROOT_USERNAME=wayne
+  #      - MONGO_INITDB_ROOT_PASSWORD=wayne
+  #
+  #  mongo-express:
+  #    image: mongo-express
+  #    container_name: service_mongo_express
+  #    restart: always
+  #    ports:
+  #      - 9999:9999
+  #    environment:
+  #      - ME_CONFIG_MONGODB_ADMINUSERNAME=wayne
+  #      - ME_CONFIG_MONGODB_ADMINPASSWORD=wayne
+  #      - ME_CONFIG_MONGODB_SERVER=mongodb
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -70,7 +139,7 @@ services:
     ports:
       - "22181:2181"
     networks:
-      - microservices-net
+      - spring-cloud-network
   kafka:
     image: confluentinc/cp-kafka:latest
     container_name: service_kafka
@@ -86,7 +155,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
     networks:
-      - microservices-net
+      - spring-cloud-network
 
   mail-dev:
     container_name: service_mail
@@ -94,27 +163,48 @@ services:
     ports:
       - "1080:1080"
       - "1025:1025"
-  prometheus:
-    image: prom/prometheus
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
     ports:
-      - "9090:9090"
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
     volumes:
-      - ./resource/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml  # Corrected volume mapping
-    #    command:
-    #      - '--config.file=/etc/prometheus/prometheus.yml'
+      - mongo-data:/data/db
+    networks:
+      - spring-cloud-network
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana
+  postgres:
+    image: postgres:latest
+    container_name: postgres
     ports:
-      - "3000:3000"
-    restart: unless-stopped
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - spring-cloud-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME}" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
-  microservices-net:
+  spring-cloud-network:
     driver: bridge
 
 volumes:
-  postgres:
-  pgadmin:
-  mongo:
+  postgres-data:
+  mongo-data:

@@ -11,9 +11,8 @@ spring:
         database: ${MONGODB_DATABASE}
         username: ${MONGODB_USERNAME}
         password: ${MONGODB_PASSWORD}
-        #        authentication-database: ${MONGODB_AUTH_DATABASE}
         authentication-mechanism: ${MONGODB_AUTH_MECHANISM}
-#        ssl: ${MONGODB_SSL_ENABLED:false} # Default to false if not provided
+
 
 
 

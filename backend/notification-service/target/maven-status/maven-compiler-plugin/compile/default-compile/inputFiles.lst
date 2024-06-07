@@ -1,2 +1,11 @@
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\notification-service\src\main\java\code\with\vanilson\notification\MongoConfig.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\backend\notification-service\src\main\java\code\with\vanilson\notification\NotificationApplication.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/config/EmailConfig.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/config/MongoConfig.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/kafka/order/OrderConfirmation.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/NotificationType.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/email/EmailTemplate.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/kafka/NotificationsConsumer.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/email/EmailService.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/NotificationApplication.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/kafka/payment/PaymentConfirmation.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/Notification.java
+/mnt/c/Users/vamuhong/Documents/Formation 2023/e-commerce-microservice/backend/notification-service/src/main/java/code/with/vanilson/notification/NotificationRepository.java
