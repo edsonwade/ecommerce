@@ -1,12 +1,10 @@
 spring:
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://config-service:8888
   application:
     name: discovery-service
-
   output:
     ansi:
       enabled: always
-
 
 
