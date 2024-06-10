@@ -62,3 +62,16 @@
 - `docker service scale service_name=replica_count`: Scale a service to the specified number of replicas.
 - `docker service update --replicas new_replica_count service_name`: Update the number of replicas for a service.
 
+## docker
+- `` docker container prune -f``: Remove all stopped containers
+
+## clean up these orphan containers
+-``docker-compose down --remove-orphans``: clean up these orphan containers
+
+## delete all images
+- `` docker rmi $(docker images -q) -f ``: delete all images
+
+## list all container
+ - docker container ps -a
+## delete container one or more
+- docker container rm  <can_add_here_the_containers-the two first letter or number>

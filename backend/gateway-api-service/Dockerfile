@@ -5,7 +5,7 @@ FROM openjdk:17
 WORKDIR /app
 
 # Copy the JAR file into the container and rename it
-COPY target/discovery-service-*.jar /app/discovery-service.jar
+COPY target/gateway-api-service-*.jar /app/gateway-api-service.jar
 
 # Specify the command to run your application
-ENTRYPOINT ["java", "-jar", "discovery-service.jar"]
+CMD ["java", "-jar", "gateway-api-service.jar"]

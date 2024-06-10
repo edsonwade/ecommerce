@@ -1,0 +1,84 @@
+mongodb+srv://dev.4ezbsq2.mongodb.net/notification_service_db
+
+notification_service_db
+
+   "mongodb+srv://vanilson:MVQzTkSWXykmWXQN@dev.4ezbsq2.mongodb.net/notification_service_db"));
+
+
+       data:
+      mongodb:
+        host: ${MONGODB_HOST}
+        port: ${MONGODB_PORT}
+        database: ${MONGODB_DATABASE}
+        username: ${MONGODB_USERNAME}
+        password: ${MONGODB_PASSWORD}
+        #        authentication-database: ${MONGODB_AUTH_DATABASE}
+        authentication-mechanism: ${MONGODB_AUTH_MECHANISM}
+
+
+
+
+
+EXAMPLE TO CONFIG ,MONGOD ON YML
+spring:
+  data:
+    mongodb:
+      host: dev.4ezbsq2.mongodb.net
+      port: 27017 # Note: For MongoDB Atlas, the default port is usually 27017
+      database: notification_service_db
+      username: vanilson
+      password: MVQzTkSWXykmWXQN
+      authentication-database: admin
+      authentication-mechanism: SCRAM-SHA-1
+      ssl: true # Enable SSL for secure connections
+
+docker personal token
+dckr_pat_aaZZ3FRkgb5tXZhZIbNmxiktnas
+
+
+Password:
+WARNING! Your password will be stored unencrypted in /home/user/.docker/config.json.
+Configure a credential helper to remove this warning. See
+
+
+
+version: '3.8'
+
+services:
+  config-service:
+    build:
+      context: ./backend/config-service
+      dockerfile: Dockerfile
+    container_name: config-service
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./config-service:/config-service
+    networks:
+      - microservices-net
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: ./backend/product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    # Add other configurations for product-service here
+
+  customer-service:
+    build:
+      context: ./backend/customer-service
+      dockerfile: Dockerfile
+    container_name: customer-service
+    # Add other configurations for customer-service here
+
+networks:
+  microservices-net:
+    driver: bridge

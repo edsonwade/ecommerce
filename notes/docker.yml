@@ -1,0 +1,187 @@
+version: '3.5'
+services:
+  config-service:
+    build:
+      context: ./backend/config-service
+      dockerfile: Dockerfile
+    container_name: config-service
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./config-service:/config-service
+    networks:
+      - microservices-net
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+    restart: always
+
+  discovery-service:
+    build:
+      context: ./backend/config-service
+      dockerfile: Dockerfile
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    depends_on:
+      - config-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+      - CONFIG_SERVICE_URI=http://config-service:8888
+    networks:
+      - microservices-net
+    restart: unless-stopped
+
+  gateway-service:
+    image: gateway-service-app
+    container_name: gateway-service
+    ports:
+      - "8222:8222"
+    depends_on:
+      - config-service
+      - discovery-service
+    environment:
+      - CONFIG_SERVICE_URI=http://config-service:8888
+    networks:
+      - microservices-net
+    restart: unless-stopped
+
+
+  #  postgresql:
+  #    container_name: service_postgres
+  #    image: postgres:latest
+  #    environment:
+  #      POSTGRES_USER: wayne
+  #      POSTGRES_PASSWORD: wayne
+  #      PGDATA: /data/postgres
+  #    volumes:
+  #      - postgres:/data/postgres
+  #    ports:
+  #      - "5432:5432"
+  #    networks:
+  #      - microservices-net
+  #    restart: unless-stopped
+
+  #  pgadmin:
+  #    container_name: service_pgadmin
+  #    image: dpage/pgadmin4
+  #    environment:
+  #      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+  #      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+  #      PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #    volumes:
+  #      - pgadmin:/var/lib/pgadmin
+  #    ports:
+  #      - "5050:80"
+  #    networks:
+  #      - microservices-net
+  #    restart: unless-stopped
+
+  zipkin:
+    container_name: service_zipkin
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - microservices-net
+
+  #  mongodb:
+  #    image: mongo
+  #    container_name: service_mongo_db
+  #    ports:
+  #      - "27017:27017"
+  #    volumes:
+  #      - mongo:/data
+  #    environment:
+  #      - MONGO_INITDB_ROOT_USERNAME=wayne
+  #      - MONGO_INITDB_ROOT_PASSWORD=wayne
+  #
+  #  mongo-express:
+  #    image: mongo-express
+  #    container_name: service_mongo_express
+  #    restart: always
+  #    ports:
+  #      - 9999:9999
+  #    environment:
+  #      - ME_CONFIG_MONGODB_ADMINUSERNAME=wayne
+  #      - ME_CONFIG_MONGODB_ADMINPASSWORD=wayne
+  #      - ME_CONFIG_MONGODB_SERVER=mongodb
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: service_zookeeper
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "22181:2181"
+    networks:
+      - microservices-net
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: service_kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+    networks:
+      - microservices-net
+
+  mail-dev:
+    container_name: service_mail
+    image: maildev/maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - microservices-net
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  postgres:
+      image: postgres:latest
+      container_name: postgres
+      ports:
+        - "5432:5432"
+      environment:
+        - POSTGRES_USER=${POSTGRES_USERNAME}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        - POSTGRES_DB=postgres
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+      networks:
+        - microservices-net
+      healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME}" ]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+
+networks:
+  microservices-net:
+    driver: bridge
+
+volumes:
+  postgres:
+  mongo:
