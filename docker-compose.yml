@@ -35,10 +35,10 @@ services:
       - CONFIG_SERVICE_URI=http://config-service:8888
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://config-service:8888/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      test: ["CMD", "curl", "-f", "http://localhost:8761"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
 
 networks:
   spring-cloud-network:

@@ -1,11 +1,5 @@
 spring:
-  profiles:
-    active: native
-  application:
-    name: customer-service
   config:
     import: optional:configserver:http://localhost:8888
-
-  output:
-    ansi:
-      enabled: always
+  application:
+    name: customer-service

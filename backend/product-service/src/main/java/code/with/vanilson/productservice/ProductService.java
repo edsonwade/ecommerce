@@ -119,7 +119,6 @@ public class ProductService {
         var products = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         MessageFormat.format(PRODUCT_WITH_ID_0_WAS_NOT_FOUND, id)));
-
         productRepository.deleteById(products.getId());
     }
 

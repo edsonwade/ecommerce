@@ -21,20 +21,76 @@
         <module>gateway-api-service</module>
         <module>notification-service</module>
         <module>payment-service</module>
+        <module>authentication-service</module>
     </modules>
 
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <java.version>17</java.version>
+        <jjwt.version>0.12.5</jjwt.version>
     </properties>
+
+    <dependencies>
+
+        <!--        <dependency>-->
+        <!--            <groupId>io.jsonwebtoken</groupId>-->
+        <!--            <artifactId>jjwt-impl</artifactId>-->
+        <!--            <version>${jjwt.version}</version>-->
+        <!--        </dependency>-->
+
+        <!--        <dependency>-->
+        <!--            <groupId>io.jsonwebtoken</groupId>-->
+        <!--            <artifactId>jjwt-api</artifactId>-->
+        <!--            <version>${jjwt.version}</version>-->
+        <!--        </dependency>-->
+
+        <!--        <dependency>-->
+        <!--            <groupId>io.jsonwebtoken</groupId>-->
+        <!--            <artifactId>jjwt-jackson</artifactId>-->
+        <!--            <version>${jjwt.version}</version>-->
+        <!--        </dependency>-->
+
+        <!--        <dependency>-->
+        <!--            <groupId>org.springframework.boot</groupId>-->
+        <!--            <artifactId>spring-boot-starter-security</artifactId>-->
+        <!--        </dependency>-->
+    </dependencies>
 
 
     <build>
         <plugins>
-            <!-- Spring Boot Maven Plugin for packaging and running the application -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
+<!--            <plugin>-->
+<!--                <groupId>com.google.cloud.tools</groupId>-->
+<!--                <artifactId>jib-maven-plugin</artifactId>-->
+<!--                <version>3.2.1</version>-->
+<!--                <configuration>-->
+<!--                    <from>-->
+<!--                        <image>eclipse-temurin:17.0.4.1_1-jre</image>-->
+<!--                    </from>-->
+<!--                    <to>-->
+<!--                        <image>e-commerce-microservice/${project.artifactId}</image>-->
+<!--                    </to>-->
+<!--                </configuration>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <phase>package</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>dockerBuild</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
         </plugins>
     </build>
 </project>

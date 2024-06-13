@@ -1,2 +1,3 @@
-code/with/vanilson/productservice/ProductServiceTest.class
-code/with/vanilson/productservice/ProductMapperTest.class
+code\with\vanilson\productservice\ProductControllerTest.class
+code\with\vanilson\productservice\ProductMapperTest.class
+code\with\vanilson\productservice\ProductServiceTest.class
