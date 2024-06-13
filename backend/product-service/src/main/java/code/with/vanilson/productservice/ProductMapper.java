@@ -84,6 +84,12 @@ public class ProductMapper {
      * @param products the list of Product objects to convert
      * @return the list of converted ProductResponse objects
      */
+    /**
+     * Converts a list of Product objects to a list of ProductResponse objects.
+     *
+     * @param products the list of Product objects to convert
+     * @return the list of converted ProductResponse objects
+     */
     protected List<ProductResponse> toProductResponse(List<Product> products) {
         return products
                 .stream()
@@ -94,10 +100,11 @@ public class ProductMapper {
                         product.getAvailableQuantity(),
                         product.getPrice(),
                         product.getCategory().getId(),
-                        product.getName(),
-                        product.getDescription()))
+                        product.getCategory().getName(),
+                        product.getCategory().getDescription()))
                 .toList();
     }
+
 
     public ProductResponse toProductResp(Product product) {
         if (product.getCategory() == null) {

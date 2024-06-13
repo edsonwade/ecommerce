@@ -1,5 +1,6 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
