@@ -1,0 +1,10 @@
+spring:
+  config:
+    import: optional:configserver:http://localhost:8888
+  application:
+    name: notification-service
+
+data:
+    mongodb:
+      username: ${MONGODB_USERNAME}
+      password: ${MONGODB_PASSWORD}

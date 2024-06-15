@@ -1,0 +1,21 @@
+Caused by: java.lang.IllegalArgumentException: The connection string is invalid. Connection strings must start with either 'mongodb://' or 'mongodb+srv://
+mongodb+srv://teste:MVQwertyy@dev.4ezbsq2.mongodb.net/
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import com.mongodb.client.MongoClient;
+import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
+
+@Configuration
+public class MongoConfig {
+
+    @Bean
+    public MongoTemplate mongoTemplate() {
+        return new MongoTemplate(new SimpleMongoClientDatabaseFactory("customer_service_db"));
+    }
+}
+
+Caused by: java.lang.IllegalArgumentException: The connection string is invalid. Connection strings must start with either 'mongodb://' or 'mongodb+srv://
+Fix used this
+mongodb+srv://teste:MVQwertyy@dev.4ezbsq2.mongodb.net/

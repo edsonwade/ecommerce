@@ -11,12 +11,22 @@
         <!-- Remove the relativePath element -->
     </parent>
 
+
+
     <groupId>code.with.vanilson</groupId>
     <artifactId>e-commerce-microservice</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>backend</module>
+        <module>customer-service</module>
+        <module>discovery-service</module>
+        <module>config-service</module>
+        <module>order-service</module>
+        <module>product-service</module>
+        <module>gateway-api-service</module>
+        <module>notification-service</module>
+        <module>payment-service</module>
+        <module>authentication-service</module>
     </modules>
     <properties>
         <java.version>17</java.version>

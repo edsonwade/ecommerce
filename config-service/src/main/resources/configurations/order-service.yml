@@ -1,0 +1,40 @@
+server:
+  port: 8083
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/order_service_db
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    jpa:
+      database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+    #kafka configuration
+    kafka:
+      producer:
+        bootstrap-servers: localhost:9092
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        properties:
+          spring.json.type.mapping: orderConfirmation:code.with.vanilson.orderservice.kafka.OrderConfirmation
+
+    # Flyway Migration Configuration
+
+    flyway:
+      locations: classpath:db/migration
+      baseline-on-migrate: true
+      enabled: true
+      baseline-description: "init"
+      baseline-version: 0
+      repair: true
+
+
+application:
+  config:
+    customer-url: http://localhost:8222/api/v1/customers #API GATEWAY PORT
+    payment-url: http://localhost:8222/api/v1/payments
+    product-url: http://localhost:8222/api/v1/products
+
