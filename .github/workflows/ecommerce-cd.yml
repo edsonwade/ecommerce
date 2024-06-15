@@ -33,7 +33,7 @@ jobs:
       - name: Build and push config-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/config-service
+          cd config-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/config-service:latest .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/config-service:latest
       
@@ -41,49 +41,49 @@ jobs:
       - name: Build and push discovery-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/discovery-service
+          cd discovery-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest
 
       - name: Build and push customer-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/customer-service
+          cd customer-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:today
 
       - name: Build and push product-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/product-service
+          cd product-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:today
 
       - name: Build and push order-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/order-service
+          cd order-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:today
 
       - name: Build and push payment-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/payment-service
+          cd payment-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:today
 
       - name: Build and push gateway-api-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/gateway-api-service
+          cd gateway-api-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-api-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-api-service:today
 
       - name: Build and push notification-service Docker image
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-          cd backend/notification-service
+          cd notification-service
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/notification-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/notification-service:today
 
