@@ -1,9 +1,0 @@
-###
-POST http://localhost:8081/api/v1/messages
-content-type: text/plain
-
-Now i'm consuming the message from topics.
-Its looks amazing doing this.
-
-<> 2024-02-14T224943.200.txt
-<> 2024-02-14T224816.200.txt
