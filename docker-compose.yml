@@ -1,45 +1,45 @@
-version: '3.8'
-
-services:
-  config-service:
-    build:
-      context: ./backend/config-service
-      dockerfile: Dockerfile
-    container_name: config-service
-    ports:
-      - "8888:8888"
-    networks:
-      - spring-cloud-network
-    environment:
-      - SPRING_PROFILES_ACTIVE=native
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  discovery-service:
-    build:
-      context: ./backend/discovery-service
-      dockerfile: Dockerfile
-    container_name: discovery-service
-    ports:
-      - "8761:8761"
-    networks:
-      - spring-cloud-network
-    depends_on:
-      config-service:
-        condition: service_healthy
-    environment:
-      - CONFIG_SERVICE_URI=http://config-service:8888
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761"]
-      interval: 10s
-      timeout: 5s
-      start_period: 15s
-
-networks:
-  spring-cloud-network:
-    driver: bridge
+#version: '3.8'
+#
+#services:
+#  config-service:
+#    build:
+#      context: ./backend/config-service
+#      dockerfile: Dockerfile
+#    container_name: config-service
+#    ports:
+#      - "8888:8888"
+#    networks:
+#      - spring-cloud-network
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=native
+#    restart: always
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#
+#  discovery-service:
+#    build:
+#      context: ./backend/discovery-service
+#      dockerfile: Dockerfile
+#    container_name: discovery-service
+#    ports:
+#      - "8761:8761"
+#    networks:
+#      - spring-cloud-network
+#    depends_on:
+#      config-service:
+#        condition: service_healthy
+#    environment:
+#      - CONFIG_SERVICE_URI=http://config-service:8888
+#    restart: unless-stopped
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:8761"]
+#      interval: 10s
+#      timeout: 5s
+#      start_period: 15s
+#
+#networks:
+#  spring-cloud-network:
+#    driver: bridge

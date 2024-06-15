@@ -1,0 +1,13 @@
+code\with\vanilson\authentication\dto\UserDTO.class
+code\with\vanilson\authentication\config\SecurityConfig.class
+code\with\vanilson\authentication\controller\UserRepository.class
+code\with\vanilson\authentication\AuthenticationApplication.class
+code\with\vanilson\authentication\config\PasswordEncoderConfig.class
+code\with\vanilson\authentication\jwt\JwtService.class
+code\with\vanilson\authentication\domian\User.class
+code\with\vanilson\authentication\mapper\UserMapper.class
+code\with\vanilson\authentication\domian\Token.class
+code\with\vanilson\authentication\repository\UserRepository.class
+code\with\vanilson\authentication\repository\TokenRepository.class
+code\with\vanilson\authentication\domian\Role.class
+code\with\vanilson\authentication\controller\auth\AuthenticationResponse.class
