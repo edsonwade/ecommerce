@@ -6,6 +6,7 @@ import code.with.vanilson.productservice.exception.ProductNullException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 class ProductMapperTest {
 
@@ -20,9 +22,11 @@ class ProductMapperTest {
 
     private Category category;
 
+    MessageSource messageSource = mock(MessageSource.class);
+
     @BeforeEach
     void setUp() {
-        productMapper = new ProductMapper();
+        productMapper = new ProductMapper(messageSource);
         category = new Category(1, "Game", "Game for kids");
     }
 

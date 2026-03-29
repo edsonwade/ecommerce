@@ -1,38 +1,41 @@
 package code.with.vanilson.paymentservice.config;
 
-import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
-import org.springframework.kafka.core.KafkaAdmin;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.EnableRetry;
-import org.springframework.retry.annotation.Retryable;
 
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * KafkaPaymentTopicConfig — Infrastructure Layer
+ * <p>
+ * Declares Kafka topics owned by payment-service.
+ * Topics are auto-created on startup if absent.
+ * <p>
+ * payment-topic: published after successful payment — triggers email notification.
+ * payment-topic.DLQ: receives events after all retry attempts are exhausted.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
 @Configuration
-@EnableRetry
 public class KafkaPaymentTopicConfig {
 
-    @Retryable(maxAttempts = 3,
-            backoff = @Backoff(delay = 1000, multiplier = 2),
-            retryFor = org.springframework.kafka.KafkaException.class)
     @Bean
     public NewTopic paymentTopic() {
         return TopicBuilder
                 .name("payment-topic")
+                .partitions(10)
+                .replicas(1)
                 .build();
     }
 
     @Bean
-    public KafkaAdmin kafkaAdmin() {
-        Map<String, Object> configs = new HashMap<>();
-        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-                "localhost:9092"); // Update with your Kafka bootstrap servers
-        return new KafkaAdmin(configs);
+    public NewTopic paymentTopicDlq() {
+        return TopicBuilder
+                .name("payment-topic.DLQ")
+                .partitions(3)
+                .replicas(1)
+                .build();
     }
 }

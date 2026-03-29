@@ -3,201 +3,154 @@ package code.with.vanilson.customerservice;
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
-import java.text.MessageFormat;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
-import static java.text.MessageFormat.*;
-
+/**
+ * CustomerService — Application Layer
+ * <p>
+ * Core business logic for customer management.
+ * <p>
+ * KEY CHANGES FROM ORIGINAL:
+ * 1. All hardcoded exception messages → MessageSource resolution from messages.properties.
+ * 2. Two lists merged into one: findAllCustomers() returns CustomerResponse (was split confusingly).
+ * 3. Redis L2 cache on reads — customers are relatively static, safe to cache 10 min.
+ * 4. Removed MongoTemplate constructor parameter (unused — deleted from constructor).
+ * 5. StringUtils.hasText() replaces deprecated Commons Lang StringUtils.isNotBlank().
+ * 6. Single Responsibility: each method does one thing.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
 @Slf4j
 @Service
 public class CustomerService {
 
+    private static final String CACHE_CUSTOMERS = "customers";
+    private static final String CACHE_CUSTOMER_LIST = "customer-list";
+
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
+    private final MessageSource messageSource;
 
-    public CustomerService(CustomerMapper customerMapper, CustomerRepository customerRepository,
-                           MongoTemplate mongoTemplate) {
+    public CustomerService(CustomerMapper customerMapper,
+                           CustomerRepository customerRepository,
+                           MessageSource messageSource) {
         this.customerMapper = customerMapper;
         this.customerRepository = customerRepository;
+        this.messageSource = messageSource;
     }
 
-    /**
-     * Retrieves all customers from the repository and maps them to a list of CustomerRequest objects.
-     *
-     * @return The list of CustomerRequest objects representing all customers.
-     */
-    public List<CustomerRequest> findAllCustomers() {
-        var customers = customerRepository.findAll();
-        log.info("List of Customers: {}", customers);
-        return customerMapper.toCustomers(customers);
-    }
+    // -------------------------------------------------------
+    // READ
+    // -------------------------------------------------------
 
-    /**
-     * Retrieves a list of all customers and maps them to CustomerResponse objects.
-     *
-     * @return The list of CustomerResponse objects representing all customers.
-     */
-    public List<CustomerResponse> listAllCustomers() {
-        var customers = customerRepository.findAll()
+    @Cacheable(CACHE_CUSTOMER_LIST)
+    public List<CustomerResponse> findAllCustomers() {
+        List<CustomerResponse> customers = customerRepository.findAll()
                 .stream()
                 .map(customerMapper::fromCustomer)
                 .toList();
-        log.info("Find all Customers: {}", customers);
+        log.info(msg("customer.log.all.found", customers.size()));
         return customers;
     }
 
-    /**
-     * Finds a customer by ID and returns the corresponding CustomerRequest.
-     *
-     * @param customerId The ID of the customer to find.
-     * @return The CustomerRequest object representing the customer found by ID.
-     * @throws CustomerNotFoundException if the customer is not found.
-     */
-    public CustomerRequest findCustomerById(String customerId) {
-        var customer = customerRepository.findByCustomerId(customerId);
-        log.info("Customer found: {}", customer);
-        if (customer.isPresent()) {
-            return customerMapper.toCustomerById(customer);
-        }
-        throw new CustomerNotFoundException(format("Customer With customerId {0} not found", customerId));
-    }
-
-    /**
-     * Retrieves a CustomerResponse by ID.
-     *
-     * @param customerId The ID of the customer to retrieve.
-     * @return The CustomerResponse if found, or throws CustomerNotFoundException if not found.
-     */
+    @Cacheable(value = CACHE_CUSTOMERS, key = "#customerId")
     public CustomerResponse getCustomerById(String customerId) {
         return customerRepository.findById(customerId)
-                .map(customerMapper::fromCustomer)
+                .map(c -> {
+                    log.info(msg("customer.log.found.by.id", c.getCustomerId(), c.getEmail()));
+                    return customerMapper.fromCustomer(c);
+                })
                 .orElseThrow(() -> new CustomerNotFoundException(
-                        format("Customer With id {0} not found", customerId)));
+                        msg("customer.not.found.by.id", customerId),
+                        "customer.not.found.by.id"));
     }
 
-    /**
-     * Finds a customer by email and returns the corresponding CustomerRequest.
-     *
-     * @param email The email of the customer to find.
-     * @return The CustomerRequest object representing the customer found by email.
-     * @throws CustomerNotFoundException if the customer is not found.
-     */
-
-    public CustomerRequest findCustomerByEmail(String email) {
-        var customer = customerRepository.findCustomerByEmail(email)
-                .orElseThrow(() -> new CustomerNotFoundException(format("Customer With id {0} not " +
-                        "found", email)));
-        return customerMapper.toCustomerById(Optional.ofNullable(customer));
+    @Cacheable(value = CACHE_CUSTOMERS, key = "'email-' + #email")
+    public CustomerResponse findByEmail(String email) {
+        return customerRepository.findCustomerByEmail(email)
+                .map(c -> {
+                    log.info(msg("customer.log.found.by.email", email));
+                    return customerMapper.fromCustomer(c);
+                })
+                .orElseThrow(() -> new CustomerNotFoundException(
+                        msg("customer.not.found.by.email", email),
+                        "customer.not.found.by.email"));
     }
 
-    /**
-     * Creates a new customer based on the provided CustomerRequest.
-     *
-     * @param customerRequest The CustomerRequest object containing customer details.
-     * @return The customer ID of the created customer.
-     */
-    public String createCustomer(CustomerRequest customerRequest) {
+    // -------------------------------------------------------
+    // WRITE
+    // -------------------------------------------------------
+
+    @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
+    public String createCustomer(CustomerRequest request) {
         try {
-            var customers = customerRepository.findCustomerByEmail(customerRequest.email());
-            if (customers.isPresent()) {
+            if (customerRepository.findCustomerByEmail(request.email()).isPresent()) {
+                log.warn(msg("customer.log.email.duplicate", request.email()));
                 throw new EmailAlreadyExistsException(
-                        MessageFormat.format("Customer With email {0} already exists", customerRequest.email()));
+                        msg("customer.email.already.exists", request.email()),
+                        "customer.email.already.exists");
             }
-            var customer = customerRepository.save(customerMapper.toCustomer(customerRequest));
-            log.info("Customer created: {}", customer);
-            return customer.getCustomerId();
+            Customer saved = customerRepository.save(customerMapper.toCustomer(request));
+            log.info(msg("customer.log.created", saved.getCustomerId(), saved.getEmail()));
+            return saved.getCustomerId();
         } catch (IncorrectResultSizeDataAccessException ex) {
             throw new EmailAlreadyExistsException(
-                    MessageFormat.format("Customer With email {0} already exists", customerRequest.email()));
+                    msg("customer.email.already.exists", request.email()),
+                    "customer.email.already.exists");
         }
     }
 
-    /**
-     * Requests to update a Customer with the provided CustomerRequest details.
-     *
-     * @param customerRequest The CustomerRequest object containing updated customer details.
-     */
-    public void requestToUpdateCustomer(CustomerRequest customerRequest) {
-        var customer = customerRepository.findById(customerRequest.customerId())
+    @Caching(evict = {
+            @CacheEvict(value = CACHE_CUSTOMERS, key = "#request.customerId()"),
+            @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
+    })
+    public CustomerResponse updateCustomer(String customerId, CustomerRequest request) {
+        var existing = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(
-                        format("Customer with id {0} not found", customerRequest.customerId())));
-
-        mergerCustomer(customer, customerRequest);
-        customerRepository.save(customer);
-
+                        msg("customer.not.found.by.id", request.customerId()),
+                        "customer.not.found.by.id"));
+        mergeFields(existing, request);
+        customerRepository.save(existing);
+        log.info(msg("customer.log.updated", existing.getCustomerId()));
+        return customerMapper.fromCustomer(existing);
     }
 
-    /**
-     * Merges the updated details from CustomerRequest into the existing Customer entity.
-     *
-     * @param customer        The existing Customer entity to be updated.
-     * @param customerRequest The CustomerRequest object with updated details.
-     */
-    private void mergerCustomer(Customer customer, CustomerRequest customerRequest) {
-        if (StringUtils.isNotBlank(customerRequest.firstname())) {
-            customer.setFirstname(customerRequest.firstname());
-        }
-        if (StringUtils.isNotBlank(customerRequest.lastname())) {
-            customer.setLastname(customerRequest.lastname());
-        }
-        if (StringUtils.isNotBlank(customerRequest.email())) {
-            customer.setEmail(customerRequest.email());
-        }
-        if (Objects.nonNull(customerRequest.address())) {
-            customer.setAddress(customerRequest.address());
-        }
-
-    }
-    /**
-     * Updates a Customer entity with new details and maps it to a CustomerRequest.
-     *
-     * @param customerId             The ID of the customer to update.
-     * @param updatedCustomerRequest The updated details for the customer.
-     * @return The updated CustomerRequest entity.
-     */
-    public CustomerRequest updateCustomer(String customerId, Customer updatedCustomerRequest) {
-        // Check if the customer ID exists
-        Customer existingCustomer = customerRepository.findByCustomerId(customerId)
-                .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
-
-        // Validate if the email already exists
-        if (!existingCustomer.getEmail().equals(updatedCustomerRequest.getEmail())
-                && customerRepository.existsById(updatedCustomerRequest.getEmail())) {
-            throw new EmailAlreadyExistsException("Email already exists");
-        }
-
-        // Update customer details with the new information
-        existingCustomer.setFirstname(updatedCustomerRequest.getFirstname());
-        existingCustomer.setLastname(updatedCustomerRequest.getLastname());
-        existingCustomer.setEmail(updatedCustomerRequest.getEmail());
-        existingCustomer.setAddress(updatedCustomerRequest.getAddress());
-
-        // Save the updated customer
-        Customer updatedCustomer = customerRepository.save(existingCustomer);
-
-        // Map the updated customer to CustomerRequest
-        return customerMapper.toCustomerRequest(updatedCustomer);
-    }
-
-    /**
-     * Deletes a customer by ID.
-     *
-     * @param customerId The ID of the customer to delete.
-     * @throws CustomerNotFoundException if the customer is not found.
-     */
+    @Caching(evict = {
+            @CacheEvict(value = CACHE_CUSTOMERS, key = "#customerId"),
+            @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
+    })
     public void deleteCustomer(String customerId) {
-        var customer = customerRepository.findById(customerId)
+        Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(
-                        format("Customer with id {0} not found", customerId)));
+                        msg("customer.not.found.by.id", customerId),
+                        "customer.not.found.by.id"));
         customerRepository.deleteById(customer.getCustomerId());
-
+        log.info(msg("customer.log.deleted", customerId));
     }
 
+    // -------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------
+
+    private void mergeFields(Customer customer, CustomerRequest request) {
+        if (StringUtils.hasText(request.firstname())) customer.setFirstname(request.firstname());
+        if (StringUtils.hasText(request.lastname())) customer.setLastname(request.lastname());
+        if (StringUtils.hasText(request.email())) customer.setEmail(request.email());
+        if (request.address() != null) customer.setAddress(request.address());
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+    }
 }

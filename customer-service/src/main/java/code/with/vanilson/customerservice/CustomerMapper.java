@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Objects.*;
+import static java.util.Objects.isNull;
 
 @Service
 @Slf4j
@@ -100,7 +100,7 @@ public class CustomerMapper {
                     customerEntity.getAddress());
         } else {
             log.error("Customer not found");
-            throw new CustomerNotFoundException("Customer not found");
+            throw new CustomerNotFoundException("Customer not found", "customer.not.found");
         }
     }
 

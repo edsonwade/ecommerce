@@ -1,28 +1,61 @@
 server:
-  port: 8081
+  port: 8090
+
 spring:
-  autoconfigure:
-    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-    #  # Payment Service MongoDB Configuration
-    data:
-      mongodb:
-        host: ${MONGODB_HOST}
-        port: ${MONGODB_PORT}
-        database: ${MONGODB_DATABASE}
-        username: ${MONGODB_USERNAME}
-        password: ${MONGODB_PASSWORD}
-        authentication-mechanism: ${MONGODB_AUTH_MECHANISM}
+  data:
+    # MongoDB — primary storage for customer profiles
+    # Sharding in production: hashed shard key on _id (customerId)
+    # Replica set: rs0 with 3 nodes (1 primary, 2 secondaries)
+    mongodb:
+      uri: mongodb://${MONGO_HOST:localhost}:27017/customer_db
+      auto-index-creation: true  # creates @Indexed indexes on startup
 
+    # Redis L2 Cache
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
 
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000      # 10 minutes TTL for customer data
+      cache-null-values: false
+    cache-names:
+      - customers
+      - customer-list
 
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
 
-# Prometheus Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 management:
   endpoints:
     web:
       exposure:
-        include: prometheus
-  prometheus:
-    metrics:
-      export:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
         enabled: true
+  tracing:
+    sampling:
+      probability: 1.0

@@ -1,15 +1,28 @@
 package code.with.vanilson.productservice.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.NOT_FOUND)
-public class ProductNotFoundException extends RuntimeException {
-    public ProductNotFoundException(String message) {
-        super(message);
+/**
+ * ProductNotFoundException
+ * <p>
+ * Thrown when a product cannot be located by ID.
+ * HTTP 404 Not Found.
+ * Message key: product.not.found
+ * <p>
+ * CHANGED FROM ORIGINAL: extends ProductBaseException (not RuntimeException directly).
+ * Messages are resolved from messages.properties — no hardcoded strings.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
+public class ProductNotFoundException extends ProductBaseException {
+
+    public ProductNotFoundException(String resolvedMessage, String messageKey) {
+        super(resolvedMessage, HttpStatus.NOT_FOUND, messageKey);
     }
 
-    public ProductNotFoundException(Throwable cause) {
-        super(cause);
+    public ProductNotFoundException(String resolvedMessage, String messageKey, Throwable cause) {
+        super(resolvedMessage, HttpStatus.NOT_FOUND, messageKey, cause);
     }
 }

@@ -1,45 +1,547 @@
-#version: '3.8'
+###############################################################
+# docker-compose.yml — SaaS eCommerce Platform (Phase 2)
+# Services: 10 Spring Boot apps + full infrastructure
 #
-#services:
-#  config-service:
-#    build:
-#      context: ./backend/config-service
-#      dockerfile: Dockerfile
-#    container_name: config-service
-#    ports:
-#      - "8888:8888"
-#    networks:
-#      - spring-cloud-network
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=native
-#    restart: always
-#    healthcheck:
-#      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
-#      interval: 30s
-#      timeout: 10s
-#      retries: 5
+# Ports:
+#   8888 config-service    8761 discovery-service
+#   8222 gateway           8085 authentication-service
+#   8090 customer-service  8082 product-service
+#   8083 order-service     8086 payment-service
+#   8091 cart-service      8040 notification-service
 #
-#  discovery-service:
-#    build:
-#      context: ./backend/discovery-service
-#      dockerfile: Dockerfile
-#    container_name: discovery-service
-#    ports:
-#      - "8761:8761"
-#    networks:
-#      - spring-cloud-network
-#    depends_on:
-#      config-service:
-#        condition: service_healthy
-#    environment:
-#      - CONFIG_SERVICE_URI=http://config-service:8888
-#    restart: unless-stopped
-#    healthcheck:
-#      test: ["CMD", "curl", "-f", "http://localhost:8761"]
-#      interval: 10s
-#      timeout: 5s
-#      start_period: 15s
-#
-#networks:
-#  spring-cloud-network:
-#    driver: bridge
+# Infrastructure:
+#   9092 Kafka   2181 Zookeeper   6379 Redis
+#   5432 postgres-order   5433 postgres-product
+#   5434 postgres-payment 5435 postgres-auth
+#   27017 MongoDB
+#   9090 Prometheus  3000 Grafana  9411 Zipkin  8025 MailHog
+###############################################################
+
+services:
+
+  # ============================================================
+  # INFRASTRUCTURE — Message Bus
+  # ============================================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_ENABLE_IDEMPOTENCE: "true"
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  # ============================================================
+  # INFRASTRUCTURE — Cache + Rate Limiting
+  # ============================================================
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # INFRASTRUCTURE — Databases (one per service)
+  # ============================================================
+
+  postgres-order:
+    image: postgres:15-alpine
+    container_name: postgres-order
+    environment:
+      POSTGRES_DB: order_service_db
+      POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-order-data:/var/lib/postgresql/data
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d order_service_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-product:
+    image: postgres:15-alpine
+    container_name: postgres-product
+    environment:
+      POSTGRES_DB: product_service_db
+      POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-product-data:/var/lib/postgresql/data
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d product_service_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-payment:
+    image: postgres:15-alpine
+    container_name: postgres-payment
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-payment-data:/var/lib/postgresql/data
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Phase 2: Auth service database
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-vanilson}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-vanilson}
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # INFRASTRUCTURE — Observability
+  # ============================================================
+
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9411/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config-service/src/main/resources/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy | grep -q Prometheus"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks: [ecommerce-net]
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks: [ecommerce-net]
+
+  # ============================================================
+  # SPRING CLOUD INFRASTRUCTURE
+  # ============================================================
+
+  config-service:
+    build:
+      context: ./config-service
+      dockerfile: Dockerfile
+    container_name: config-service
+    ports:
+      - "8888:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  discovery-service:
+    build:
+      context: ./discovery-service
+      dockerfile: Dockerfile
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    depends_on:
+      config-service:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  # ============================================================
+  # APPLICATION SERVICES
+  # ============================================================
+
+  gateway-api-service:
+    build:
+      context: ./gateway-api-service
+      dockerfile: Dockerfile
+    container_name: gateway-api-service
+    ports:
+      - "8222:8222"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
+      GATEWAY_MAX_CONCURRENT: 5000
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8222/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  # Phase 2: Authentication Service
+  authentication-service:
+    build:
+      context: ./authentication-service
+      dockerfile: Dockerfile
+    container_name: authentication-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      postgres-auth:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      POSTGRES_HOST: postgres-auth
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  customer-service:
+    build:
+      context: ./customer-service
+      dockerfile: Dockerfile
+    container_name: customer-service
+    ports:
+      - "8090:8090"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8090/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      postgres-product:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      POSTGRES_HOST: postgres-product
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+      REDIS_HOST: redis
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      postgres-order:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      POSTGRES_HOST: postgres-order
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      GATEWAY_HOST: gateway-api-service
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      postgres-payment:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      POSTGRES_HOST: postgres-payment
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  # Phase 2: Cart Service (Redis-native)
+  cart-service:
+    build:
+      context: ./cart-service
+      dockerfile: Dockerfile
+    container_name: cart-service
+    ports:
+      - "8091:8091"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8091/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8040:8040"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service
+      MONGO_HOST: mongodb
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      MAIL_USERNAME: noreply@vanilsonshop.io
+      MAIL_PASSWORD: unused
+    networks: [ecommerce-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8040/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  ecommerce-net:
+    driver: bridge
+
+# ============================================================
+# VOLUMES
+# ============================================================
+volumes:
+  redis-data:
+  postgres-order-data:
+  postgres-product-data:
+  postgres-payment-data:
+  postgres-auth-data:
+  mongodb-data:
+  prometheus-data:
+  grafana-data:

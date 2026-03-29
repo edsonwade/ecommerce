@@ -1,15 +1,18 @@
 package code.with.vanilson.customerservice.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.NOT_FOUND)
-public class CustomerNotFoundException extends RuntimeException {
-    public CustomerNotFoundException(String message) {
-        super(message);
-    }
+/**
+ * CustomerNotFoundException
+ * HTTP 404 Not Found.
+ * Message keys: customer.not.found.by.id | customer.not.found.by.email
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
+public class CustomerNotFoundException extends CustomerBaseException {
 
-    public CustomerNotFoundException(Throwable cause) {
-        super(cause);
+    public CustomerNotFoundException(String resolvedMessage, String messageKey) {
+        super(resolvedMessage, HttpStatus.NOT_FOUND, messageKey);
     }
 }

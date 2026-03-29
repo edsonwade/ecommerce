@@ -1,29 +1,261 @@
 server:
   port: 8222
+
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+
   cloud:
     gateway:
       discovery:
         locator:
           enabled: true
+          lower-case-service-id: true
+
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 100
+            redis-rate-limiter.burstCapacity: 200
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@tenantKeyResolver}"
+
       routes:
+
+        # -------------------------------------------------------
+        # AUTH SERVICE — public, bypasses JWT filter
+        # -------------------------------------------------------
+        - id: auth-service
+          uri: lb://AUTHENTICATION-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**
+          # No rate limiting override — inherits default 100/s
+          # No circuit breaker — auth must always be reachable
+
+        # -------------------------------------------------------
+        # CUSTOMER SERVICE
+        # -------------------------------------------------------
         - id: customer-service
-          uri: lb:http://CUSTOMER-SERVICE
+          uri: lb://CUSTOMER-SERVICE
           predicates:
             - Path=/api/v1/customers/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: customer-cb
+                fallbackUri: forward:/fallback/customers
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+                  factor: 2
+
+        # -------------------------------------------------------
+        # CART SERVICE — high throughput, Redis-backed
+        # -------------------------------------------------------
+        - id: cart-service
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/api/v1/carts/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: cart-cb
+                fallbackUri: forward:/fallback/carts
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 200
+                redis-rate-limiter.burstCapacity: 400
+                key-resolver: "#{@tenantKeyResolver}"
+            - name: Retry
+              args:
+                retries: 1
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 200ms
+                  factor: 2
+
+        # -------------------------------------------------------
+        # ORDER SERVICE
+        # -------------------------------------------------------
         - id: order-service
-          uri: lb:http://ORDER-SERVICE
+          uri: lb://ORDER-SERVICE
           predicates:
             - Path=/api/v1/orders/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: order-cb
+                fallbackUri: forward:/fallback/orders
+            - name: Retry
+              args:
+                retries: 1
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 1000ms
+                  factor: 2
+
+        # -------------------------------------------------------
+        # ORDER LINES SERVICE (same app as order-service)
+        # -------------------------------------------------------
         - id: order-lines-service
-          uri: lb:http://ORDER-SERVICE
+          uri: lb://ORDER-SERVICE
           predicates:
             - Path=/api/v1/order-lines/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: order-cb
+                fallbackUri: forward:/fallback/orders
+
+        # -------------------------------------------------------
+        # PRODUCT SERVICE
+        # -------------------------------------------------------
         - id: product-service
-          uri: lb:http://PRODUCT-SERVICE
+          uri: lb://PRODUCT-SERVICE
           predicates:
             - Path=/api/v1/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: product-cb
+                fallbackUri: forward:/fallback/products
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+                  factor: 2
+
+        # -------------------------------------------------------
+        # PAYMENT SERVICE — stricter rate limits (financial endpoint)
+        # -------------------------------------------------------
         - id: payment-service
-          uri: lb:http://PAYMENT-SERVICE
+          uri: lb://PAYMENT-SERVICE
           predicates:
             - Path=/api/v1/payments/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: payment-cb
+                fallbackUri: forward:/fallback/payments
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 30
+                key-resolver: "#{@tenantKeyResolver}"
+
+        # -------------------------------------------------------
+        # FALLBACK ROUTES
+        # -------------------------------------------------------
+        - id: fallback-route
+          uri: no://op
+          predicates:
+            - Path=/fallback/**
+
+# -------------------------------------------------------
+# Resilience4j Circuit Breakers
+# -------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    instances:
+      customer-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
+      cart-cb:
+        sliding-window-size: 20
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 5
+        slow-call-rate-threshold: 90
+        slow-call-duration-threshold: 1s   # Redis should be < 1ms; 1s = Redis down
+      order-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
+      product-cb:
+        sliding-window-size: 20
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 5
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 2s
+      payment-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 30
+        wait-duration-in-open-state: 60s
+        permitted-number-of-calls-in-half-open-state: 2
+        slow-call-rate-threshold: 70
+        slow-call-duration-threshold: 5s
+
+# -------------------------------------------------------
+# Gateway custom properties
+# -------------------------------------------------------
+gateway:
+  jwt:
+    secret: ${JWT_SECRET:bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
+  public-paths:
+    - /api/v1/auth/**
+    - /actuator/**
+    - /fallback/**
+  load-shedding:
+    max-concurrent-requests: ${GATEWAY_MAX_CONCURRENT:5000}
+
+# -------------------------------------------------------
+# Eureka
+# -------------------------------------------------------
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# -------------------------------------------------------
+# Actuator
+# -------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway,prometheus
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0

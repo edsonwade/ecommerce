@@ -1,11 +1,18 @@
 package code.with.vanilson.customerservice.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.CONFLICT)
-public class EmailAlreadyExistsException extends RuntimeException {
-    public EmailAlreadyExistsException(String message) {
-        super(message);
+/**
+ * EmailAlreadyExistsException
+ * HTTP 409 Conflict.
+ * Message key: customer.email.already.exists
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
+public class EmailAlreadyExistsException extends CustomerBaseException {
+
+    public EmailAlreadyExistsException(String resolvedMessage, String messageKey) {
+        super(resolvedMessage, HttpStatus.CONFLICT, messageKey);
     }
 }
