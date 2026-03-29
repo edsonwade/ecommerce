@@ -10,8 +10,8 @@ WORKDIR /build
 # Copy entire project structure (required for multi-module Maven)
 COPY . .
 
-# Build only the  discovery-service module
-RUN mvn -B clean package -DskipTests=true -pl  discovery-service -am
+# Build only the discovery-service module
+RUN mvn -B clean package -DskipTests=true -pl discovery-service -am
 
 
 # ===================================================================
@@ -36,7 +36,7 @@ RUN mkdir -p /app/logs /app/config /app/temp && \
     chown -R appuser:appgroup /app
 
 # Copy the built artifact from builder stage
-COPY --from=builder /build/target/*.jar app.jar
+COPY --from=builder /build/discovery-service/target/*.jar app.jar
 
 # Switch to non-root user
 USER appuser
