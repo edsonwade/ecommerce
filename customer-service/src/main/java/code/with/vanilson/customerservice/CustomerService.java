@@ -17,71 +17,89 @@ import java.util.List;
 /**
  * CustomerService — Application Layer
  * <p>
- * Core business logic for customer management.
+ * Core business logic for customer profile management.
  * <p>
- * KEY CHANGES FROM ORIGINAL:
- * 1. All hardcoded exception messages → MessageSource resolution from messages.properties.
- * 2. Two lists merged into one: findAllCustomers() returns CustomerResponse (was split confusingly).
- * 3. Redis L2 cache on reads — customers are relatively static, safe to cache 10 min.
- * 4. Removed MongoTemplate constructor parameter (unused — deleted from constructor).
- * 5. StringUtils.hasText() replaces deprecated Commons Lang StringUtils.isNotBlank().
- * 6. Single Responsibility: each method does one thing.
+ * Design decisions:
+ * - Redis L2 cache: reads cached 10 minutes (customers change rarely)
+ * - Every write evicts the relevant cache entries
+ * - All messages resolved from messages.properties via MessageSource
+ * - Single Responsibility (SOLID-S): each method does one thing
+ * <p>
+ * BUG FIXED: @CacheEvict on updateCustomer used #request.customerId() which can be null
+ * (CustomerRequest.customerId is optional on update). Fixed to use #customerId param.
  * </p>
  *
  * @author vamuhong
- * @version 2.0
+ * @version 3.0
  */
 @Slf4j
 @Service
 public class CustomerService {
 
-    private static final String CACHE_CUSTOMERS = "customers";
+    private static final String CACHE_CUSTOMERS    = "customers";
     private static final String CACHE_CUSTOMER_LIST = "customer-list";
 
     private final CustomerRepository customerRepository;
-    private final CustomerMapper customerMapper;
-    private final MessageSource messageSource;
+    private final CustomerMapper     customerMapper;
+    private final MessageSource      messageSource;
 
     public CustomerService(CustomerMapper customerMapper,
                            CustomerRepository customerRepository,
                            MessageSource messageSource) {
-        this.customerMapper = customerMapper;
+        this.customerMapper     = customerMapper;
         this.customerRepository = customerRepository;
-        this.messageSource = messageSource;
+        this.messageSource      = messageSource;
     }
 
     // -------------------------------------------------------
     // READ
     // -------------------------------------------------------
 
+    /**
+     * Returns all customers, cached for 10 minutes.
+     */
     @Cacheable(CACHE_CUSTOMER_LIST)
     public List<CustomerResponse> findAllCustomers() {
         List<CustomerResponse> customers = customerRepository.findAll()
                 .stream()
-                .map(customerMapper::fromCustomer)
+                .map(customerMapper::toResponse)
                 .toList();
         log.info(msg("customer.log.all.found", customers.size()));
         return customers;
     }
 
+    /**
+     * Returns a customer by their ID.
+     *
+     * @param customerId the customer's unique ID
+     * @return CustomerResponse DTO
+     * @throws CustomerNotFoundException if no customer exists with this ID
+     */
     @Cacheable(value = CACHE_CUSTOMERS, key = "#customerId")
     public CustomerResponse getCustomerById(String customerId) {
         return customerRepository.findById(customerId)
                 .map(c -> {
                     log.info(msg("customer.log.found.by.id", c.getCustomerId(), c.getEmail()));
-                    return customerMapper.fromCustomer(c);
+                    return customerMapper.toResponse(c);
                 })
                 .orElseThrow(() -> new CustomerNotFoundException(
                         msg("customer.not.found.by.id", customerId),
                         "customer.not.found.by.id"));
     }
 
+    /**
+     * Returns a customer by their email address.
+     *
+     * @param email the customer's email
+     * @return CustomerResponse DTO
+     * @throws CustomerNotFoundException if no customer exists with this email
+     */
     @Cacheable(value = CACHE_CUSTOMERS, key = "'email-' + #email")
     public CustomerResponse findByEmail(String email) {
         return customerRepository.findCustomerByEmail(email)
                 .map(c -> {
                     log.info(msg("customer.log.found.by.email", email));
-                    return customerMapper.fromCustomer(c);
+                    return customerMapper.toResponse(c);
                 })
                 .orElseThrow(() -> new CustomerNotFoundException(
                         msg("customer.not.found.by.email", email),
@@ -92,6 +110,13 @@ public class CustomerService {
     // WRITE
     // -------------------------------------------------------
 
+    /**
+     * Creates a new customer.
+     *
+     * @param request validated customer creation request
+     * @return generated customer ID
+     * @throws EmailAlreadyExistsException if a customer with this email already exists
+     */
     @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
     public String createCustomer(CustomerRequest request) {
         try {
@@ -101,9 +126,11 @@ public class CustomerService {
                         msg("customer.email.already.exists", request.email()),
                         "customer.email.already.exists");
             }
-            Customer saved = customerRepository.save(customerMapper.toCustomer(request));
+            Customer saved = customerRepository.save(customerMapper.toEntity(request));
             log.info(msg("customer.log.created", saved.getCustomerId(), saved.getEmail()));
             return saved.getCustomerId();
+        } catch (EmailAlreadyExistsException ex) {
+            throw ex; // re-throw typed exception
         } catch (IncorrectResultSizeDataAccessException ex) {
             throw new EmailAlreadyExistsException(
                     msg("customer.email.already.exists", request.email()),
@@ -111,23 +138,39 @@ public class CustomerService {
         }
     }
 
+    /**
+     * Updates an existing customer.
+     * BUG FIX: CacheEvict uses #customerId (method param) — not #request.customerId()
+     * which is nullable.
+     *
+     * @param customerId the ID of the customer to update
+     * @param request    the updated fields
+     * @return updated CustomerResponse DTO
+     * @throws CustomerNotFoundException if no customer exists with this ID
+     */
     @Caching(evict = {
-            @CacheEvict(value = CACHE_CUSTOMERS, key = "#request.customerId()"),
+            @CacheEvict(value = CACHE_CUSTOMERS,     key = "#customerId"),
             @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
     })
     public CustomerResponse updateCustomer(String customerId, CustomerRequest request) {
-        var existing = customerRepository.findById(customerId)
+        Customer existing = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(
-                        msg("customer.not.found.by.id", request.customerId()),
+                        msg("customer.not.found.by.id", customerId),
                         "customer.not.found.by.id"));
         mergeFields(existing, request);
-        customerRepository.save(existing);
-        log.info(msg("customer.log.updated", existing.getCustomerId()));
-        return customerMapper.fromCustomer(existing);
+        Customer saved = customerRepository.save(existing);
+        log.info(msg("customer.log.updated", saved.getCustomerId()));
+        return customerMapper.toResponse(saved);
     }
 
+    /**
+     * Deletes a customer by ID.
+     *
+     * @param customerId the ID of the customer to delete
+     * @throws CustomerNotFoundException if no customer exists with this ID
+     */
     @Caching(evict = {
-            @CacheEvict(value = CACHE_CUSTOMERS, key = "#customerId"),
+            @CacheEvict(value = CACHE_CUSTOMERS,     key = "#customerId"),
             @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
     })
     public void deleteCustomer(String customerId) {
@@ -143,11 +186,15 @@ public class CustomerService {
     // Private helpers
     // -------------------------------------------------------
 
+    /**
+     * Merges non-blank fields from the request into the existing customer entity.
+     * Fields that are null or blank in the request are left unchanged.
+     */
     private void mergeFields(Customer customer, CustomerRequest request) {
         if (StringUtils.hasText(request.firstname())) customer.setFirstname(request.firstname());
-        if (StringUtils.hasText(request.lastname())) customer.setLastname(request.lastname());
-        if (StringUtils.hasText(request.email())) customer.setEmail(request.email());
-        if (request.address() != null) customer.setAddress(request.address());
+        if (StringUtils.hasText(request.lastname()))  customer.setLastname(request.lastname());
+        if (StringUtils.hasText(request.email()))     customer.setEmail(request.email());
+        if (request.address() != null)                customer.setAddress(request.address());
     }
 
     private String msg(String key, Object... args) {

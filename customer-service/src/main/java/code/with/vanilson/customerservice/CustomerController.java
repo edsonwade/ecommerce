@@ -1,6 +1,12 @@
 package code.with.vanilson.customerservice;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,114 +17,139 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * CustomerController — Presentation Layer
+ * <p>
+ * REST controller for customer profile management.
+ * Single Responsibility (SOLID-S): HTTP concerns only — all business logic in CustomerService.
+ * <p>
+ * REST best practices applied:
+ * - GET    /api/v1/customers          → list all customers
+ * - GET    /api/v1/customers/{id}     → get by ID
+ * - GET    /api/v1/customers/email?address=x → get by email (query param, not path)
+ * - POST   /api/v1/customers          → create customer (returns 201)
+ * - PUT    /api/v1/customers/{id}     → full update (returns 200)
+ * - DELETE /api/v1/customers/{id}     → delete (returns 204)
+ * <p>
+ * BUGS FIXED from original:
+ * - Removed duplicate @GetMapping on root (caused ambiguous mapping error at startup)
+ * - getById now calls getCustomerById, not findByEmail
+ * - Removed non-REST paths: /create-customer, /update-customer/{id}, /delete-customer/{id}
+ * - DELETE returns 204 No Content (was 202 Accepted)
+ * - Added Swagger OpenAPI annotations on all endpoints
+ * </p>
+ *
+ * @author vamuhong
+ * @version 3.0
+ */
 @RestController
-@RequestMapping(path = "/api/v1/customers")
+@RequestMapping("/api/v1/customers")
+@RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Customer API", description = "Customer profile management")
 public class CustomerController {
 
     private final CustomerService customerService;
 
-    public CustomerController(CustomerService customerService) {
-        this.customerService = customerService;
-    }
+    // -------------------------------------------------------
+    // GET — list all
+    // -------------------------------------------------------
 
-    /**
-     * Endpoint to get all customers and return them as a ResponseEntity with a list of CustomerRequest objects.
-     *
-     * @return ResponseEntity with the list of CustomerRequest objects representing all customers.
-     */
-    @GetMapping
-    public ResponseEntity<List<CustomerResponse>> getCustomers() {
-        log.info("get customers");
-        return ResponseEntity.ok(customerService.findAllCustomers());
-    }
-
-    /**
-     * Endpoint to get all customers and return them as a ResponseEntity with a list of CustomerResponse objects.
-     *
-     * @return ResponseEntity with the list of CustomerResponse objects representing all customers.
-     */
+    @Operation(summary = "List all customers")
+    @ApiResponse(responseCode = "200", description = "Customer list returned")
     @GetMapping
     public ResponseEntity<List<CustomerResponse>> getAllCustomers() {
-        log.info("get all customers");
+        log.info("GET /api/v1/customers — list all customers");
         return ResponseEntity.ok(customerService.findAllCustomers());
     }
 
-    /**
-     * Retrieves a CustomerResponse by ID.
-     *
-     * @param customerId The ID of the customer to retrieve.
-     * @return ResponseEntity with the CustomerResponse if found, 404 Not Found if not found.
-     */
-    @GetMapping(value = "/{customer-id}")
-    public ResponseEntity<CustomerResponse> getCustomersById(@PathVariable(name = "customer-id") String customerId) {
-        log.info("Get customer by id: {}", customerId);
-        return ResponseEntity.ok(customerService.findByEmail(customerId));
+    // -------------------------------------------------------
+    // GET — by ID
+    // -------------------------------------------------------
+
+    @Operation(summary = "Get customer by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Customer found"),
+        @ApiResponse(responseCode = "404", description = "Customer not found")
+    })
+    @GetMapping("/{id}")
+    public ResponseEntity<CustomerResponse> getCustomerById(
+            @PathVariable @Parameter(description = "Customer ID") String id) {
+        log.info("GET /api/v1/customers/{} — get by ID", id);
+        return ResponseEntity.ok(customerService.getCustomerById(id));
     }
 
-    /**
-     * Retrieves a CustomerResponse by ID.
-     *
-     * @param customerId The ID of the customer to retrieve.
-     * @return ResponseEntity with the CustomerRequest if found, 404 Not Found if not found.
-     */
-    @GetMapping(value = "/response-customer/{customer-id}")
-    public ResponseEntity<CustomerResponse> getCustomerById(@PathVariable(name = "customer-id") String customerId) {
-        log.info("Get customer response by id: {}", customerId);
-        return ResponseEntity.ok(customerService.getCustomerById(customerId));
+    // -------------------------------------------------------
+    // GET — by email (query param, not path segment — email contains @)
+    // -------------------------------------------------------
+
+    @Operation(summary = "Get customer by email",
+               description = "Use query parameter: /api/v1/customers/by-email?address=user@example.com")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Customer found"),
+        @ApiResponse(responseCode = "404", description = "Customer not found")
+    })
+    @GetMapping("/by-email")
+    public ResponseEntity<CustomerResponse> getCustomerByEmail(
+            @RequestParam @Parameter(description = "Customer email address") String address) {
+        log.info("GET /api/v1/customers/by-email?address={} — get by email", address);
+        return ResponseEntity.ok(customerService.findByEmail(address));
     }
 
-    /**
-     * Retrieves a CustomerRequest by email.
-     *
-     * @param customerEmail The email of the customer to retrieve.
-     * @return ResponseEntity with the CustomerRequest if found, 404 Not Found if not found.
-     */
-    @GetMapping(value = "/email/{customer-email}")
-    public ResponseEntity<CustomerResponse> getCustomersByEmail(
-            @PathVariable(name = "customer-email") String customerEmail) {
-        log.info("Get customer by email: {}", customerEmail);
-        return ResponseEntity.ok(customerService.findByEmail(customerEmail));
-    }
+    // -------------------------------------------------------
+    // POST — create
+    // -------------------------------------------------------
 
-    /**
-     * Endpoint to add a new customer.
-     *
-     * @param customerRequest The CustomerRequest object containing customer details.
-     * @return ResponseEntity with the customer ID of the created customer.
-     */
-    @PostMapping("/create-customer")
-    public ResponseEntity<String> addCustomer(@RequestBody @Valid CustomerRequest customerRequest) {
-        // Return ResponseEntity with 201 Created statuses
-        log.info("add customer: {}", customerRequest);
+    @Operation(summary = "Create a new customer")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Customer created"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "409", description = "Email already registered")
+    })
+    @PostMapping
+    public ResponseEntity<String> createCustomer(@RequestBody @Valid CustomerRequest request) {
+        log.info("POST /api/v1/customers — create customer email=[{}]", request.email());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(customerService.createCustomer(customerRequest));
+                .body(customerService.createCustomer(request));
     }
 
-    @PutMapping(value = "/update-customer/{id}")
+    // -------------------------------------------------------
+    // PUT — full update
+    // -------------------------------------------------------
+
+    @Operation(summary = "Update customer by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Customer updated"),
+        @ApiResponse(responseCode = "404", description = "Customer not found"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data")
+    })
+    @PutMapping("/{id}")
     public ResponseEntity<CustomerResponse> updateCustomer(
             @PathVariable String id,
-            @RequestBody @Valid CustomerRequest customerRequest) {
-        log.info("update customer: {}", customerRequest);
-        var customer = customerService.updateCustomer(id, customerRequest);
-        return ResponseEntity.ok(customer);
+            @RequestBody @Valid CustomerRequest request) {
+        log.info("PUT /api/v1/customers/{} — update customer", id);
+        return ResponseEntity.ok(customerService.updateCustomer(id, request));
     }
 
-    /**
-     * Endpoint to delete a customer by ID.
-     *
-     * @param customerId The ID of the customer to delete.
-     * @return ResponseEntity with 204 No Content if successful, or 404 Not Found if the customer is not found.
-     */
-    @DeleteMapping(value = "/delete-customer/{customer-id}")
-    public ResponseEntity<Void> deleteCustomerById(@PathVariable(name = "customer-id") String customerId) {
-        customerService.deleteCustomer(customerId);
-        return ResponseEntity.accepted().build();
-    }
+    // -------------------------------------------------------
+    // DELETE
+    // -------------------------------------------------------
 
+    @Operation(summary = "Delete customer by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Customer deleted"),
+        @ApiResponse(responseCode = "404", description = "Customer not found")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCustomer(@PathVariable String id) {
+        log.info("DELETE /api/v1/customers/{} — delete customer", id);
+        customerService.deleteCustomer(id);
+        return ResponseEntity.noContent().build();
+    }
 }
