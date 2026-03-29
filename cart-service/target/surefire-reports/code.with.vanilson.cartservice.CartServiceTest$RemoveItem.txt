@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: code.with.vanilson.cartservice.CartServiceTest$RemoveItem
 -------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.116 s -- in code.with.vanilson.cartservice.CartServiceTest$RemoveItem
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.070 s -- in code.with.vanilson.cartservice.CartServiceTest$RemoveItem

@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: code.with.vanilson.paymentservice.PaymentServiceTest
 -------------------------------------------------------------------------------
-Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.110 s -- in code.with.vanilson.paymentservice.PaymentServiceTest
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.164 s -- in code.with.vanilson.paymentservice.PaymentServiceTest

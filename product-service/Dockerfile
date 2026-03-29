@@ -6,17 +6,11 @@ FROM maven:3.9.5-eclipse-temurin-17 AS builder
 # Set working directory
 WORKDIR /build
 
-# Copy pom.xml first for dependency caching
-COPY pom.xml .
+# Copy entire project structure (required for multi-module Maven)
+COPY . .
 
-# Download dependencies (cached layer)
-RUN mvn dependency:go-offline -B
-
-# Copy source code
-COPY src ./src
-
-# Build the application with production profile
-RUN mvn -B clean package -DskipTests=true
+# Build only the product-service module
+RUN mvn -B clean package -DskipTests=true -pl product-service -am
 
 # ===================================================================
 # Stage 2: Runtime Stage
@@ -40,7 +34,7 @@ RUN mkdir -p /app/logs /app/config /app/temp && \
     chown -R appuser:appgroup /app
 
 # Copy the built artifact from builder stage
-COPY --from=builder /build/target/*.jar app.jar
+COPY --from=builder /build/product-service/target/*.jar app.jar
 
 # Switch to non-root user
 USER appuser
