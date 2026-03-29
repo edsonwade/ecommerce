@@ -3,3 +3,6 @@ spring:
     import: optional:configserver:http://localhost:8888
   application:
     name: customer-service
+  data:
+    mongodb:
+      uri: mongodb+srv://vanilson:MVQzTkSWXykmWXQN@dev.4ezbsq2.mongodb.net/customer_service_db
