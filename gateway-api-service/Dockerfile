@@ -35,7 +35,7 @@ RUN mkdir -p /app/logs /app/config /app/temp && \
     chown -R appuser:appgroup /app
 
 # Copy the built artifact from builder stage
-COPY --from=builder /build/target/*.jar app.jar
+COPY --from=builder /build/gateway-api-service/target/*.jar app.jar
 
 # Switch to non-root user
 USER appuser
