@@ -1,5 +1,6 @@
 package code.with.vanilson.customerservice;
 
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.*;

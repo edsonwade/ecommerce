@@ -10,8 +10,8 @@ WORKDIR /build
 # Copy entire project structure (required for multi-module Maven)
 COPY . .
 
-# Build only the  config-service module
-RUN mvn -B clean package -DskipTests=true -pl  config-service -am
+# Build only the config-service module
+RUN mvn -B clean package -DskipTests=true -pl config-service -am
 
 # ===================================================================
 # Stage 2: Runtime Stage
@@ -35,7 +35,7 @@ RUN mkdir -p /app/logs /app/config /app/temp && \
     chown -R appuser:appgroup /app
 
 # Copy the built artifact from builder stage
-COPY --from=builder /build/target/*.jar app.jar
+COPY --from=builder /build/config-service/target/*.jar app.jar
 
 # Switch to non-root user
 USER appuser

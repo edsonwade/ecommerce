@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
  * CartServiceTest — Unit Tests
  * <p>
  * Framework: JUnit 5 + Mockito + AssertJ.
- * @Nested classes group scenarios by operation.
+ * &#064;Nested  classes group scenarios by operation.
  * MessageSource mocked to return the key — no .properties file dependency.
  * </p>
  *

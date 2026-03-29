@@ -31,7 +31,6 @@
 
     <properties>
         <java.version>17</java.version>
-        <mockito.version>5.12.0</mockito.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
         <testcontainers.version>1.19.7</testcontainers.version>
         <springdoc-openapi.version>2.3.0</springdoc-openapi.version>
@@ -46,11 +45,25 @@
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/jakarta.persistence/jakarta.persistence-api -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+            <version>3.1.0</version>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+
     </dependencies>
 
     <dependencyManagement>
@@ -84,8 +97,12 @@
                 <executions>
                     <execution>
                         <id>repackage</id>
-                        <goals><goal>repackage</goal></goals>
-                        <configuration><skip>true</skip></configuration>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

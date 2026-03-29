@@ -1,8 +1,6 @@
-../config-service/HELP.md
-backend/config-service/target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Maven target directories
+target/
+**/target/
 
 ### STS ###
 .apt_generated
