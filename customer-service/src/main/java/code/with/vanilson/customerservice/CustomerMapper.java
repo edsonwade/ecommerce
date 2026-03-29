@@ -1,63 +1,56 @@
 package code.with.vanilson.customerservice;
 
-import code.with.vanilson.customerservice.exception.CustomerBadRequestException;
-import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Optional;
-
-import static java.util.Objects.isNull;
-
-@Service
+/**
+ * CustomerMapper — Application Layer
+ * <p>
+ * Pure mapping between Customer entity and request/response DTOs.
+ * Single Responsibility (SOLID-S): only maps — never throws business exceptions.
+ * <p>
+ * BUG FIXED: original mapper threw CustomerBadRequestException with hardcoded strings.
+ * Mapper should never throw business exceptions — that is the service's responsibility.
+ * Null input returns null; callers must guard before using the result.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 3.0
+ */
+@Component
 @Slf4j
 public class CustomerMapper {
 
-    private final static String CUSTOMER_CANNOT_BE_NULL = "Customer cannot be null";
-    private final static String CUSTOMER_IS_NULL = "Customer is null";
-
     /**
-     * Converts a CustomerRequest object to a Customer entity.
+     * Maps a CustomerRequest DTO to a Customer entity for persistence.
      *
-     * @param customerRequest The CustomerRequest object to be converted.
-     * @return The Customer entity created from the CustomerRequest.
-     * @throws CustomerBadRequestException if the CustomerRequest is null.
+     * @param request the validated customer request
+     * @return Customer entity, or null if request is null
      */
-    public Customer toCustomer(CustomerRequest customerRequest) {
-        if (isNull(customerRequest)) {
-            log.error("CustomerRequest is null");
-            throw new CustomerBadRequestException("CustomerRequest cannot be null");
+    public Customer toEntity(CustomerRequest request) {
+        if (request == null) {
+            log.warn("[CustomerMapper] toEntity called with null request");
+            return null;
         }
-
         return Customer.builder()
-                .customerId(customerRequest.customerId())
-                .firstname(customerRequest.firstname())
-                .lastname(customerRequest.lastname())
-                .email(customerRequest.email())
-                .address(customerRequest.address())
+                .customerId(request.customerId())
+                .firstname(request.firstname())
+                .lastname(request.lastname())
+                .email(request.email())
+                .address(request.address())
                 .build();
     }
 
-    public CustomerRequest toCustomerRequest(Customer customerRequest) {
-        if (isNull(customerRequest)) {
-            customerIsNull();
-            throw new CustomerBadRequestException(CUSTOMER_CANNOT_BE_NULL);
-        }
-        return new CustomerRequest(
-                customerRequest.getCustomerId(),
-                customerRequest.getFirstname(),
-                customerRequest.getLastname(),
-                customerRequest.getEmail(),
-                customerRequest.getAddress()
-        );
-
-    }
-
-    protected CustomerResponse fromCustomer(Customer customer) {
-        if (isNull(customer)) {
-            customerIsNull();
-            throw new CustomerBadRequestException(CUSTOMER_CANNOT_BE_NULL);
+    /**
+     * Maps a Customer entity to a CustomerResponse DTO.
+     *
+     * @param customer the persisted Customer entity
+     * @return CustomerResponse DTO, or null if customer is null
+     */
+    public CustomerResponse toResponse(Customer customer) {
+        if (customer == null) {
+            log.warn("[CustomerMapper] toResponse called with null customer");
+            return null;
         }
         return new CustomerResponse(
                 customer.getCustomerId(),
@@ -69,46 +62,23 @@ public class CustomerMapper {
     }
 
     /**
-     * Converts a list of Customer entities to a list of CustomerRequest objects.
+     * Maps a Customer entity to a CustomerRequest DTO.
+     * Used when the request representation is needed (e.g. Feign client contracts).
      *
-     * @param customers The list of Customer entities to be converted.
-     * @return The list of CustomerRequest objects created from the Customer entities.
+     * @param customer the Customer entity
+     * @return CustomerRequest DTO, or null if customer is null
      */
-    public List<CustomerRequest> toCustomers(List<Customer> customers) {
-        return customers.stream()
-                .map(customer1 -> new CustomerRequest(customer1.getCustomerId(),
-                        customer1.getFirstname(), customer1.getLastname(), customer1.getEmail(),
-                        customer1.getAddress()))
-                .toList();
-    }
-
-    /**
-     * Converts an Optional of Customer to a CustomerRequest by id.
-     *
-     * @param customer The Optional of Customer to be converted.
-     * @return CustomerRequest if Customer is present, null otherwise.
-     * @throws CustomerNotFoundException if Customer is not found.
-     */
-    protected CustomerRequest toCustomerById(Optional<Customer> customer) {
-        if (customer.isPresent()) {
-            Customer customerEntity = customer.get();
-            log.info("CustomerEntity: {}", customerEntity);
-            return new CustomerRequest(customerEntity.getCustomerId(),
-                    customerEntity.getFirstname(),
-                    customerEntity.getLastname(),
-                    customerEntity.getEmail(),
-                    customerEntity.getAddress());
-        } else {
-            log.error("Customer not found");
-            throw new CustomerNotFoundException("Customer not found", "customer.not.found");
+    public CustomerRequest toRequest(Customer customer) {
+        if (customer == null) {
+            log.warn("[CustomerMapper] toRequest called with null customer");
+            return null;
         }
-    }
-
-    /**
-     * return message when the object is null.
-     */
-
-    private static void customerIsNull() {
-        log.error(CUSTOMER_IS_NULL);
+        return new CustomerRequest(
+                customer.getCustomerId(),
+                customer.getFirstname(),
+                customer.getLastname(),
+                customer.getEmail(),
+                customer.getAddress()
+        );
     }
 }
