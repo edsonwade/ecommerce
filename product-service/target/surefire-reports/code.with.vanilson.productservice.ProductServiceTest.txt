@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: code.with.vanilson.productservice.ProductServiceTest
 -------------------------------------------------------------------------------
-Tests run: 21, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.455 s -- in code.with.vanilson.productservice.ProductServiceTest
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.038 s -- in code.with.vanilson.productservice.ProductServiceTest

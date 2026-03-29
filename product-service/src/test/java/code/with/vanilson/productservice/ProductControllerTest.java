@@ -1,7 +1,5 @@
 package code.with.vanilson.productservice;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,18 +10,41 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ProductController.class)
+/**
+ * ProductControllerTest — Unit Tests for ProductController
+ * <p>
+ * Uses @WebMvcTest to test only the web layer (controller).
+ * Excludes DataSourceAutoConfiguration and HibernateJpaAutoConfiguration
+ * because we're mocking the service layer and don't need database connectivity.
+ */
+@WebMvcTest(
+        value = ProductController.class
+)
 public class ProductControllerTest {
 
     @Autowired
@@ -40,8 +61,7 @@ public class ProductControllerTest {
 
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations
-                .openMocks(this);
+        MockitoAnnotations.openMocks(this);
         product = new Product(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0));
         productResponse = new ProductResponse(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1,
                 "Category Name", "Category Description");
@@ -53,21 +73,23 @@ public class ProductControllerTest {
     @Test
     public void testFindAllProducts() throws Exception {
         // Arrange
-        List<ProductResponse> expectedProductResponses = List.of(productResponse);
+        List<ProductResponse> productList = List.of(productResponse);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<ProductResponse> expectedPage = new PageImpl<>(productList, pageable, productList.size());
 
-        // Mock behavior for service to return expectedProductResponses directly
-        when(productService.getAllProducts()).thenReturn(expectedProductResponses);
+        // Mock behavior for service to return Page of products
+        // Use any(Pageable.class) to match ANY Pageable parameter the controller receives
+        when(productService.getAllProducts(any(Pageable.class))).thenReturn(expectedPage);
 
         // Act: Perform GET request to /api/v1/products and verify results
         mockMvc.perform(get("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()) // Assert: Expect HTTP status 200 (OK)
-                .andExpect(jsonPath("$[0].id").value(1)) // Assert: Verify first product's ID directly
-                .andExpect(jsonPath("$[0].name").value("Product 1")); // Assert: Verify first product's name directly
+                .andExpect(jsonPath("$.content[0].id").value(1)) // Assert: Verify first product's ID
+                .andExpect(jsonPath("$.content[0].name").value("Product 1")); // Assert: Verify first product's name
 
-        // Verify: Ensure productService.getAllProducts() was called
-        verify(productService).getAllProducts();
-        verify(productService, times(1)).getAllProducts();
+        // Verify: Ensure productService.getAllProducts(pageable) was called
+        verify(productService).getAllProducts(any(Pageable.class));
     }
 
     @Test
@@ -107,16 +129,16 @@ public class ProductControllerTest {
 
         mockMvc.perform(post("/api/v1/products/create")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Product 1\",\"description\":\"Description 1\",\"price\":100.0}"))
+                        .content("{\"name\":\"Product 1\",\"description\":\"Description 1\",\"availableQuantity\":100.0,\"price\":100.0,\"category\":{\"id\":1}}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value(product.getName()));
+                .andExpect(jsonPath("$.name").value(productRequest.name()));
     }
 
     @Test
     @DisplayName("Test createProducts method failed")
     public void testCreateProductReturnNull() throws Exception {
         // Mock ProductService behavior to throw ProductNullException
-        when(productService.createProduct(any())).thenThrow(new ProductNullException("product cannot be null"));
+        when(productService.createProduct(any())).thenThrow(new ProductNullException("product cannot be null", "product.null"));
 
         // Perform POST request with invalid JSON payload (null product)
         mockMvc.perform(post("/api/v1/products/create")
@@ -180,7 +202,7 @@ public class ProductControllerTest {
 
         // Act & Assert
         mockMvc.perform(delete("/api/v1/products/delete/{id}", productId))
-                .andExpect(status().isAccepted()); // Assert: Expect HTTP status 202 (Accepted)
+                .andExpect(status().isNoContent()); // Assert: Expect HTTP status 202 (Accepted)
 
         // Verify: Ensure productService.deleteProduct(productId) was called
         verify(productService).deleteProduct(productId);
@@ -192,10 +214,10 @@ public class ProductControllerTest {
         int productId = -1; // Using a non-existent ID
 
         // Mock ProductService to throw ProductNotFoundException when getProductById is called with a non-existent ID
-        when(productService.getProductById(productId)).thenThrow(new ProductNotFoundException("Product not found"));
+        when(productService.getProductById(productId)).thenThrow(new ProductNotFoundException("Product not found", "product.not.found"));
 
         // Mock ProductService to throw ProductNotFoundException when deleteProduct is called with a non-existent ID
-        doThrow(new ProductNotFoundException("Product not found")).when(productService).deleteProduct(productId);
+        doThrow(new ProductNotFoundException("Product not found", "product.not.found")).when(productService).deleteProduct(productId);
 
         // Perform DELETE request to delete a product with non-existent ID
         mockMvc.perform(delete("/api/v1/products/delete/{id}", productId))

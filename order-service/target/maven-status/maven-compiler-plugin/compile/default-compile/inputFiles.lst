@@ -1,27 +1,52 @@
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentMethod.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderResponse.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineController.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineRepository.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\product\ProductClient.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderNotFoundException.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderBadRequestException.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderServiceApplication.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderController.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineMapper.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineResponse.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderService.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineService.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\Order.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderConfirmation.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderMapper.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLine.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\config\CustomerClientConfig.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentClient.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\config\KafkaOrderTopicConfig.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\ErrorResponse.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\handler\GlobalExceptionHandler.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineRequest.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderRequest.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderProducer.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderRepository.java
-C:\Users\vamuhong\Documents\Formation 2023\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentRequest.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\InventoryInsufficientEvent.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineController.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderRequest.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderServiceApplication.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderBaseException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\config\CustomerClientConfig.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderDuplicateReferenceException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderSagaConsumer.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\CustomerServiceUnavailableException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderBadRequestException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\ErrorResponse.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\outbox\OutboxEvent.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\customer\AddressInfo.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderController.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderMapper.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\customer\CustomerClient.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLine.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\customer\CustomerInfo.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\PaymentServiceUnavailableException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\outbox\OutboxRepository.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\PaymentFailedEvent.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\outbox\OutboxEventPublisher.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentClient.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\product\ProductPurchaseResponse.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\Order.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\config\KafkaOrderTopicConfig.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\customer\CustomerClientFallbackFactory.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderGlobalExceptionHandler.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\PaymentAuthorizedEvent.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineRepository.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\config\AppConfig.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderProducer.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderNotFoundException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderRequestedEvent.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineRequest.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\ProductServiceUnavailableException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\handler\GlobalExceptionHandler.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderService.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderRepository.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderResponse.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentMethod.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineMapper.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\kafka\OrderConfirmation.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\exception\OrderValidationException.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\payment\PaymentRequest.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineService.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\orderLine\OrderLineResponse.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\product\ProductPurchaseRequest.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderStatus.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\config\KafkaConfig.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\product\ProductClient.java
+C:\Users\HP\.claude\projects\e-commerce-microservice\order-service\src\main\java\code\with\vanilson\orderservice\OrderStatusResponse.java

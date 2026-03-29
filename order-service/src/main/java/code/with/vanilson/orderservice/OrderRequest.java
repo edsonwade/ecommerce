@@ -1,9 +1,8 @@
 package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.payment.PaymentMethod;
-import code.with.vanilson.productservice.purchase.PurchaseRequest;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -12,20 +11,36 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.util.List;
 
-@JsonInclude(Include.NON_EMPTY)
+/**
+ * OrderRequest
+ * <p>
+ * Validated request record for creating an order.
+ * All validation messages reference messages.properties keys via {key} syntax.
+ * Uses local PaymentMethod and ProductPurchaseRequest — no cross-service imports.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
 public record OrderRequest(
         Integer id,
-        String reference,
-        @Positive(message = "Order amount should be positive")
-        BigDecimal amount,
-        @NotNull(message = "Payment method should be precised")
-        PaymentMethod paymentMethod,
-        @NotNull(message = "Customer should be present")
-        @NotEmpty(message = "Customer should be present")
-        @NotBlank(message = "Customer should be present")
-        String customerId,
-        @NotEmpty(message = "You should at least purchase one product")
-        List<PurchaseRequest> products
-) {
 
+        String reference,
+
+        @Positive(message = "{order.validation.amount.positive}")
+        @NotNull(message = "{order.validation.amount.positive}")
+        BigDecimal amount,
+
+        @NotNull(message = "{order.validation.payment.method.required}")
+        PaymentMethod paymentMethod,
+
+        @NotNull(message = "{order.validation.customer.required}")
+        @NotBlank(message = "{order.validation.customer.required}")
+        String customerId,
+
+        @NotNull(message = "{order.validation.products.required}")
+        @NotEmpty(message = "{order.validation.products.required}")
+        @Valid
+        List<ProductPurchaseRequest> products
+) {
 }

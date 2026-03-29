@@ -4,6 +4,14 @@ import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,182 +21,243 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-@Service
+/**
+ * ProductService — Application Layer
+ * <p>
+ * Core business logic for product management and stock reservation.
+ * <p>
+ * KEY CHANGES FROM ORIGINAL:
+ * 1. All hardcoded exception messages replaced with MessageSource resolution.
+ * 2. L2 Redis cache via @Cacheable / @CacheEvict / @CachePut annotations.
+ *    Products are cached for 30 minutes (TTL configured in product-service.yml).
+ *    Cache is evicted on every write — event-driven invalidation in Phase 3.
+ * 3. Pagination: getAllProducts() now accepts Pageable for scalable list queries.
+ * 4. purchaseProducts() uses properly resolved messages for all error paths.
+ * 5. Single Responsibility (SOLID-S): each method has one reason to change.
+ * 6. Dependency Inversion (SOLID-D): depends on repository/messageSource abstractions.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
 @Slf4j
+@Service
 public class ProductService {
 
-    public static final String PRODUCT_WITH_ID_0_WAS_NOT_FOUND = "Product  with id {0} was not found";
+    private static final String CACHE_PRODUCTS = "products";
+    private static final String CACHE_PRODUCT_LIST = "product-list";
+
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final MessageSource messageSource;
 
-    public ProductService(ProductRepository productRepository, ProductMapper productMapper) {
+    public ProductService(ProductRepository productRepository,
+                          ProductMapper productMapper,
+                          MessageSource messageSource) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
+        this.messageSource = messageSource;
+    }
+
+    // -------------------------------------------------------
+    // READ
+    // -------------------------------------------------------
+
+    /**
+     * Returns a paginated list of all products.
+     * Cached in Redis under 'product-list' (invalidated on any product write).
+     *
+     * @param pageable pagination and sort parameters
+     * @return Page of ProductResponse DTOs
+     */
+    @Cacheable(value = CACHE_PRODUCT_LIST, key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<ProductResponse> getAllProducts(Pageable pageable) {
+        Page<ProductResponse> page = productRepository.findAll(pageable)
+                .map(productMapper::fromProduct);
+        log.info(resolve("product.log.all.found", page.getTotalElements()));
+        return page;
     }
 
     /**
-     * Retrieves all products and maps them to a list of ProductResponse objects.
+     * Returns a single product by ID.
+     * Cached individually in Redis under 'products::{id}'.
      *
-     * @return List of ProductResponse objects representing all products
+     * @param id product ID
+     * @return ProductResponse DTO
      */
-    public List<ProductResponse> getAllProducts() {
-        var products = productRepository.findAll();
-        log.info("getAllProducts returned {}", products);
-        return productMapper.toProductResponse(products);
-
-    }
-
-    /**
-     * Retrieves a product by its ID.
-     *
-     * @param id The ID of the product to retrieve.
-     * @return An {@code Optional} containing the {@code ProductResponse} if found, or an empty {@code Optional} if not found.
-     * @throws ProductNotFoundException If no product with the specified ID is found.
-     */
+    @Cacheable(value = CACHE_PRODUCTS, key = "#id")
     public Optional<ProductResponse> getProductById(int id) {
-        var products = productRepository.findById(id)
-                .map(productMapper::fromProduct)
-                .orElseThrow(() -> new ProductNotFoundException(
-                        MessageFormat.format(PRODUCT_WITH_ID_0_WAS_NOT_FOUND, id)));
-
-        return Optional.ofNullable(products);
-
+        return productRepository.findById(id)
+                .map(product -> {
+                    log.info(resolve("product.log.found.by.id", id, product.getName()));
+                    return productMapper.fromProduct(product);
+                })
+                .or(() -> {
+                    throw new ProductNotFoundException(
+                            resolve("product.not.found", id), "product.not.found");
+                });
     }
 
+    // -------------------------------------------------------
+    // WRITE
+    // -------------------------------------------------------
+
     /**
-     * Creates a new product in the system.
-     *
-     * @param product The product to be created.
-     * @return The created product request.
+     * Creates a new product. Evicts product-list cache on success.
      */
+    @Transactional
+    @CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)
     public ProductRequest createProduct(Product product) {
         if (product == null) {
-            throw new ProductNullException("Product must not be null");
+            throw new ProductNullException(
+                    resolve("product.null"), "product.null");
         }
         if (product.getCategory() == null) {
-            throw new ProductNullException("Product category must not be null");
+            throw new ProductNullException(
+                    resolve("product.category.null"), "product.category.null");
         }
-        var savedProduct = productRepository.save(product);
-        log.info("createProduct with saved product {}", savedProduct);
-        return productMapper.toProductRequest(savedProduct);
+        Product saved = productRepository.save(product);
+        log.info(resolve("product.log.created", saved.getId(), saved.getName()));
+        return productMapper.toProductRequest(saved);
     }
 
     /**
-     * Creates new products in the system.
-     *
-     * @param products The list of products to be created.
-     * @return The list of created product requests.
+     * Updates an existing product by ID.
+     * Updates the cache entry for this product and evicts the list cache.
      */
-    public List<ProductRequest> createProducts(List<Product> products) {
-        if (products == null || products.isEmpty()) {
-            throw new ProductNullException("Product list must not be null or empty");
-        }
-        List<Product> savedProducts = productRepository.saveAll(products);
-        log.info("createProducts with saved products {}", savedProducts);
-        return productMapper.toProductRequests(savedProducts);
-    }
-
-    /**
-     * Updates a product with the given ID using the provided product details.
-     *
-     * @param id      The ID of the product to update.
-     * @param product The updated product details.
-     * @return The updated product as a {@code ProductRequest}.
-     * @throws ProductNotFoundException If no product with the specified ID is found.
-     */
+    @Transactional
+    @Caching(
+        evict = {@CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)},
+        put   = {@CachePut(value = CACHE_PRODUCTS, key = "#id")}
+    )
     public ProductRequest updateProduct(int id, Product product) {
-        Product existingProduct = productRepository.findById(id)
-                .orElseThrow(() -> new ProductNotFoundException(MessageFormat.format(PRODUCT_WITH_ID_0_WAS_NOT_FOUND
-                        , id)));
-
-        // Update existing product with new values
-        updateProductDetails(existingProduct, product);
-
-        // Save and return the updated product
-        var savedProduct = productRepository.save(existingProduct);
-        return productMapper.toProductRequest(savedProduct);
-    }
-
-    /**
-     * Deletes a product with the given ID.
-     *
-     * @param id The ID of the product to delete.
-     * @throws ProductNotFoundException If no product with the specified ID is found.
-     */
-    public void deleteProduct(int id) {
-        var products = productRepository.findById(id)
+        Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(
-                        MessageFormat.format(PRODUCT_WITH_ID_0_WAS_NOT_FOUND, id)));
-        productRepository.deleteById(products.getId());
+                        resolve("product.not.found", id), "product.not.found"));
+        applyUpdates(existing, product);
+        Product saved = productRepository.save(existing);
+        log.info(resolve("product.log.updated", saved.getId(), saved.getName()));
+        return productMapper.toProductRequest(saved);
     }
 
     /**
-     * Updates the details of an existing product with the provided updated product details.
-     * Checks for null values in the updated product details and ensures that certain fields are not null or negative.
-     *
-     * @param existingProduct The existing product whose details are being updated.
-     * @param updatedProduct  The updated product details to apply.
-     * @throws ProductNullException If any of the updated product details are null or if the available quantity is negative.
+     * Deletes a product by ID. Evicts all related cache entries.
      */
-    private void updateProductDetails(Product existingProduct, Product updatedProduct) {
-        if (updatedProduct.getName() != null) {
-            existingProduct.setName(updatedProduct.getName());
-        } else {
-            throw new ProductNullException("Product name must not be null");
-        }
-        if (updatedProduct.getDescription() != null) {
-            existingProduct.setDescription(updatedProduct.getDescription());
-        } else {
-            throw new ProductNullException("Product description must not be null");
-        }
-        if (updatedProduct.getAvailableQuantity() >= 0.0) {
-            existingProduct.setAvailableQuantity(updatedProduct.getAvailableQuantity());
-        } else {
-            throw new ProductNullException("Product available quantity must be greater than 0");
-        }
-        if (updatedProduct.getPrice() != null) {
-            existingProduct.setPrice(updatedProduct.getPrice());
-        } else {
-            throw new ProductNullException("Product price must not be null");
-        }
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_PRODUCTS, key = "#id"),
+        @CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)
+    })
+    public void deleteProduct(int id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(
+                        resolve("product.not.found", id), "product.not.found"));
+        productRepository.deleteById(product.getId());
+        log.info(resolve("product.log.deleted", id));
     }
 
+    // -------------------------------------------------------
+    // PURCHASE (stock reservation)
+    // -------------------------------------------------------
+
     /**
-     * Processes the purchase of products based on the provided list of purchase requests.
+     * Reserves stock for a list of products in a single atomic transaction.
+     * Race condition safety: SELECT FOR UPDATE via JPA pessimistic lock
+     * (configured in ProductRepository.findAllByIdInOrderById).
+     * <p>
+     * Throws ProductPurchaseException (HTTP 422) if:
+     * - Any productId does not exist
+     * - Any product has insufficient stock
+     * <p>
+     * Cache: evicts all product entries after purchase (stock changed).
      *
-     * @param request The list of product purchase requests containing product IDs and quantities.
-     * @return A list of product purchase responses indicating the success of each purchase.
-     * @throws ProductPurchaseException If there are any issues with purchasing the products, such as insufficient stock or non-existing products.
+     * @param request list of product purchase requests
+     * @return list of purchased product details
      */
     @Transactional(rollbackFor = ProductPurchaseException.class)
-    public List<ProductPurchaseResponse> purchaseProducts(
-            List<ProductPurchaseRequest> request
-    ) {
-        var productIds = request
-                .stream()
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_PRODUCTS, allEntries = true),
+        @CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)
+    })
+    public List<ProductPurchaseResponse> purchaseProducts(List<ProductPurchaseRequest> request) {
+        if (request == null || request.isEmpty()) {
+            throw new ProductPurchaseException(
+                    resolve("product.purchase.list.empty"), "product.purchase.list.empty");
+        }
+
+        log.info(resolve("product.log.purchase.start", request.size()));
+
+        List<Integer> productIds = request.stream()
                 .map(ProductPurchaseRequest::productId)
                 .toList();
-        var storedProducts = productRepository.findAllByIdInOrderById(productIds);
+
+        List<Product> storedProducts = productRepository.findAllByIdInOrderById(productIds);
+
         if (productIds.size() != storedProducts.size()) {
-            throw new ProductPurchaseException("One or more products does not exist");
+            List<Integer> foundIds = storedProducts.stream().map(Product::getId).toList();
+            List<Integer> missingIds = productIds.stream().filter(id -> !foundIds.contains(id)).toList();
+            throw new ProductPurchaseException(
+                    resolve("product.purchase.not.found", missingIds.toString()),
+                    "product.purchase.not.found");
         }
-        var sortedRequest = request
-                .stream()
+
+        List<ProductPurchaseRequest> sortedRequest = request.stream()
                 .sorted(Comparator.comparing(ProductPurchaseRequest::productId))
                 .toList();
-        var purchasedProducts = new ArrayList<ProductPurchaseResponse>();
+
+        List<ProductPurchaseResponse> purchased = new ArrayList<>();
+
         for (int i = 0; i < storedProducts.size(); i++) {
-            var product = storedProducts.get(i);
-            var productRequest = sortedRequest.get(i);
-            if (product.getAvailableQuantity() < productRequest.quantity()) {
+            Product product = storedProducts.get(i);
+            ProductPurchaseRequest req = sortedRequest.get(i);
+
+            log.info(resolve("product.log.purchase.item",
+                    product.getId(), req.quantity(), product.getAvailableQuantity()));
+
+            if (product.getAvailableQuantity() < req.quantity()) {
                 throw new ProductPurchaseException(
-                        "Insufficient stock quantity for product with ID:: " + productRequest.productId());
+                        resolve("product.purchase.insufficient.stock",
+                                req.productId(), product.getAvailableQuantity(), req.quantity()),
+                        "product.purchase.insufficient.stock");
             }
-            var newAvailableQuantity = product.getAvailableQuantity() - productRequest.quantity();
-            product.setAvailableQuantity(newAvailableQuantity);
+
+            double newQty = product.getAvailableQuantity() - req.quantity();
+            product.setAvailableQuantity(newQty);
             productRepository.save(product);
-            purchasedProducts.add(productMapper.toproductPurchaseResponse(product, productRequest.quantity()));
+
+            log.info(resolve("product.log.stock.updated", product.getId(), newQty));
+            purchased.add(productMapper.toproductPurchaseResponse(product, req.quantity()));
         }
-        return purchasedProducts;
+
+        log.info(resolve("product.log.purchase.complete", purchased.size()));
+        return purchased;
+    }
+
+    // -------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------
+
+    private void applyUpdates(Product existing, Product updated) {
+        if (updated.getName() == null) {
+            throw new ProductNullException(resolve("product.name.null"), "product.name.null");
+        }
+        if (updated.getDescription() == null) {
+            throw new ProductNullException(resolve("product.description.null"), "product.description.null");
+        }
+        if (updated.getAvailableQuantity() < 0.0) {
+            throw new ProductNullException(resolve("product.quantity.negative"), "product.quantity.negative");
+        }
+        if (updated.getPrice() == null) {
+            throw new ProductNullException(resolve("product.price.null"), "product.price.null");
+        }
+        existing.setName(updated.getName());
+        existing.setDescription(updated.getDescription());
+        existing.setAvailableQuantity(updated.getAvailableQuantity());
+        existing.setPrice(updated.getPrice());
+    }
+
+    /** Resolves a message key from messages.properties with optional arguments. */
+    private String resolve(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }
 }

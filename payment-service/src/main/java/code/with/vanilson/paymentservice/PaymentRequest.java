@@ -1,7 +1,8 @@
 package code.with.vanilson.paymentservice;
 
-import code.with.vanilson.customerservice.Customer;
-import code.with.vanilson.orderservice.payment.PaymentMethod;
+
+import code.with.vanilson.paymentservice.domain.CustomerData;
+import code.with.vanilson.paymentservice.domain.PaymentMethod;
 
 import java.math.BigDecimal;
 
@@ -11,6 +12,6 @@ public record PaymentRequest(
         PaymentMethod paymentMethod,
         Integer orderId,
         String orderReference,
-        Customer customer
+        CustomerData customer
 ) {
 }

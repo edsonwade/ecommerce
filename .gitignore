@@ -24,6 +24,9 @@ backend/config-service/target/
 backend/customer-service/src/main/java/code/with/vanilson/customerservice/MongoConfig.java
 .idea/**
 .env
+/.env
+.env.*
+
 # Ignore docker-compose-not-work directory
 docker-compose-not-work/
 
@@ -32,6 +35,10 @@ endpoints/
 
 # Ignore sheets directory
 sheets/
+
+notes/
+
+diagramas/
 
 
 

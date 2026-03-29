@@ -9,16 +9,32 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * OrderLineController — Presentation Layer
+ * <p>
+ * Exposes order line queries for a given order.
+ * Single Responsibility (SOLID-S): only handles HTTP concerns for order lines.
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
 @RestController
 @RequestMapping("/api/v1/order-lines")
 @RequiredArgsConstructor
 public class OrderLineController {
 
-    private final OrderLineService service;
+    private final OrderLineService orderLineService;
 
-    @GetMapping("/order/{order-id}")
-    public ResponseEntity<List<OrderLineResponse>> findByOrderId(@PathVariable("order-id") Integer orderId
-    ) {
-        return ResponseEntity.ok(service.findAllByOrderId(orderId));
+    /**
+     * Returns all order lines for a given order ID.
+     *
+     * @param orderId the parent order ID
+     * @return list of order lines
+     */
+    @GetMapping("/{order-id}")
+    public ResponseEntity<List<OrderLineResponse>> findByOrderId(
+            @PathVariable("order-id") Integer orderId) {
+        return ResponseEntity.ok(orderLineService.findAllByOrderId(orderId));
     }
 }

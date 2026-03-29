@@ -8,15 +8,13 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.2.5</version>
-        <!-- Remove the relativePath element -->
     </parent>
-
-
 
     <groupId>code.with.vanilson</groupId>
     <artifactId>e-commerce-microservice</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
+
     <modules>
         <module>customer-service</module>
         <module>discovery-service</module>
@@ -27,39 +25,37 @@
         <module>notification-service</module>
         <module>payment-service</module>
         <module>authentication-service</module>
+        <!-- Phase 2: new Cart Service -->
+        <module>cart-service</module>
     </modules>
+
     <properties>
         <java.version>17</java.version>
         <mockito.version>5.12.0</mockito.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
+        <testcontainers.version>1.19.7</testcontainers.version>
+        <springdoc-openapi.version>2.3.0</springdoc-openapi.version>
+        <jjwt.version>0.12.5</jjwt.version>
     </properties>
 
-
     <dependencies>
+        <!-- Testcontainers -->
         <dependency>
-            <groupId>org.modelmapper</groupId>
-            <artifactId>modelmapper</artifactId>
-            <version>3.2.0</version> <!-- Or the latest version available -->
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
         </dependency>
-
-
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-
-        <dependency>
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
-            <version>5.11.0-M2</version>
-        </dependency>
-
-
     </dependencies>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Spring Cloud BOM -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -68,60 +64,18 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- Testcontainers BOM -->
             <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>backend</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>product-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>config-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>order-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>customer-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>discovery-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>gateway-api-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>notification-service</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>code.with.vanilson</groupId>
-                <artifactId>payment-service</artifactId>
-                <version>${project.version}</version>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+
     <build>
         <plugins>
             <plugin>
@@ -130,16 +84,11 @@
                 <executions>
                     <execution>
                         <id>repackage</id>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
+                        <goals><goal>repackage</goal></goals>
+                        <configuration><skip>true</skip></configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
-
 </project>

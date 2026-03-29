@@ -1,6 +1,7 @@
 code\with\vanilson\notification\email\EmailTemplate.class
 code\with\vanilson\notification\NotificationApplication.class
 code\with\vanilson\notification\Notification.class
+code\with\vanilson\notification\kafka\order\OrderConfirmation$ProductSummary.class
 code\with\vanilson\notification\NotificationType.class
 code\with\vanilson\notification\Notification$NotificationBuilder.class
 code\with\vanilson\notification\config\EmailConfig.class
@@ -8,5 +9,8 @@ code\with\vanilson\notification\kafka\NotificationsConsumer.class
 code\with\vanilson\notification\kafka\order\OrderConfirmation.class
 code\with\vanilson\notification\email\EmailService.class
 code\with\vanilson\notification\config\MongoConfig.class
+code\with\vanilson\notification\config\NotificationConfig.class
+code\with\vanilson\notification\kafka\order\OrderConfirmation$CustomerSummary.class
 code\with\vanilson\notification\NotificationRepository.class
 code\with\vanilson\notification\kafka\payment\PaymentConfirmation.class
+code\with\vanilson\notification\pdf\InvoicePdfService.class

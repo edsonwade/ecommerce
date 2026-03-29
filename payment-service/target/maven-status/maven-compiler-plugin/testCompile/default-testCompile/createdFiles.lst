@@ -1,1 +1,5 @@
-code\with\vanilson\paymentservice\PaymentApplicationTest.class
+code\with\vanilson\paymentservice\PaymentServiceTest$FindById.class
+code\with\vanilson\paymentservice\PaymentServiceTest$FirstOccurrence.class
+code\with\vanilson\paymentservice\PaymentServiceTest$FindAll.class
+code\with\vanilson\paymentservice\PaymentServiceTest.class
+code\with\vanilson\paymentservice\PaymentServiceTest$DuplicateDetection.class

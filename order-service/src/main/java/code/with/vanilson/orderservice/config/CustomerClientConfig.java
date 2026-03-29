@@ -1,6 +1,7 @@
 package code.with.vanilson.orderservice.config;
 
-import code.with.vanilson.customerservice.CustomerClient;
+
+import code.with.vanilson.orderservice.customer.CustomerClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

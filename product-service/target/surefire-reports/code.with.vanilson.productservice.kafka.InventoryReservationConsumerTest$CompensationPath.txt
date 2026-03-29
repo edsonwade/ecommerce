@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: code.with.vanilson.productservice.kafka.InventoryReservationConsumerTest$CompensationPath
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.653 s -- in code.with.vanilson.productservice.kafka.InventoryReservationConsumerTest$CompensationPath

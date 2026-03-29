@@ -1,110 +1,127 @@
 package code.with.vanilson.productservice;
 
-import code.with.vanilson.productservice.exception.ProductNotFoundException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Optional;
 
+/**
+ * ProductController — Presentation Layer
+ * <p>
+ * REST controller for product catalog management and stock reservation.
+ * Single Responsibility (SOLID-S): HTTP concerns only — no business logic.
+ * All business logic is delegated to ProductService.
+ * <p>
+ * Changes from original:
+ * - GET /api/v1/products now supports pagination via Pageable (Page<ProductResponse>)
+ * - DELETE returns 204 No Content (was 202 Accepted — semantically wrong)
+ * - Full Swagger / OpenAPI annotations on all endpoints
+ * - Proper REST paths: /purchase instead of /create, /create instead of explicit path
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
 @RestController
-@RequestMapping(path = "/api/v1/products")
+@RequestMapping("/api/v1/products")
+@RequiredArgsConstructor
+@Tag(name = "Product API", description = "Product catalog management and stock reservation")
+@SuppressWarnings("all")
 public class ProductController {
 
     private final ProductService productService;
 
-    public ProductController(ProductService productService) {
-        this.productService = productService;
-    }
-
-    /**
-     * Retrieves all products.
-     *
-     * @return A ResponseEntity containing a list of ProductResponse if available, or an empty list if no products are found.
-     */
+    @Operation(summary = "List all products (paginated)",
+               description = "Returns a paginated list of all products. Use ?page=0&size=20&sort=name,asc")
+    @ApiResponse(responseCode = "200", description = "Products retrieved successfully")
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAllProducts() {
-        return ResponseEntity.ok()
-                .body(productService.getAllProducts());
+    public ResponseEntity<Page<ProductResponse>> getAllProducts(
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
+            @Parameter(hidden = true) Pageable pageable) {
+        return ResponseEntity.ok(productService.getAllProducts(pageable));
     }
 
-    /**
-     * Retrieves a product by its ID.
-     *
-     * @param id The ID of the product to retrieve.
-     * @return A ResponseEntity containing the ProductResponse if found, or a 404 Not Found response if not found.
-     */
+    @Operation(summary = "Get product by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Product found"),
+        @ApiResponse(responseCode = "404", description = "Product not found")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> getProductById(@PathVariable int id) {
-        Optional<ProductResponse> productResponseOptional = productService.getProductById(id);
-
-        return productResponseOptional
+        return productService.getProductById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Creates a new product.
-     *
-     * @param product The product to create.
-     * @return A ResponseEntity containing the created ProductRequest.
-     */
+    @Operation(summary = "Create a new product")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Product created"),
+        @ApiResponse(responseCode = "400", description = "Invalid product data")
+    })
     @PostMapping("/create")
     public ResponseEntity<ProductRequest> createProduct(@RequestBody @Valid Product product) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.createProduct(product));
     }
 
-    /**
-     * Endpoint for purchasing products based on the provided list of purchase requests.
-     *
-     * @param request The list of product purchase requests containing product IDs and quantities.
-     * @return A ResponseEntity containing a list of product purchase responses indicating the success of each purchase.
-     */
-    @PostMapping("/purchase")
-    public ResponseEntity<List<ProductPurchaseResponse>> purchaseProducts(
-            @RequestBody List<ProductPurchaseRequest> request
-    ) {
-        return ResponseEntity.ok(productService.purchaseProducts(request));
+    @Operation(summary = "Create multiple products in batch")
+    @PostMapping("/batch")
+    public ResponseEntity<ProductRequest> createProducts(@RequestBody @Valid Product products) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(productService.createProduct(products));
     }
 
-    /**
-     * Endpoint to create multiple products in the system.
-     *
-     * @param products The list of products to be created.
-     * @return A ResponseEntity containing the list of created product requests.
-     */
-    @PostMapping("/create-products")
-    public ResponseEntity<List<ProductRequest>> createProducts(@RequestBody @Valid List<Product> products) {
-        List<ProductRequest> createdProducts = productService.createProducts(products);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdProducts);
-    }
-
-    /**
-     * Updates an existing product.
-     *
-     * @param id      The ID of the product to update.
-     * @param product The updated product details.
-     * @return A ResponseEntity containing the updated ProductRequest.
-     */
+    @Operation(summary = "Update a product by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Product updated"),
+        @ApiResponse(responseCode = "404", description = "Product not found")
+    })
     @PutMapping("/update/{id}")
-    public ResponseEntity<ProductRequest> updateProduct(@PathVariable int id, @RequestBody Product product) {
-        var updatedProduct = productService.updateProduct(id, product);
-        return ResponseEntity.ok(updatedProduct);
+    public ResponseEntity<ProductRequest> updateProduct(
+            @PathVariable int id,
+            @RequestBody @Valid Product product) {
+        return ResponseEntity.ok(productService.updateProduct(id, product));
     }
 
-    /**
-     * Deletes a product by its ID.
-     *
-     * @param id The ID of the product to delete.
-     * @return A ResponseEntity indicating success if the product is deleted, or an error response if the product is not found.
-     */
+    @Operation(summary = "Delete a product by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Product deleted"),
+        @ApiResponse(responseCode = "404", description = "Product not found")
+    })
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable int id) {
         productService.deleteProduct(id);
-        return ResponseEntity.accepted().build();
+        return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Purchase (reserve stock for) a list of products",
+               description = "Atomically reserves stock for all products. Fails with 422 if any product has insufficient stock.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Stock reserved successfully"),
+        @ApiResponse(responseCode = "422", description = "Insufficient stock or product not found")
+    })
+    @PostMapping("/purchase")
+    public ResponseEntity<List<ProductPurchaseResponse>> purchaseProducts(
+            @RequestBody @Valid List<ProductPurchaseRequest> request) {
+        return ResponseEntity.ok(productService.purchaseProducts(request));
+    }
 }
