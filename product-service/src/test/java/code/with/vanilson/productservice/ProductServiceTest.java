@@ -4,428 +4,387 @@ import code.with.vanilson.productservice.category.Category;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockitoAnnotations;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
-import java.util.*;
-import java.util.stream.IntStream;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-public class ProductServiceTest {
+/**
+ * ProductServiceTest — Unit Tests
+ * <p>
+ * Covers all business rules: CRUD, pagination, purchase/stock reservation,
+ * validation guards (null checks), and cache eviction triggers.
+ * <p>
+ * Framework: JUnit 5 + Mockito + AssertJ.
+ * @Nested classes group scenarios by operation — easier to navigate.
+ * MessageSource is mocked to return the key itself (avoids properties file dependency).
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ProductService — Unit Tests")
+class ProductServiceTest {
 
-    /**
-     * Repository for accessing product data from the database.
-     */
-    private ProductRepository productRepository;
+    @Mock private ProductRepository productRepository;
+    @Mock private ProductMapper     productMapper;
+    @Mock private MessageSource     messageSource;
 
-    /**
-     * Mapper for converting between Product and ProductRequest/ProductResponse objects.
-     */
-    private ProductMapper productMapper;
-
-    /**
-     * Service for handling business logic related to products.
-     */
+    @InjectMocks
     private ProductService productService;
 
-    private final Category category = new Category();
+    // -------------------------------------------------------
+    // Fixtures
+    // -------------------------------------------------------
 
-    /**
-     * Initializes the test environment before each test method execution.
-     * Configures mock objects and injects them into the ProductService instance.
-     */
+    private Category category;
+    private Product  product1;
+    private Product  product2;
+    private ProductResponse response1;
+    private ProductResponse response2;
+
     @BeforeEach
-    public void setUp() {
-        // Mock the ProductRepository and ProductMapper objects
-        productRepository = mock(ProductRepository.class);
-        productMapper = mock(ProductMapper.class);
+    void setUp() {
+        category = Category.builder().id(1).name("Electronics").description("Electronic items").build();
 
-        // Create a ProductService instance with mocked dependencies
-        productService = new ProductService(productRepository, productMapper);
+        product1 = new Product(1, "Laptop",    "Gaming Laptop",  5.0,  BigDecimal.valueOf(1200.00), category);
+        product2 = new Product(2, "Headphones","Noise Cancelling",15.0, BigDecimal.valueOf(250.00),  category);
 
-        // Initialize the Mockito mocks
-        MockitoAnnotations.openMocks(this);
+        response1 = new ProductResponse(1, "Laptop",    "Gaming Laptop",  5.0,
+                BigDecimal.valueOf(1200.00), 1, "Electronics", "Electronic items");
+        response2 = new ProductResponse(2, "Headphones","Noise Cancelling",15.0,
+                BigDecimal.valueOf(250.00), 1, "Electronics", "Electronic items");
+
+        // MessageSource stub: returns the key itself so tests are portable
+        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
     }
 
-    @Test
-    @DisplayName("Test getAllProducts method - Expect success")
-    public void testGetAllProducts() {
-        // Arrange
-        List<Product> productList = new ArrayList<>();
-        productList.add(new Product(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0)));
-        productList.add(new Product(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0)));
+    // -------------------------------------------------------
+    // getAllProducts (paginated)
+    // -------------------------------------------------------
 
-        when(productRepository.findAll()).thenReturn(productList);
+    @Nested
+    @DisplayName("getAllProducts (paginated)")
+    class GetAll {
 
-        List<ProductResponse> expectedProductResponses = new ArrayList<>();
-        expectedProductResponses.add(
-                new ProductResponse(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100.0), 1,
-                        "Game", "Game for kids"));
-        expectedProductResponses.add(
-                new ProductResponse(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200.0),
-                        2,
-                        "PC", "Apple Mac12"));
+        @Test
+        @DisplayName("should return paginated product list")
+        void shouldReturnPageOfProducts() {
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Product> page = new PageImpl<>(List.of(product1, product2), pageable, 2);
 
-        when(productMapper.toProductResponse(productList)).thenReturn(expectedProductResponses);
+            when(productRepository.findAll(pageable)).thenReturn(page);
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+            when(productMapper.fromProduct(product2)).thenReturn(response2);
 
-        // Act
-        var actualProductResponses = productService.getAllProducts();
+            Page<ProductResponse> result = productService.getAllProducts(pageable);
 
-        // Assert
-        assertEquals(expectedProductResponses.size(),
-                actualProductResponses.size());
-        IntStream.range(0, expectedProductResponses.size())
-                .forEachOrdered(i -> assertEquals(expectedProductResponses.get(i), actualProductResponses.get(i)));
-
-        verify(productRepository, times(1)).findAll();
-        verify(productMapper, times(1)).toProductResponse(productList);
-    }
-
-    @Test
-    @DisplayName("Test getProductById method - Success")
-    public void testGetProductById_Success() {
-        // Arrange
-        Product product = new Product(1, "Product Name", "Description", 10.0, BigDecimal.valueOf(100.0)
-        );
-        ProductResponse expectedResponse =
-                new ProductResponse(1, "Product Name", "Description", 10.0, BigDecimal.valueOf(100.0), 1, "Game",
-                        "Game for kids");
-
-        when(productRepository.findById(1)).thenReturn(Optional.of(product));
-        when(productMapper.fromProduct(product)).thenReturn(expectedResponse);
-
-        // Act
-        Optional<ProductResponse> result = productService.getProductById(1);
-
-        // Assert
-        assertEquals(expectedResponse, result.get());
-    }
-
-    @Test
-    @DisplayName("Test getProductById method - Failure")
-    public void testGetProductById_Failure() {
-        // Arrange
-        when(productRepository.findById(1)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(ProductNotFoundException.class, () -> productService.getProductById(1));
-    }
-
-    @Test
-    @DisplayName("Test createProduct method")
-    public void testCreateProduct() {
-        // Arrange
-
-        Product product =
-                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
-        Product savedProduct =
-                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
-        ProductRequest productRequest =
-                new ProductRequest(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), 1);
-
-        when(productRepository.save(product)).thenReturn(savedProduct);
-        when(productMapper.toProductRequest(savedProduct)).thenReturn(productRequest);
-
-        // Act
-        ProductRequest result = productService.createProduct(product);
-
-        // Assert
-        assertEquals(productRequest, result);
-        verify(productRepository, times(1)).save(product);
-        verify(productMapper, times(1)).toProductRequest(savedProduct);
-    }
-
-    @Test
-    @DisplayName("Test createProduct method throws ProductNullException with null product")
-    public void testCreateProductThrowsProductNullExceptionWithNullProduct() {
-        // Arrange
-        Product product = null;
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.createProduct(product));
-    }
-
-
-    /*
-    if (product.getCategory() == null) {
-            throw new ProductNullException("Product category must not be null");
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(2);
+            assertThat(result.getContent())
+                    .hasSize(2)
+                    .extracting(ProductResponse::name)
+                    .containsExactly("Laptop", "Headphones");
         }
-     */
 
+        @Test
+        @DisplayName("should return empty page when no products exist")
+        void shouldReturnEmptyPageWhenNoProducts() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(productRepository.findAll(pageable)).thenReturn(Page.empty());
 
-    @Test
-    @DisplayName("Test createProduct method throws ProductNullException with null category")
-    public void testCreateProductThrowsProductNullExceptionWithNullCategory() {
-        // Arrange
-        Product product = new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), null);
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.createProduct(product));
-    }
+            Page<ProductResponse> result = productService.getAllProducts(pageable);
 
-    @Test
-    void testCreateProducts_Success() {
-        // Arrange
-        List<Product> products = Arrays.asList(
-                new Product(1, "Product 1", "Description 1", 10, BigDecimal.valueOf(100)),
-                new Product(2, "Product 2", "Description 2", 20, BigDecimal.valueOf(200))
-        );
-        List<ProductRequest> productRequests = Arrays.asList(
-                new ProductRequest(1, "Product 1", "Description 1", 10.0, BigDecimal.valueOf(100), 1),
-                new ProductRequest(2, "Product 2", "Description 2", 20.0, BigDecimal.valueOf(200), 2)
-        );
-        when(productRepository.saveAll(products)).thenReturn(products);
-        when(productMapper.toProductRequests(products)).thenReturn(productRequests);
-
-        // Act
-        List<ProductRequest> result = productService.createProducts(products);
-
-        // Assert
-        assertEquals(productRequests.size(), result.size());
-        for (int i = 0; i < productRequests.size(); i++) {
-            assertEquals(productRequests.get(i), result.get(i));
+            assertThat(result.getContent()).isEmpty();
         }
     }
 
-    @Test
-    void testCreateProducts_NullList() {
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.createProducts(null));
+    // -------------------------------------------------------
+    // getProductById
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("getProductById")
+    class GetById {
+
+        @Test
+        @DisplayName("should return product response when found")
+        void shouldReturnProductWhenFound() {
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+
+            Optional<ProductResponse> result = productService.getProductById(1);
+
+            assertThat(result)
+                    .isPresent()
+                    .hasValueSatisfying(r -> {
+                        assertThat(r.id()).isEqualTo(1);
+                        assertThat(r.name()).isEqualTo("Laptop");
+                        assertThat(r.price()).isEqualByComparingTo(BigDecimal.valueOf(1200.00));
+                    });
+        }
+
+        @Test
+        @DisplayName("should throw ProductNotFoundException when product does not exist")
+        void shouldThrowNotFoundForUnknownId() {
+            when(productRepository.findById(999)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.getProductById(999))
+                    .isInstanceOf(ProductNotFoundException.class)
+                    .hasMessageContaining("product.not.found");
+        }
     }
 
-    @Test
-    void testCreateProducts_EmptyList() {
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.createProducts(List.of()));
+    // -------------------------------------------------------
+    // createProduct
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("createProduct")
+    class Create {
+
+        @Test
+        @DisplayName("should persist and return ProductRequest when valid")
+        void shouldCreateProductSuccessfully() {
+            ProductRequest expectedRequest = new ProductRequest(1, "Laptop", "Gaming Laptop",
+                    5.0, BigDecimal.valueOf(1200.00), 1);
+            when(productRepository.save(product1)).thenReturn(product1);
+            when(productMapper.toProductRequest(product1)).thenReturn(expectedRequest);
+
+            ProductRequest result = productService.createProduct(product1);
+
+            assertThat(result).isNotNull();
+            assertThat(result.name()).isEqualTo("Laptop");
+            verify(productRepository, times(1)).save(product1);
+        }
+
+        @Test
+        @DisplayName("should throw ProductNullException when product is null")
+        void shouldThrowWhenProductNull() {
+            assertThatThrownBy(() -> productService.createProduct(null))
+                    .isInstanceOf(ProductNullException.class)
+                    .hasMessageContaining("product.null");
+        }
+
+        @Test
+        @DisplayName("should throw ProductNullException when category is null")
+        void shouldThrowWhenCategoryNull() {
+            Product noCategory = new Product(1, "X", "Y", 1.0, BigDecimal.ONE, null);
+
+            assertThatThrownBy(() -> productService.createProduct(noCategory))
+                    .isInstanceOf(ProductNullException.class)
+                    .hasMessageContaining("product.category.null");
+        }
     }
 
-    @Test
-    public void testUpdateProduct() {
-        // Arrange
-        int productId = 1;
-        Product productRequest =
-                new Product(productId, "Updated Name", "Updated Description", 20.0, BigDecimal.valueOf(200.0));
-        Product existingProduct =
-                new Product(productId, "Original Name", "Original Description", 10.0, BigDecimal.valueOf(100.0));
-        Product updatedProduct =
-                new Product(productId, "Updated Name", "Updated Description", 20.0, BigDecimal.valueOf(200.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
-        when(productRepository.save(any(Product.class))).thenReturn(updatedProduct);
-        when(productMapper.toProductRequest(updatedProduct)).thenReturn(
-                new ProductRequest(productId, "Updated Name", "Updated Description", 20.0, BigDecimal.valueOf(200.0),
-                        1));
+    // -------------------------------------------------------
+    // updateProduct
+    // -------------------------------------------------------
 
-        // Act
-        var result = productService.updateProduct(productId, productRequest);
+    @Nested
+    @DisplayName("updateProduct")
+    class Update {
 
-        // Assert
-        assertEquals("Updated Name", result.name());
-        assertEquals("Updated Description", result.description());
-        assertEquals(20.0, result.availableQuantity(), 10.0);
-        assertEquals(BigDecimal.valueOf(200.0), result.price());
+        @Test
+        @DisplayName("should update product fields and save when all fields valid")
+        void shouldUpdateSuccessfully() {
+            Product updatedData = new Product(1, "Laptop Pro", "Updated desc", 8.0,
+                    BigDecimal.valueOf(1500.00), category);
+            ProductRequest expectedReq = new ProductRequest(1, "Laptop Pro", "Updated desc",
+                    8.0, BigDecimal.valueOf(1500.00), 1);
+
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+            when(productRepository.save(any(Product.class))).thenReturn(updatedData);
+            when(productMapper.toProductRequest(any(Product.class))).thenReturn(expectedReq);
+
+            ProductRequest result = productService.updateProduct(1, updatedData);
+
+            assertThat(result.name()).isEqualTo("Laptop Pro");
+            assertThat(result.availableQuantity()).isEqualTo(8.0);
+            verify(productRepository).save(any(Product.class));
+        }
+
+        @Test
+        @DisplayName("should throw ProductNotFoundException when product ID does not exist")
+        void shouldThrowNotFoundOnUpdate() {
+            when(productRepository.findById(99)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.updateProduct(99, product1))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("should throw ProductNullException when name is null")
+        void shouldThrowWhenNameNull() {
+            Product nullName = new Product(1, null, "desc", 5.0, BigDecimal.ONE, category);
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+
+            assertThatThrownBy(() -> productService.updateProduct(1, nullName))
+                    .isInstanceOf(ProductNullException.class)
+                    .hasMessageContaining("product.name.null");
+        }
+
+        @Test
+        @DisplayName("should throw ProductNullException when description is null")
+        void shouldThrowWhenDescriptionNull() {
+            Product nullDesc = new Product(1, "name", null, 5.0, BigDecimal.ONE, category);
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+
+            assertThatThrownBy(() -> productService.updateProduct(1, nullDesc))
+                    .isInstanceOf(ProductNullException.class)
+                    .hasMessageContaining("product.description.null");
+        }
+
+        @Test
+        @DisplayName("should throw ProductNullException when availableQuantity is negative")
+        void shouldThrowWhenQuantityNegative() {
+            Product negQty = new Product(1, "name", "desc", -1.0, BigDecimal.ONE, category);
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+
+            assertThatThrownBy(() -> productService.updateProduct(1, negQty))
+                    .isInstanceOf(ProductNullException.class)
+                    .hasMessageContaining("product.quantity.negative");
+        }
+
+        @Test
+        @DisplayName("should throw ProductNullException when price is null")
+        void shouldThrowWhenPriceNull() {
+            Product nullPrice = new Product(1, "name", "desc", 5.0, null, category);
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+
+            assertThatThrownBy(() -> productService.updateProduct(1, nullPrice))
+                    .isInstanceOf(ProductNullException.class)
+                    .hasMessageContaining("product.price.null");
+        }
     }
 
-    @DisplayName("expected = ProductNotFoundException.class")
-    @Test
-    public void testUpdateProduct_ProductNotFound() {
-        // Arrange
-        int productId = 1;
-        Product product =
-                new Product(productId, "Updated Name",
-                        "Updated Description",
-                        20.0,
-                        BigDecimal.valueOf(200.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.empty());
+    // -------------------------------------------------------
+    // deleteProduct
+    // -------------------------------------------------------
 
-        // Act
-        assertThrows(ProductNotFoundException.class, () -> productService.updateProduct(productId, product));
+    @Nested
+    @DisplayName("deleteProduct")
+    class Delete {
+
+        @Test
+        @DisplayName("should delete product when it exists")
+        void shouldDeleteSuccessfully() {
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+
+            productService.deleteProduct(1);
+
+            verify(productRepository, times(1)).deleteById(1);
+        }
+
+        @Test
+        @DisplayName("should throw ProductNotFoundException when product does not exist")
+        void shouldThrowWhenNotFound() {
+            when(productRepository.findById(99)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.deleteProduct(99))
+                    .isInstanceOf(ProductNotFoundException.class);
+            verify(productRepository, never()).deleteById(any());
+        }
     }
 
-    @Test
-    @DisplayName("Test deleteProduct method - Success")
-    public void testDeleteProduct() {
-        // Arrange
-        int productId = 1;
-        Product productToDelete =
-                new Product(productId, "Test Product", "Test Description", 10.0, BigDecimal.valueOf(100.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(productToDelete));
+    // -------------------------------------------------------
+    // purchaseProducts (stock reservation)
+    // -------------------------------------------------------
 
-        // Act
-        productService.deleteProduct(productId);
+    @Nested
+    @DisplayName("purchaseProducts — stock reservation")
+    class Purchase {
 
-        // Assert
-        verify(productRepository, times(1)).deleteById(productId);
-    }
-
-    @Test
-    @DisplayName("Test deleteProduct method when product is not found - Expect ProductNotFoundException")
-    public void testDeleteProduct_ProductNotFound() {
-        // Arrange
-        int productId = 1;
-        when(productRepository.findById(productId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(ProductNotFoundException.class, () -> productService.deleteProduct(productId));
-
-    }
-
-    @Test
-    public void testUpdateProduct_NullName() {
-        // Arrange
-        int productId = 1;
-        Product productRequest = new Product(productId, null, "Description", 10.0, BigDecimal.valueOf(100.0));
-        Product existingProduct =
-                new Product(productId, "Existing Name", "Existing Description", 10.0, BigDecimal.valueOf(100.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
-
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.updateProduct(productId, productRequest));
-    }
-
-    @Test
-    public void testUpdateProduct_NullDescription() {
-        // Arrange
-        int productId = 1;
-        Product productRequest = new Product(productId, "Name", null, 10.0, BigDecimal.valueOf(100.0));
-        Product existingProduct =
-                new Product(productId, "Existing Name", "Existing Description", 10.0, BigDecimal.valueOf(100.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
-
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.updateProduct(productId, productRequest));
-    }
-
-    @Test
-    public void testUpdateProduct_NegativeQuantity() {
-        // Arrange
-        int productId = 1;
-        Product productRequest = new Product(productId, "Name", "Description", -10.0, BigDecimal.valueOf(100.0));
-        Product existingProduct =
-                new Product(productId, "Existing Name", "Existing Description", 10.0, BigDecimal.valueOf(100.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
-
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.updateProduct(productId, productRequest));
-    }
-
-    @Test
-    public void testUpdateProduct_NullPrice() {
-        // Arrange
-        int productId = 1;
-        Product productRequest = new Product(productId, "Name", "Description", 10.0, null);
-        Product existingProduct =
-                new Product(productId, "Existing Name", "Existing Description", 10.0, BigDecimal.valueOf(100.0));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
-
-        // Act & Assert
-        assertThrows(ProductNullException.class, () -> productService.updateProduct(productId, productRequest));
-    }
-
-
-    @Test
-    @DisplayName("Test purchaseProducts method - Success")
-    public void testPurchaseProducts_Success() {
-        // Arrange
-        List<ProductPurchaseRequest> requests = new ArrayList<>();
-        requests.add(new ProductPurchaseRequest(1, 1)); // Product with ID 1, Quantity: 1
-        requests.add(new ProductPurchaseRequest(2, 1)); // Product with ID 2, Quantity: 1
-
-        Iterable<Integer> expectedProductIds = List.of(1, 2); // Expected product IDs
-
-        // Define the expected products
-        List<Product> storedProducts = new ArrayList<>();
-        storedProducts.add(new Product(1, "Product 1", "Description 1", 10, BigDecimal.valueOf(100)));
-        storedProducts.add(new Product(2, "Product 2", "Description 2", 20, BigDecimal.valueOf(200)));
-
-        // Mock behavior of productRepository
-        when(productRepository.findAllByIdInOrderById(any())).thenAnswer(invocation -> {
-            Iterable<Integer> ids = invocation.getArgument(0);
-            // Check if the provided IDs match the expected IDs
-            assertEquals(expectedProductIds, ids);
-            return storedProducts;
-        });
-
-        // Mock behavior of productMapper
-        when(productMapper.toproductPurchaseResponse(any(), anyDouble())).thenAnswer(invocation -> {
-            Product product = invocation.getArgument(0);
-            double quantity = invocation.getArgument(1);
-            // Create and return a dummy ProductPurchaseResponse
-            return new ProductPurchaseResponse(
-                    product.getId(),
-                    product.getName(),
-                    product.getDescription(),
-                    product.getPrice(),
-                    quantity
+        @Test
+        @DisplayName("should reserve stock and return purchase responses when sufficient stock")
+        void shouldSucceedWhenStockAvailable() {
+            List<ProductPurchaseRequest> requests = List.of(
+                    new ProductPurchaseRequest(1, 2.0),
+                    new ProductPurchaseRequest(2, 3.0)
             );
-        });
+            ProductPurchaseResponse pr1 = new ProductPurchaseResponse(
+                    1, "Laptop",    "Gaming Laptop",  BigDecimal.valueOf(1200), 2.0);
+            ProductPurchaseResponse pr2 = new ProductPurchaseResponse(
+                    2, "Headphones","Noise Cancelling",BigDecimal.valueOf(250),  3.0);
 
-        // Act
-        List<ProductPurchaseResponse> response = productService.purchaseProducts(requests);
+            when(productRepository.findAllByIdInOrderById(List.of(1, 2)))
+                    .thenReturn(List.of(product1, product2));
+            when(productMapper.toproductPurchaseResponse(product1, 2.0)).thenReturn(pr1);
+            when(productMapper.toproductPurchaseResponse(product2, 3.0)).thenReturn(pr2);
 
-        // Assert
-        Assertions.assertNotNull(response);
-        assertEquals(requests.size(), response.size());
-        // Assert other conditions if necessary
+            List<ProductPurchaseResponse> result = productService.purchaseProducts(requests);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(ProductPurchaseResponse::productId).containsExactlyInAnyOrder(1, 2);
+            // Stock must have been decremented and saved
+            ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+            verify(productRepository, times(2)).save(captor.capture());
+            assertThat(captor.getAllValues().get(0).getAvailableQuantity()).isEqualTo(3.0); // 5 - 2
+            assertThat(captor.getAllValues().get(1).getAvailableQuantity()).isEqualTo(12.0); // 15 - 3
+        }
+
+        @Test
+        @DisplayName("should throw ProductPurchaseException when one product does not exist")
+        void shouldThrowWhenProductMissing() {
+            List<ProductPurchaseRequest> requests = List.of(new ProductPurchaseRequest(99, 1.0));
+            when(productRepository.findAllByIdInOrderById(List.of(99))).thenReturn(List.of());
+
+            assertThatThrownBy(() -> productService.purchaseProducts(requests))
+                    .isInstanceOf(ProductPurchaseException.class)
+                    .hasMessageContaining("product.purchase.not.found");
+        }
+
+        @Test
+        @DisplayName("should throw ProductPurchaseException when stock is insufficient")
+        void shouldThrowWhenInsufficientStock() {
+            // product1 has 5.0 available; we request 10.0
+            List<ProductPurchaseRequest> requests = List.of(new ProductPurchaseRequest(1, 10.0));
+            when(productRepository.findAllByIdInOrderById(List.of(1))).thenReturn(List.of(product1));
+
+            assertThatThrownBy(() -> productService.purchaseProducts(requests))
+                    .isInstanceOf(ProductPurchaseException.class)
+                    .hasMessageContaining("product.purchase.insufficient.stock");
+        }
+
+        @Test
+        @DisplayName("should throw ProductPurchaseException when request list is empty")
+        void shouldThrowWhenRequestListEmpty() {
+            assertThatThrownBy(() -> productService.purchaseProducts(List.of()))
+                    .isInstanceOf(ProductPurchaseException.class)
+                    .hasMessageContaining("product.purchase.list.empty");
+        }
+
+        @Test
+        @DisplayName("should throw ProductPurchaseException when request list is null")
+        void shouldThrowWhenRequestListNull() {
+            assertThatThrownBy(() -> productService.purchaseProducts(null))
+                    .isInstanceOf(ProductPurchaseException.class);
+        }
     }
-
-
-    @Test
-    @DisplayName("Test purchaseProducts method - Products Not Found")
-    public void testPurchaseProducts_ProductsNotFound() {
-        // Arrange
-        List<ProductPurchaseRequest> requests = new ArrayList<>();
-        requests.add(new ProductPurchaseRequest(1, 1)); // Product with ID 1, Quantity: 1
-        requests.add(new ProductPurchaseRequest(2, 1)); // Product with ID 2, Quantity: 1
-
-        Iterable<Integer> expectedProductIds = List.of(1, 2); // Expected product IDs
-
-        // Mock behavior of productRepository to return an empty list (no products found)
-        when(productRepository.findAllByIdInOrderById(any())).thenReturn(Collections.emptyList());
-
-        // Act & Assert
-        assertThrows(ProductPurchaseException.class, () -> productService.purchaseProducts(requests));
-    }
-
-    @Test
-    @DisplayName("Test purchaseProducts method - Insufficient Stock")
-    public void testPurchaseProducts_InsufficientStock() {
-        // Arrange
-        List<Product> storedProducts = new ArrayList<>();
-        storedProducts.add(new Product(2, "Product 2", "Description 2", 5, BigDecimal.valueOf(200))); // Insufficient stock
-
-        // Mock behavior of productRepository
-        when(productRepository.findAllByIdInOrderById(any())).thenReturn(storedProducts);
-
-        // Act & Assert
-        assertThrows(ProductPurchaseException.class, () -> productService.purchaseProducts(new ArrayList<>()),
-                "Insufficient stock quantity for product");
-    }
-
-    @Test
-    @DisplayName("Test purchaseProducts method - Insufficient Stock")
-    public void testPurchaseProducts_InsufficientStocks() {
-        // Arrange
-        List<ProductPurchaseRequest> requests = new ArrayList<>();
-        requests.add(new ProductPurchaseRequest(2, 10)); // Product with ID 2, Quantity: 10 (exceeding available stock)
-
-        // Define the expected stored products
-        List<Product> storedProducts = new ArrayList<>();
-        storedProducts.add(new Product(2, "Product 2", "Description 2", 5, BigDecimal.valueOf(200))); // Insufficient stock
-
-        // Mock behavior of productRepository
-        when(productRepository.findAllByIdInOrderById(any())).thenReturn(storedProducts);
-
-        // Act & Assert
-        assertThrows(ProductPurchaseException.class, () -> productService.purchaseProducts(requests),
-                "Insufficient stock quantity for product with ID:: 2");
-    }
-
-
-
-
 }

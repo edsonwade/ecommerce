@@ -1,37 +1,85 @@
 server:
   port: 8086
+
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/payment_db
-    username: ${POSTGRES_USERNAME}
-    password: ${POSTGRES_PASSWORD}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5434/payment_db
+    username: ${POSTGRES_USERNAME:vanilson}
+    password: ${POSTGRES_PASSWORD:vanilson}
   jpa:
-    hibernate:
-      ddl-auto: update
-    database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
-# kafka
-kafka:
-  producer:
-    bootstrap-servers: localhost:9092
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
     properties:
-      spring.json.type.mapping: paymentConfirmation:code.with.vanilson.paymentservice.notification.PaymentNotificationRequest
+      hibernate:
+        format_sql: true
 
-application:
-  config:
-    product-url: http://localhost:8082/api/v1/products
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
 
-# Flyway Migration Configuration
-# Flyway Migration Configuration
-flyway:
-  locations: classpath:db/migration/
-  baseline-on-migrate: true
-  enabled: true
-  baseline-description: "init"
-  baseline-version: 0  # Different baseline version to avoid conflict
-  repair: true
-  outOfOrder: true
-  ignoreMigrationPatterns: "*:ignored"  # Use ':' instead of '=' for key-value pairs
+  # Phase 3 — Kafka (consumer: inventory.reserved, producer: payment.authorized / payment.failed)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+        acks: all
+        retries: 3
+        max.in.flight.requests.per.connection: 1
+        spring.json.add.type.headers: false
+    consumer:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      group-id: payment-saga-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "code.with.vanilson.*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: >
+          code.with.vanilson.paymentservice.infrastructure.kafka.InventoryReservedEvent
+    # Phase 1 notification producer (kept for backward compatibility)
+    type:
+      mapping: >
+        paymentNotification:code.with.vanilson.paymentservice.infrastructure.messaging.PaymentNotificationRequest
+
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    enabled: true
+    baseline-version: 1
+    repair: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0

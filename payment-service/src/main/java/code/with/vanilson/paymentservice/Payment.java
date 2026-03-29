@@ -1,6 +1,7 @@
 package code.with.vanilson.paymentservice;
 
-import code.with.vanilson.orderservice.payment.PaymentMethod;
+
+import code.with.vanilson.paymentservice.domain.PaymentMethod;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

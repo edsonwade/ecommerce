@@ -21,9 +21,9 @@ public class PaymentService {
                         request.orderReference(),
                         request.amount(),
                         request.paymentMethod(),
-                        request.customer().getFirstname(),
-                        request.customer().getLastname(),
-                        request.customer().getEmail()
+                        request.customer().firstname(),
+                        request.customer().lastname(),
+                        request.customer().email()
                 )
         );
         return payment.getPaymentId();

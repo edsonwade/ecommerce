@@ -1,6 +1,8 @@
 package code.with.vanilson.paymentservice.notification;
 
-import code.with.vanilson.orderservice.payment.PaymentMethod;
+
+
+import code.with.vanilson.paymentservice.domain.PaymentMethod;
 
 import java.math.BigDecimal;
 

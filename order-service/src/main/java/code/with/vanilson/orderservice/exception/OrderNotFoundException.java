@@ -1,15 +1,21 @@
 package code.with.vanilson.orderservice.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.NOT_FOUND)
-public class OrderNotFoundException extends RuntimeException {
-    public OrderNotFoundException(String message) {
-        super(message);
-    }
+/**
+ * OrderNotFoundException
+ * <p>
+ * Thrown when an order cannot be found by ID or reference.
+ * HTTP 404 Not Found.
+ * Message keys: order.not.found | order.reference.not.found
+ * </p>
+ *
+ * @author vamuhong
+ * @version 2.0
+ */
+public class OrderNotFoundException extends OrderBaseException {
 
-    public OrderNotFoundException(Throwable cause) {
-        super(cause);
+    public OrderNotFoundException(String resolvedMessage, String messageKey) {
+        super(resolvedMessage, HttpStatus.NOT_FOUND, messageKey);
     }
 }

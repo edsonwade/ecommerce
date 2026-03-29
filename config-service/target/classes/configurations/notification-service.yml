@@ -1,56 +1,70 @@
 server:
-  port: 8084
-spring:
-  autoconfigure:
-    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-    # Payment Service MongoDB Configuration
-    data:
-      mongodb:
-        host: ${MONGODB_HOST}
-        port: ${MONGODB_PORT}
-        database: ${MONGODB_DATABASE}
-        username: ${MONGODB_USERNAME}
-        password: ${MONGODB_PASSWORD}
-        #        authentication-database: ${MONGODB_AUTH_DATABASE}
-        authentication-mechanism: ${MONGODB_AUTH_MECHANISM}
-#        ssl: ${MONGODB_SSL_ENABLED:false} # Default to false if not provided
+  port: 8040
 
-# Prometheus Configuration
+spring:
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_HOST:localhost}:27017/notification_db
+      auto-index-creation: true
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:noreply@vanilsonshop.io}
+    password: ${MAIL_PASSWORD:changeme}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        transport:
+          protocol: smtp
+        debug: false
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "code.with.vanilson.*"
+        spring.json.use.type.headers: false
+
+  # Async thread pool for email sending
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 16
+        queue-capacity: 100
+      thread-name-prefix: email-async-
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
 management:
   endpoints:
     web:
       exposure:
-        include: prometheus
-  prometheus:
-    metrics:
-      export:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
         enabled: true
-
-  # kafka configuration
-  kafka:
-    consumer:
-      bootstrap-servers: localhost:9092
-      group-id: paymentGroup,orderGroup
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: '*'
-        spring.json.type.mapping: orderConfirmation:code.with.vanilson.notification.kafka.order.OrderConfirmation,paymentConfirmation:code.with.vanilson.notification.kafka.payment.PaymentConfirmation
-  mail:
-    host: localhost
-    port: 1025
-    username: wayne
-    password: wayne
-    properties:
-      mail:
-        smtp:
-          trust: "*"
-        auth: true
-        starttls:
-          enabled: true
-        connection timeout: 5000
-        timeout: 3000
-        write timeout: 5000
-
-
+  tracing:
+    sampling:
+      probability: 1.0

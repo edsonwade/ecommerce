@@ -1,0 +1,7 @@
+code\with\vanilson\cartservice\CartServiceTest$AddItem.class
+code\with\vanilson\cartservice\CartServiceTest$UpdateItemQty.class
+code\with\vanilson\cartservice\CartServiceTest.class
+code\with\vanilson\cartservice\CartServiceTest$RemoveItem.class
+code\with\vanilson\cartservice\CartServiceTest$GetCart.class
+code\with\vanilson\cartservice\CartServiceTest$ClearCart.class
+code\with\vanilson\cartservice\CartServiceTest$CheckoutSnapshot.class
