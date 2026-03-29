@@ -32,50 +32,50 @@ jobs:
 
       - name: Build and push config-service Docker image
         run: |
-          docker build -f config-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/config-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/config-service:latest
+          docker build -f config-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/config-service:latest .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/config-service:latest
 
       - name: Build and push discovery-service Docker image
         run: |
-          docker build -f discovery-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/discovery-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/discovery-service:latest
+          docker build -f discovery-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/discovery-service:latest
 
       - name: Build and push customer-service Docker image
         run: |
-          docker build -f customer-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/customer-service:today .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/customer-service:today
+          docker build -f customer-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:today .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/customer-service:today
 
       - name: Build and push product-service Docker image
         run: |
-          docker build -f product-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/product-service:today .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/product-service:today
+          docker build -f product-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:today .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/product-service:today
 
       - name: Build and push order-service Docker image
         run: |
-          docker build -f order-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/order-service:today .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/order-service:today
+          docker build -f order-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:today .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/order-service:today
 
       - name: Build and push payment-service Docker image
         run: |
-          docker build -f payment-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/payment-service:today .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/payment-service:today
+          docker build -f payment-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:today .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:today
 
       - name: Build and push gateway-api-service Docker image
         run: |
-          docker build -f gateway-api-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/gateway-api-service:today .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/gateway-api-service:today
+          docker build -f gateway-api-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-api-service:today .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/gateway-api-service:today
 
       - name: Build and push notification-service Docker image
         run: |
-          docker build -f notification-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/notification-service:today .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/notification-service:today
+          docker build -f notification-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/notification-service:today .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/notification-service:today
 
       - name: Build and push authentication-service Docker image
         run: |
-          docker build -f authentication-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/authentication-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/authentication-service:latest
+          docker build -f authentication-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/authentication-service:latest .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/authentication-service:latest
 
       - name: Build and push cart-service Docker image
         run: |
-          docker build -f cart-service/Dockerfile -t ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/cart-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}/cart-service:latest
+          docker build -f cart-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/cart-service:latest .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/cart-service:latest
