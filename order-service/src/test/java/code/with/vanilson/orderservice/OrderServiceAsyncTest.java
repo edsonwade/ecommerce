@@ -9,6 +9,9 @@ import code.with.vanilson.orderservice.outbox.OutboxEvent;
 import code.with.vanilson.orderservice.outbox.OutboxRepository;
 import code.with.vanilson.orderservice.payment.PaymentMethod;
 import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
+import code.with.vanilson.tenantcontext.TenantContext;
+import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,12 +58,13 @@ import static org.mockito.Mockito.when;
 @DisplayName("OrderService — Phase 3 Async Unit Tests")
 class OrderServiceAsyncTest {
 
-    @Mock private OrderRepository  orderRepository;
-    @Mock private OrderMapper      orderMapper;
-    @Mock private CustomerClient   customerClient;
-    @Mock private OrderLineService orderLineService;
-    @Mock private OutboxRepository outboxRepository;
-    @Mock private MessageSource    messageSource;
+    @Mock private OrderRepository              orderRepository;
+    @Mock private OrderMapper                  orderMapper;
+    @Mock private CustomerClient               customerClient;
+    @Mock private OrderLineService             orderLineService;
+    @Mock private OutboxRepository             outboxRepository;
+    @Mock private MessageSource                messageSource;
+    @Mock private TenantHibernateFilterActivator filterActivator;
 
     @InjectMocks
     private OrderService orderService;
@@ -71,6 +75,9 @@ class OrderServiceAsyncTest {
 
     @BeforeEach
     void setUp() {
+        // Set up tenant context for tests
+        TenantContext.setCurrentTenantId("test-tenant-123");
+
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -94,7 +101,14 @@ class OrderServiceAsyncTest {
                 .paymentMethod(PaymentMethod.CREDIT_CARD)
                 .customerId("cust-001")
                 .status(OrderStatus.REQUESTED)
+                .tenantId("test-tenant-123")
                 .build();
+    }
+
+    @AfterEach
+    void cleanup() {
+        // Clear tenant context after each test
+        TenantContext.clear();
     }
 
     // -------------------------------------------------------
