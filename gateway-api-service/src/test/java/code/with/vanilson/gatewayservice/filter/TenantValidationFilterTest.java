@@ -24,6 +24,7 @@ import java.util.Locale;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,7 +55,7 @@ class TenantValidationFilterTest {
 
     @BeforeEach
     void setUp() {
-        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+        lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         filter = new TenantValidationFilter(
@@ -62,7 +63,7 @@ class TenantValidationFilterTest {
                 messageSource,
                 List.of("/api/v1/auth/**", "/actuator/**"));
 
-        when(chain.filter(any())).thenReturn(Mono.empty());
+        lenient().when(chain.filter(any())).thenReturn(Mono.empty());
     }
 
     // -------------------------------------------------------

@@ -6,6 +6,7 @@ import code.with.vanilson.paymentservice.application.PaymentService;
 import code.with.vanilson.paymentservice.domain.CustomerData;
 import code.with.vanilson.paymentservice.domain.PaymentMethod;
 import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
+import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +61,10 @@ class PaymentControllerTest {
     @MockBean
     PaymentService paymentService;
 
+    @SuppressWarnings("unused")
+    @MockBean
+    TenantHibernateFilterActivator activator;
+
     /**
      * MessageSource is required by PaymentGlobalExceptionHandler (loaded by @WebMvcTest).
      * We mock it so the fallback generic-error handler can resolve messages without
@@ -112,6 +117,7 @@ class PaymentControllerTest {
             when(paymentService.createPayment(any(PaymentRequest.class))).thenReturn(1);
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -128,6 +134,7 @@ class PaymentControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
@@ -143,6 +150,7 @@ class PaymentControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
@@ -158,6 +166,7 @@ class PaymentControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
@@ -173,6 +182,7 @@ class PaymentControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
@@ -188,6 +198,7 @@ class PaymentControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
@@ -202,6 +213,7 @@ class PaymentControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest())
@@ -212,6 +224,7 @@ class PaymentControllerTest {
         @DisplayName("should return 400 when body is missing entirely")
         void shouldReturn400WhenBodyIsMissing() throws Exception {
             mockMvc.perform(post("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest());
         }
@@ -230,7 +243,8 @@ class PaymentControllerTest {
         void shouldReturn200WithPaymentList() throws Exception {
             when(paymentService.findAllPayments()).thenReturn(List.of(paymentResponse));
 
-            mockMvc.perform(get("/api/v1/payments"))
+            mockMvc.perform(get("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$", hasSize(1)))
@@ -246,7 +260,8 @@ class PaymentControllerTest {
         void shouldReturn200WithEmptyArrayWhenNoPayments() throws Exception {
             when(paymentService.findAllPayments()).thenReturn(List.of());
 
-            mockMvc.perform(get("/api/v1/payments"))
+            mockMvc.perform(get("/api/v1/payments")
+                            .header("X-Tenant-ID", "test-tenant-123"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$", hasSize(0)));
@@ -266,7 +281,8 @@ class PaymentControllerTest {
         void shouldReturn200WithPaymentWhenFound() throws Exception {
             when(paymentService.findById(1)).thenReturn(paymentResponse);
 
-            mockMvc.perform(get("/api/v1/payments/1"))
+            mockMvc.perform(get("/api/v1/payments/1")
+                            .header("X-Tenant-ID", "test-tenant-123"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.paymentId").value(1))
@@ -282,7 +298,8 @@ class PaymentControllerTest {
             when(paymentService.findById(999))
                     .thenThrow(new PaymentNotFoundException("Payment 999 not found", "payment.not.found"));
 
-            mockMvc.perform(get("/api/v1/payments/999"))
+            mockMvc.perform(get("/api/v1/payments/999")
+                            .header("X-Tenant-ID", "test-tenant-123"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.error").value("Not Found"))
@@ -297,7 +314,8 @@ class PaymentControllerTest {
             when(paymentService.findById(99))
                     .thenThrow(new PaymentNotFoundException("Not found", "payment.not.found"));
 
-            mockMvc.perform(get("/api/v1/payments/99"))
+            mockMvc.perform(get("/api/v1/payments/99")
+                            .header("X-Tenant-ID", "test-tenant-123"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.timestamp").exists())
                     .andExpect(jsonPath("$.status").value(404));

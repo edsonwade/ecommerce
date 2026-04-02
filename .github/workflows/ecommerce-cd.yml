@@ -70,12 +70,4 @@ jobs:
           docker build -f notification-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/notification-service:today .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/notification-service:today
 
-      - name: Build and push authentication-service Docker image
-        run: |
-          docker build -f authentication-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/authentication-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/authentication-service:latest
-
-      - name: Build and push cart-service Docker image
-        run: |
-          docker build -f cart-service/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/cart-service:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/cart-service:latest
+      

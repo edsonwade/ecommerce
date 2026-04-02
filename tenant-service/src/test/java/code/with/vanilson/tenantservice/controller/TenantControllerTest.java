@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -67,7 +68,7 @@ class TenantControllerTest {
 
     @BeforeEach
     void setUp() {
-        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+        lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         mockMvc = MockMvcBuilders

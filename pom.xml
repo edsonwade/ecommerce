@@ -16,19 +16,21 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>customer-service</module>
+        <!-- Phase 4: SaaS Multi-Tenancy — build first, all services depend on tenant-context -->
+        <module>tenant-context</module>
+        <module>tenant-service</module>
+        <!-- Discovery and Configuration services — start before other services -->
         <module>discovery-service</module>
         <module>config-service</module>
+        <!-- Application services -->
+        <module>customer-service</module>
         <module>order-service</module>
         <module>product-service</module>
-        <module>gateway-api-service</module>
-        <module>notification-service</module>
         <module>payment-service</module>
         <module>authentication-service</module>
         <module>cart-service</module>
-        <!-- Phase 4: SaaS Multi-Tenancy -->
-        <module>tenant-context</module>
-        <module>tenant-service</module>
+        <module>notification-service</module>
+        <module>gateway-api-service</module>
     </modules>
 
     <properties>

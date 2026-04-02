@@ -28,7 +28,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.MessageSource;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -36,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -68,7 +68,7 @@ class TenantServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+        lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         activeTenant = Tenant.builder()
