@@ -1,6 +1,8 @@
 package code.with.vanilson.orderservice.orderLine;
 
 import code.with.vanilson.orderservice.Order;
+import code.with.vanilson.tenantcontext.TenantFilterConstants;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -13,19 +15,21 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 
 /**
- * OrderLine — Domain Entity
+ * OrderLine — Domain Entity (Phase 4 update)
  * <p>
  * Represents a single line item in an order (one product + quantity).
  * Maps to the customer_line table.
  * <p>
- * Clean Architecture: this is a pure domain entity — no HTTP, no Kafka, no external deps.
- * SOLID-S: owns only its persistence state, nothing else.
+ * Phase 4: tenantId + Hibernate @Filter for per-tenant data isolation.
  * </p>
  *
  * @author vamuhong
- * @version 2.0
+ * @version 4.0
  */
 @AllArgsConstructor
 @Builder
@@ -34,11 +38,19 @@ import lombok.Setter;
 @Entity
 @NoArgsConstructor
 @Table(name = "customer_line")
+@FilterDef(name = TenantFilterConstants.FILTER_NAME,
+           parameters = @ParamDef(name = TenantFilterConstants.PARAM_NAME, type = String.class))
+@Filter(name = TenantFilterConstants.FILTER_NAME,
+        condition = "tenant_id = :" + TenantFilterConstants.PARAM_NAME)
 public class OrderLine {
 
     @Id
     @GeneratedValue
     private Integer id;
+
+    /** SaaS tenant UUID — set from TenantContext on creation, never updated. */
+    @Column(name = "tenant_id", nullable = false, length = 36)
+    private String tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)

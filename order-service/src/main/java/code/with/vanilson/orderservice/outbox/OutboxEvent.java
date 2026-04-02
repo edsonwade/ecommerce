@@ -19,25 +19,23 @@ import java.time.LocalDateTime;
 /**
  * OutboxEvent — Infrastructure Entity (Outbox Pattern)
  * <p>
+ * Phase 4: tenantId added for audit trail — which tenant triggered this event.
+ * No Hibernate @Filter: the OutboxEventPublisher scheduler needs cross-tenant
+ * visibility to publish events from all tenants.
+ * <p>
  * The Transactional Outbox Pattern solves the dual-write problem:
  * "How do I atomically write to the DB AND publish to Kafka?"
- * <p>
- * Problem with naive approach:
- *   1. Save order to DB ✓
- *   2. Publish to Kafka ✗ (Kafka down) → order saved but event never published → inconsistency
  * <p>
  * Outbox solution:
  *   1. Save order + OutboxEvent in the SAME DB transaction (atomic)
  *   2. OutboxEventPublisher reads unpublished events and publishes to Kafka
  *   3. Mark event as PUBLISHED after successful Kafka send
- *   → If Kafka is down: order is saved, event stays in outbox → retried when Kafka recovers
- *   → If app crashes after DB write: event is retried on restart (at-least-once delivery)
  * <p>
  * Idempotency: consumers must handle duplicates via eventId check.
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 @AllArgsConstructor
 @NoArgsConstructor
@@ -51,6 +49,10 @@ public class OutboxEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
+
+    /** SaaS tenant UUID — audit trail for which tenant triggered this event. */
+    @Column(name = "tenant_id", nullable = false, length = 36)
+    private String tenantId;
 
     /** UUID matching the Kafka event's eventId — used for consumer idempotency. */
     @Column(nullable = false, unique = true, length = 36)

@@ -6,6 +6,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -80,6 +81,20 @@ public class PaymentGlobalExceptionHandler {
                 "Dados inválidos na requisição.", "payment.validation.failed", request);
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Handles malformed or missing request body — returns 400 instead of 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(
+            HttpMessageNotReadableException ex, WebRequest request) {
+        log.warn("[PaymentExceptionHandler] Unreadable request body: {}", ex.getMessage());
+        String message = messageSource.getMessage(
+                "payment.error.bad.request",
+                null,
+                LocaleContextHolder.getLocale());
+        return buildResponse(HttpStatus.BAD_REQUEST, message, "payment.error.bad.request", request);
     }
 
     /**

@@ -11,6 +11,8 @@ import code.with.vanilson.orderservice.orderLine.OrderLineService;
 import code.with.vanilson.orderservice.outbox.OutboxEvent;
 import code.with.vanilson.orderservice.outbox.OutboxRepository;
 import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
+import code.with.vanilson.tenantcontext.TenantContext;
+import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -26,31 +28,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * OrderService — Application Layer (Phase 3 — Async/Event-Driven)
+ * OrderService — Application Layer (Phase 4 — Multi-Tenancy)
  * <p>
- * MAJOR CHANGE FROM PHASE 1:
+ * Phase 4 additions:
+ * - TenantContext.requireCurrentTenantId() sets tenantId on every new Order and OutboxEvent
+ * - TenantHibernateFilterActivator enables per-tenant filtering on all read operations
+ * - All Feign calls propagate X-Tenant-ID automatically via TenantFeignInterceptor
  * <p>
- * Phase 1: createOrder() made 3 synchronous HTTP calls (customer + product + payment).
- * If any service was slow → order throughput collapsed.
- * <p>
- * Phase 3: createOrder() is now fully async:
- * 1. Validate customer (still sync — fast Feign call, cached in gateway)
- * 2. Save order in REQUESTED state + OutboxEvent in ONE DB transaction
- * 3. Return 202 Accepted + correlationId immediately (< 10ms response time)
- * 4. OutboxEventPublisher picks up the OutboxEvent and publishes to order.requested topic
- * 5. product-service consumes → reserves inventory → publishes inventory.reserved
- * 6. payment-service consumes → processes payment → publishes payment.authorized
- * 7. order-service consumes → marks order CONFIRMED → sends notification email
- * <p>
- * Benefits:
- * - Black Friday: 100k orders/second → Kafka absorbs all → consumers scale independently
- * - Product-service slow: doesn't block the HTTP response
- * - Payment-service down: order is persisted, processed when service recovers from DLQ
- * - Zero data loss: Outbox pattern guarantees at-least-once Kafka delivery
+ * Phase 3 architecture (unchanged):
+ * - createOrder() is fully async: save order + OutboxEvent → return 202 → saga via Kafka
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 @Slf4j
 @Service
@@ -58,26 +48,29 @@ public class OrderService {
 
     private static final String TOPIC_ORDER_REQUESTED = "order.requested";
 
-    private final OrderRepository  orderRepository;
-    private final OrderMapper      orderMapper;
-    private final CustomerClient   customerClient;
-    private final OrderLineService orderLineService;
-    private final OutboxRepository outboxRepository;
-    private final MessageSource    messageSource;
-    private final ObjectMapper     objectMapper;
+    private final OrderRepository              orderRepository;
+    private final OrderMapper                  orderMapper;
+    private final CustomerClient               customerClient;
+    private final OrderLineService             orderLineService;
+    private final OutboxRepository             outboxRepository;
+    private final MessageSource                messageSource;
+    private final ObjectMapper                 objectMapper;
+    private final TenantHibernateFilterActivator filterActivator;
 
     public OrderService(OrderRepository orderRepository,
                         OrderMapper orderMapper,
                         CustomerClient customerClient,
                         OrderLineService orderLineService,
                         OutboxRepository outboxRepository,
-                        MessageSource messageSource) {
+                        MessageSource messageSource,
+                        TenantHibernateFilterActivator filterActivator) {
         this.orderRepository  = orderRepository;
         this.orderMapper      = orderMapper;
         this.customerClient   = customerClient;
         this.orderLineService = orderLineService;
         this.outboxRepository = outboxRepository;
         this.messageSource    = messageSource;
+        this.filterActivator  = filterActivator;
         // ObjectMapper with JSR310 for Instant serialisation
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
@@ -145,6 +138,7 @@ public class OrderService {
      * @return OrderStatusResponse with current status
      */
     public OrderStatusResponse getOrderStatus(String correlationId) {
+        filterActivator.activateFilter();
         return orderRepository.findByCorrelationId(correlationId)
                 .map(order -> {
                     log.info("[OrderService] Status query: correlationId=[{}] status=[{}]",
@@ -182,6 +176,7 @@ public class OrderService {
     // -------------------------------------------------------
 
     public List<OrderResponse> findAllOrders() {
+        filterActivator.activateFilter();
         List<OrderResponse> orders = orderRepository.findAll()
                 .stream()
                 .map(orderMapper::fromOrder)
@@ -191,6 +186,7 @@ public class OrderService {
     }
 
     public OrderResponse findById(Integer id) {
+        filterActivator.activateFilter();
         return orderRepository.findById(id)
                 .map(order -> {
                     log.info(msg("order.log.order.found", id));
@@ -215,6 +211,7 @@ public class OrderService {
         Order order = orderMapper.toOrder(request);
         order.setCorrelationId(correlationId);
         order.setStatus(OrderStatus.REQUESTED);
+        order.setTenantId(TenantContext.requireCurrentTenantId());
         Order saved = orderRepository.save(order);
 
         request.products().forEach(p -> orderLineService.saveOrderLine(
@@ -229,6 +226,7 @@ public class OrderService {
             OutboxEvent outbox = OutboxEvent.builder()
                     .eventId(event.eventId())
                     .correlationId(correlationId)
+                    .tenantId(TenantContext.requireCurrentTenantId())
                     .topic(TOPIC_ORDER_REQUESTED)
                     .payload(payload)
                     .partitionKey(correlationId)
