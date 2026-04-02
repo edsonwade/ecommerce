@@ -102,6 +102,13 @@
             <version>${springdoc-openapi.version}</version>
         </dependency>
 
+        <!-- Phase 4: Multi-tenancy context (tenant isolation via Hibernate filter) -->
+        <dependency>
+            <groupId>code.with.vanilson</groupId>
+            <artifactId>tenant-context</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

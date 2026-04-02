@@ -24,6 +24,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+
+        <!-- Phase 4: Multi-Tenancy shared library -->
+        <dependency>
+            <groupId>code.with.vanilson</groupId>
+            <artifactId>tenant-context</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>

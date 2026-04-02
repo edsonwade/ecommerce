@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.orderLine.OrderLine;
 import code.with.vanilson.orderservice.payment.PaymentMethod;
+import code.with.vanilson.tenantcontext.TenantFilterConstants;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -19,6 +20,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -28,17 +32,21 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Order — Domain Entity (Phase 3 update)
+ * Order — Domain Entity (Phase 4 update)
+ * <p>
+ * Phase 4 additions:
+ * - tenantId: UUID identifying the SaaS tenant who owns this order.
+ *   Propagated via X-Tenant-ID header → TenantContext → persisted here.
+ * - Hibernate @FilterDef / @Filter: automatically appends
+ *   WHERE tenant_id = :tenantId to all queries when filter is enabled.
  * <p>
  * Phase 3 additions:
  * - correlationId: UUID that identifies this order across the Kafka saga.
- *   Clients poll GET /orders/{correlationId}/status to track progress.
  * - status: tracks where the order is in the saga state machine.
- * - Both fields are persisted and indexed for fast status queries.
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 @AllArgsConstructor
 @Builder
@@ -48,12 +56,20 @@ import java.util.List;
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
 @Table(name = "customer_order")
+@FilterDef(name = TenantFilterConstants.FILTER_NAME,
+           parameters = @ParamDef(name = TenantFilterConstants.PARAM_NAME, type = String.class))
+@Filter(name = TenantFilterConstants.FILTER_NAME,
+        condition = "tenant_id = :" + TenantFilterConstants.PARAM_NAME)
 public class Order {
 
     @Id
     @GeneratedValue
     @JsonProperty("id")
     private Integer orderId;
+
+    /** SaaS tenant UUID — set from TenantContext on creation, never updated. */
+    @Column(name = "tenant_id", nullable = false, length = 36)
+    private String tenantId;
 
     /**
      * Correlation ID — client-facing tracking ID.
