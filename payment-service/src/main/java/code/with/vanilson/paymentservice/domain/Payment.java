@@ -1,5 +1,6 @@
 package code.with.vanilson.paymentservice.domain;
 
+import code.with.vanilson.tenantcontext.TenantFilterConstants;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,6 +16,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -46,6 +50,14 @@ import java.time.LocalDateTime;
 @Setter
 @Entity
 @EntityListeners(AuditingEntityListener.class)
+@FilterDef(
+        name = TenantFilterConstants.FILTER_NAME,
+        parameters = @ParamDef(name = TenantFilterConstants.PARAM_NAME, type = String.class)
+)
+@Filter(
+        name = TenantFilterConstants.FILTER_NAME,
+        condition = "tenant_id = :" + TenantFilterConstants.PARAM_NAME
+)
 @NoArgsConstructor
 @Table(name = "payment")
 public class Payment {
@@ -84,4 +96,11 @@ public class Payment {
     @LastModifiedDate
     @Column(insertable = false)
     private LocalDateTime lastModifiedDate;
+
+    /**
+     * Phase 4: Tenant isolation — every payment belongs to exactly one tenant.
+     * Populated automatically from TenantContext; filtered via Hibernate @Filter.
+     */
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private String tenantId;
 }

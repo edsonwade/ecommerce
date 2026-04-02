@@ -1,5 +1,6 @@
 package code.with.vanilson.paymentservice;
 
+import code.with.vanilson.tenantcontext.EnableMultiTenancy;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -8,18 +9,19 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  * PaymentApplication — Entry Point (Phase 3 update)
  * <p>
  * @EnableDiscoveryClient — registers with Eureka.
- * Fixed: removed deprecated @EnableEurekaClient → @EnableDiscoveryClient.
- * AppConfig provides @EnableJpaAuditing — not repeated here (Single Responsibility).
+ * @EnableMultiTenancy    — Phase 4: activates tenant context, Hibernate filter, Feign propagation.
  * <p>
+ * AppConfig provides @EnableJpaAuditing — not repeated here (Single Responsibility).
  * Phase 3: PaymentSagaConsumer is auto-activated via @KafkaListener.
  * PaymentKafkaConfig declares the saga consumer factory.
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 @SpringBootApplication
 @EnableDiscoveryClient
+@EnableMultiTenancy
 public class PaymentApplication {
 
     public static void main(String[] args) {

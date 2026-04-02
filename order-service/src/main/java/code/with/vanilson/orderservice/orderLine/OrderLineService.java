@@ -1,5 +1,6 @@
 package code.with.vanilson.orderservice.orderLine;
 
+import code.with.vanilson.tenantcontext.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -8,16 +9,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * OrderLineService — Application Layer
+ * OrderLineService — Application Layer (Phase 4 update)
  * <p>
- * Manages order line persistence within the order-service boundary.
- * Single Responsibility (SOLID-S): only manages order lines.
- * Dependency Inversion (SOLID-D): depends on OrderLineRepository and OrderLineMapper
- * abstractions, not on concrete infrastructure details.
+ * Phase 4: sets tenantId from TenantContext on every new order line.
  * </p>
  *
  * @author vamuhong
- * @version 2.0
+ * @version 4.0
  */
 @Slf4j
 @Service
@@ -36,6 +34,7 @@ public class OrderLineService {
      */
     public Integer saveOrderLine(OrderLineRequest request) {
         OrderLine orderLine = mapper.toOrderLine(request);
+        orderLine.setTenantId(TenantContext.requireCurrentTenantId());
         Integer savedId = repository.save(orderLine).getId();
         log.debug("[OrderLineService] Saved order line: id=[{}] orderId=[{}] productId=[{}] qty=[{}]",
                 savedId, request.orderId(), request.productId(), request.quantity());

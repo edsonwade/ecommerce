@@ -25,50 +25,30 @@
         <module>notification-service</module>
         <module>payment-service</module>
         <module>authentication-service</module>
-        <!-- Phase 2: new Cart Service -->
         <module>cart-service</module>
+        <!-- Phase 4: SaaS Multi-Tenancy -->
+        <module>tenant-context</module>
+        <module>tenant-service</module>
     </modules>
 
     <properties>
         <java.version>17</java.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
-        <testcontainers.version>1.19.7</testcontainers.version>
         <springdoc-openapi.version>2.3.0</springdoc-openapi.version>
         <jjwt.version>0.12.5</jjwt.version>
+        <mockito.version>5.12.0</mockito.version>
     </properties>
 
     <dependencies>
-        <!-- Testcontainers -->
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <!-- Source: https://mvnrepository.com/artifact/jakarta.persistence/jakarta.persistence-api -->
-        <dependency>
-            <groupId>jakarta.persistence</groupId>
-            <artifactId>jakarta.persistence-api</artifactId>
-            <version>3.1.0</version>
-            <scope>compile</scope>
-        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
-        </dependency>
-
-
     </dependencies>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Spring Cloud BOM -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -76,18 +56,8 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
-            <!-- Testcontainers BOM -->
-            <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers-bom</artifactId>
-                <version>${testcontainers.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
         </dependencies>
     </dependencyManagement>
-
 
     <build>
         <plugins>
@@ -97,12 +67,8 @@
                 <executions>
                     <execution>
                         <id>repackage</id>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
+                        <goals><goal>repackage</goal></goals>
+                        <configuration><skip>true</skip></configuration>
                     </execution>
                 </executions>
             </plugin>

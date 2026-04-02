@@ -39,9 +39,16 @@ import java.util.concurrent.TimeUnit;
  * 3. Cleared after checkout (cart is serialised into an Order)
  * 4. Expired automatically by Redis after TTL
  * </p>
+ * <p>
+ * Phase 4 — Multi-tenancy:
+ * Tenant isolation is achieved via {@code tenantId} field with {@code @Indexed}.
+ * The service layer uses {@code TenantContext.getCurrentTenantId()} to scope
+ * all cart operations. Redis key format: {@code cart:{tenantId}:{customerId}}.
+ * No Hibernate filter is involved — this is a Redis-only entity.
+ * </p>
  *
  * @author vamuhong
- * @version 2.0
+ * @version 4.0
  */
 @Getter
 @Setter
@@ -52,7 +59,15 @@ import java.util.concurrent.TimeUnit;
 public class Cart implements Serializable {
 
     @Id
-    private String cartId;          // format: "cart:{customerId}" for deterministic lookup
+    private String cartId;          // format: "{tenantId}:{customerId}" for deterministic tenant-scoped lookup
+
+    /**
+     * Phase 4: Tenant isolation — every cart belongs to exactly one tenant.
+     * Indexed in Redis for efficient lookup: findByTenantIdAndCustomerId().
+     * Set from TenantContext on cart creation; immutable after that.
+     */
+    @Indexed
+    private String tenantId;
 
     @Indexed
     private String customerId;
