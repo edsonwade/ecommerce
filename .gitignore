@@ -46,7 +46,8 @@ Skill.md.*
 /docs/
 /notes/
 /diagramas/
-
+  **/*.jar
+  **/*.war
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
