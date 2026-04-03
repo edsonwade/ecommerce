@@ -39,6 +39,8 @@
         <springdoc-openapi.version>2.3.0</springdoc-openapi.version>
         <jjwt.version>0.12.5</jjwt.version>
         <mockito.version>5.12.0</mockito.version>
+        <spring-cloud-vault.version>4.1.1</spring-cloud-vault.version>
+        <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
     </properties>
 
     <dependencies>
@@ -57,6 +59,16 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-vault-config</artifactId>
+                <version>${spring-cloud-vault.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

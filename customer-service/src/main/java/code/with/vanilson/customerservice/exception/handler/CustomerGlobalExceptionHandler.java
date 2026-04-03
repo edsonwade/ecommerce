@@ -80,6 +80,13 @@ public class CustomerGlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParam(
+            org.springframework.web.bind.MissingServletRequestParameterException ex, WebRequest request) {
+        log.warn("[CustomerExceptionHandler] Missing parameter: {}", ex.getParameterName());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), "customer.validation.missing_param", request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();

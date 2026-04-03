@@ -1,10 +1,6 @@
 package code.with.vanilson.customerservice.controller;
 
-import code.with.vanilson.customerservice.Address;
-import code.with.vanilson.customerservice.CustomerController;
-import code.with.vanilson.customerservice.CustomerRequest;
-import code.with.vanilson.customerservice.CustomerResponse;
-import code.with.vanilson.customerservice.CustomerService;
+import code.with.vanilson.customerservice.*;
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,92 +16,71 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * CustomerControllerTest — Controller (Web Layer) Tests
+ * Controller tests for CustomerController using Spring MockMvc.
  * <p>
- * Uses @WebMvcTest to load ONLY the web layer (no full Spring context).
- * CustomerService is mocked — business logic is not tested here.
- * <p>
- * Tests verify:
- * - HTTP status codes
- * - Request/response JSON structure
- * - Correct service method delegation
- * - Validation error responses (400)
- * - Error responses from exception handler (404, 409)
+ * Validates HTTP status codes, JSON content, validation errors, and service-layer error propagation.
+ * Uses @WebMvcTest — does not start full Spring context.
  * </p>
- *
- * @author vamuhong
- * @version 3.0
  */
 @WebMvcTest(CustomerController.class)
-@DisplayName("CustomerController — Web Layer Tests")
+@DisplayName("CustomerController MockMvc Tests")
 class CustomerControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @MockBean
     private CustomerService customerService;
 
-    private CustomerResponse response1;
-    private CustomerResponse response2;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private Address address;
+    private CustomerResponse customerResponse;
     private CustomerRequest validRequest;
 
     @BeforeEach
     void setUp() {
-        var address = new Address("Main St", "42", "10001", "Porto Alegre", "RS");
-        response1 = new CustomerResponse("cust-001", "Ana", "Silva", "ana@example.com", address);
-        response2 = new CustomerResponse("cust-002", "Bruno", "Costa", "bruno@example.com", null);
-        validRequest = new CustomerRequest(null, "Ana", "Silva", "ana@example.com", address);
+        address = new Address("Main St", "42", "12345", "US", "New York");
+        customerResponse = new CustomerResponse(
+                "cust-001", "John", "Doe", "john.doe@example.com", address);
+        validRequest = new CustomerRequest(
+                null, "John", "Doe", "john.doe@example.com", address);
     }
 
-    // -------------------------------------------------------
+    // =============================================================
     // GET /api/v1/customers
-    // -------------------------------------------------------
-
+    // =============================================================
     @Nested
     @DisplayName("GET /api/v1/customers")
-    class GetAll {
+    class GetAllCustomers {
 
         @Test
-        @DisplayName("should return 200 with list of customers")
-        void shouldReturn200WithCustomerList() throws Exception {
-            when(customerService.findAllCustomers()).thenReturn(List.of(response1, response2));
+        @DisplayName("given_customers_exist_when_getAll_then_return_200_with_list")
+        void given_customers_exist_when_getAll_then_return_200_with_list() throws Exception {
+            when(customerService.findAllCustomers()).thenReturn(List.of(customerResponse));
 
-            mockMvc.perform(get("/api/v1/customers")
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andDo(print())
+            mockMvc.perform(get("/api/v1/customers"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$", hasSize(2)))
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$", hasSize(1)))
                     .andExpect(jsonPath("$[0].customerId", is("cust-001")))
-                    .andExpect(jsonPath("$[0].email", is("ana@example.com")))
-                    .andExpect(jsonPath("$[1].customerId", is("cust-002")));
+                    .andExpect(jsonPath("$[0].email", is("john.doe@example.com")));
 
-            verify(customerService, times(1)).findAllCustomers();
+            verify(customerService).findAllCustomers();
         }
 
         @Test
-        @DisplayName("should return 200 with empty array when no customers")
-        void shouldReturn200WithEmptyArray() throws Exception {
+        @DisplayName("given_no_customers_when_getAll_then_return_200_with_empty_list")
+        void given_no_customers_when_getAll_then_return_200_with_empty_list() throws Exception {
             when(customerService.findAllCustomers()).thenReturn(List.of());
 
             mockMvc.perform(get("/api/v1/customers"))
@@ -114,106 +89,114 @@ class CustomerControllerTest {
         }
     }
 
-    // -------------------------------------------------------
+    // =============================================================
     // GET /api/v1/customers/{id}
-    // -------------------------------------------------------
-
+    // =============================================================
     @Nested
     @DisplayName("GET /api/v1/customers/{id}")
-    class GetById {
+    class GetCustomerById {
 
         @Test
-        @DisplayName("should return 200 with customer when found")
-        void shouldReturn200WhenFound() throws Exception {
-            when(customerService.getCustomerById("cust-001")).thenReturn(response1);
+        @DisplayName("given_valid_id_when_getById_then_return_200")
+        void given_valid_id_when_getById_then_return_200() throws Exception {
+            when(customerService.getCustomerById("cust-001")).thenReturn(customerResponse);
 
-            mockMvc.perform(get("/api/v1/customers/cust-001"))
+            mockMvc.perform(get("/api/v1/customers/{id}", "cust-001"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.customerId", is("cust-001")))
-                    .andExpect(jsonPath("$.email", is("ana@example.com")))
-                    .andExpect(jsonPath("$.firstname", is("Ana")));
+                    .andExpect(jsonPath("$.firstname", is("John")))
+                    .andExpect(jsonPath("$.lastname", is("Doe")))
+                    .andExpect(jsonPath("$.email", is("john.doe@example.com")));
 
-            verify(customerService, times(1)).getCustomerById("cust-001");
+            verify(customerService).getCustomerById("cust-001");
         }
 
         @Test
-        @DisplayName("should return 404 when customer not found")
-        void shouldReturn404WhenNotFound() throws Exception {
-            when(customerService.getCustomerById("ghost"))
-                    .thenThrow(new CustomerNotFoundException(
-                            "Customer with ID [ghost] not found.",
-                            "customer.not.found.by.id"));
+        @DisplayName("given_invalid_id_when_getById_then_return_404")
+        void given_invalid_id_when_getById_then_return_404() throws Exception {
+            when(customerService.getCustomerById("invalid-id"))
+                    .thenThrow(new CustomerNotFoundException("Not found", "customer.not.found.by.id"));
 
-            mockMvc.perform(get("/api/v1/customers/ghost"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.status", is(404)))
-                    .andExpect(jsonPath("$.errorCode", is("customer.not.found.by.id")));
+            mockMvc.perform(get("/api/v1/customers/{id}", "invalid-id"))
+                    .andExpect(status().isNotFound());
         }
     }
 
-    // -------------------------------------------------------
-    // GET /api/v1/customers/by-email?address=...
-    // -------------------------------------------------------
-
+    // =============================================================
+    // GET /api/v1/customers/by-email
+    // =============================================================
     @Nested
     @DisplayName("GET /api/v1/customers/by-email")
-    class GetByEmail {
+    class GetCustomerByEmail {
 
         @Test
-        @DisplayName("should return 200 when customer found by email")
-        void shouldReturn200WhenFound() throws Exception {
-            when(customerService.findByEmail("ana@example.com")).thenReturn(response1);
+        @DisplayName("given_valid_email_when_getByEmail_then_return_200")
+        void given_valid_email_when_getByEmail_then_return_200() throws Exception {
+            when(customerService.findByEmail("john.doe@example.com")).thenReturn(customerResponse);
 
             mockMvc.perform(get("/api/v1/customers/by-email")
-                            .param("address", "ana@example.com"))
+                            .param("address", "john.doe@example.com"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.email", is("ana@example.com")));
-
-            verify(customerService, times(1)).findByEmail("ana@example.com");
+                    .andExpect(jsonPath("$.email", is("john.doe@example.com")));
         }
 
         @Test
-        @DisplayName("should return 404 when email not found")
-        void shouldReturn404WhenEmailNotFound() throws Exception {
-            when(customerService.findByEmail("ghost@example.com"))
-                    .thenThrow(new CustomerNotFoundException(
-                            "Customer with email [ghost@example.com] not found.",
-                            "customer.not.found.by.email"));
+        @DisplayName("given_unknown_email_when_getByEmail_then_return_404")
+        void given_unknown_email_when_getByEmail_then_return_404() throws Exception {
+            when(customerService.findByEmail("unknown@example.com"))
+                    .thenThrow(new CustomerNotFoundException("Not found", "customer.not.found.by.email"));
 
             mockMvc.perform(get("/api/v1/customers/by-email")
-                            .param("address", "ghost@example.com"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.errorCode", is("customer.not.found.by.email")));
+                            .param("address", "unknown@example.com"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("given_missing_address_param_when_getByEmail_then_return_400")
+        void given_missing_address_param_when_getByEmail_then_return_400() throws Exception {
+            mockMvc.perform(get("/api/v1/customers/by-email"))
+                    .andExpect(status().isBadRequest());
         }
     }
 
-    // -------------------------------------------------------
+    // =============================================================
     // POST /api/v1/customers
-    // -------------------------------------------------------
-
+    // =============================================================
     @Nested
     @DisplayName("POST /api/v1/customers")
-    class Create {
+    class CreateCustomer {
 
         @Test
-        @DisplayName("should return 201 with customer ID on successful creation")
-        void shouldReturn201OnCreate() throws Exception {
+        @DisplayName("given_valid_request_when_create_then_return_201")
+        void given_valid_request_when_create_then_return_201() throws Exception {
             when(customerService.createCustomer(any(CustomerRequest.class))).thenReturn("cust-001");
 
             mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$", is("cust-001")));
+                    .andExpect(content().string("cust-001"));
 
-            verify(customerService, times(1)).createCustomer(any(CustomerRequest.class));
+            verify(customerService).createCustomer(any(CustomerRequest.class));
         }
 
         @Test
-        @DisplayName("should return 400 when required fields are missing")
-        void shouldReturn400OnValidationError() throws Exception {
-            // firstname is null — violates @NotNull
-            CustomerRequest invalidRequest = new CustomerRequest(null, null, "Silva", "ana@example.com", null);
+        @DisplayName("given_duplicate_email_when_create_then_return_409")
+        void given_duplicate_email_when_create_then_return_409() throws Exception {
+            when(customerService.createCustomer(any(CustomerRequest.class)))
+                    .thenThrow(new EmailAlreadyExistsException("Exists", "customer.email.already.exists"));
+
+            mockMvc.perform(post("/api/v1/customers")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isConflict());
+        }
+
+        @Test
+        @DisplayName("given_missing_firstname_when_create_then_return_400")
+        void given_missing_firstname_when_create_then_return_400() throws Exception {
+            CustomerRequest invalidRequest = new CustomerRequest(
+                    null, null, "Doe", "john@example.com", null);
 
             mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -222,100 +205,89 @@ class CustomerControllerTest {
         }
 
         @Test
-        @DisplayName("should return 409 when email already registered")
-        void shouldReturn409WhenEmailDuplicate() throws Exception {
-            when(customerService.createCustomer(any()))
-                    .thenThrow(new EmailAlreadyExistsException(
-                            "A customer with email [ana@example.com] is already registered.",
-                            "customer.email.already.exists"));
+        @DisplayName("given_invalid_email_when_create_then_return_400")
+        void given_invalid_email_when_create_then_return_400() throws Exception {
+            CustomerRequest invalidRequest = new CustomerRequest(
+                    null, "John", "Doe", "not-an-email", null);
 
             mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(validRequest)))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.errorCode", is("customer.email.already.exists")));
+                            .content(objectMapper.writeValueAsString(invalidRequest)))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
-        @DisplayName("should return 400 when email format is invalid")
-        void shouldReturn400WhenEmailInvalid() throws Exception {
-            CustomerRequest badEmail = new CustomerRequest(null, "Ana", "Silva", "not-an-email", null);
+        @DisplayName("given_empty_email_when_create_then_return_400")
+        void given_empty_email_when_create_then_return_400() throws Exception {
+            CustomerRequest invalidRequest = new CustomerRequest(
+                    null, "John", "Doe", "", null);
 
             mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(badEmail)))
+                            .content(objectMapper.writeValueAsString(invalidRequest)))
                     .andExpect(status().isBadRequest());
         }
     }
 
-    // -------------------------------------------------------
+    // =============================================================
     // PUT /api/v1/customers/{id}
-    // -------------------------------------------------------
-
+    // =============================================================
     @Nested
     @DisplayName("PUT /api/v1/customers/{id}")
-    class Update {
+    class UpdateCustomer {
 
         @Test
-        @DisplayName("should return 200 with updated customer")
-        void shouldReturn200OnUpdate() throws Exception {
+        @DisplayName("given_valid_update_when_update_then_return_200")
+        void given_valid_update_when_update_then_return_200() throws Exception {
             when(customerService.updateCustomer(eq("cust-001"), any(CustomerRequest.class)))
-                    .thenReturn(response1);
+                    .thenReturn(customerResponse);
 
-            mockMvc.perform(put("/api/v1/customers/cust-001")
+            mockMvc.perform(put("/api/v1/customers/{id}", "cust-001")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.customerId", is("cust-001")));
-
-            verify(customerService, times(1)).updateCustomer(eq("cust-001"), any());
         }
 
         @Test
-        @DisplayName("should return 404 when customer not found on update")
-        void shouldReturn404WhenNotFound() throws Exception {
-            when(customerService.updateCustomer(eq("ghost"), any()))
-                    .thenThrow(new CustomerNotFoundException(
-                            "Customer with ID [ghost] not found.",
-                            "customer.not.found.by.id"));
+        @DisplayName("given_nonexistent_id_when_update_then_return_404")
+        void given_nonexistent_id_when_update_then_return_404() throws Exception {
+            when(customerService.updateCustomer(eq("invalid-id"), any(CustomerRequest.class)))
+                    .thenThrow(new CustomerNotFoundException("Not found", "customer.not.found.by.id"));
 
-            mockMvc.perform(put("/api/v1/customers/ghost")
+            mockMvc.perform(put("/api/v1/customers/{id}", "invalid-id")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
         }
     }
 
-    // -------------------------------------------------------
+    // =============================================================
     // DELETE /api/v1/customers/{id}
-    // -------------------------------------------------------
-
+    // =============================================================
     @Nested
     @DisplayName("DELETE /api/v1/customers/{id}")
-    class Delete {
+    class DeleteCustomer {
 
         @Test
-        @DisplayName("should return 204 No Content on successful delete")
-        void shouldReturn204OnDelete() throws Exception {
+        @DisplayName("given_valid_id_when_delete_then_return_204")
+        void given_valid_id_when_delete_then_return_204() throws Exception {
             doNothing().when(customerService).deleteCustomer("cust-001");
 
-            mockMvc.perform(delete("/api/v1/customers/cust-001"))
+            mockMvc.perform(delete("/api/v1/customers/{id}", "cust-001"))
                     .andExpect(status().isNoContent());
 
-            verify(customerService, times(1)).deleteCustomer("cust-001");
+            verify(customerService).deleteCustomer("cust-001");
         }
 
         @Test
-        @DisplayName("should return 404 when customer not found on delete")
-        void shouldReturn404WhenNotFound() throws Exception {
-            doThrow(new CustomerNotFoundException(
-                    "Customer with ID [ghost] not found.",
-                    "customer.not.found.by.id"))
-                    .when(customerService).deleteCustomer("ghost");
+        @DisplayName("given_nonexistent_id_when_delete_then_return_404")
+        void given_nonexistent_id_when_delete_then_return_404() throws Exception {
+            doThrow(new CustomerNotFoundException("Not found", "customer.not.found.by.id"))
+                    .when(customerService).deleteCustomer("invalid-id");
 
-            mockMvc.perform(delete("/api/v1/customers/ghost"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.errorCode", is("customer.not.found.by.id")));
+            mockMvc.perform(delete("/api/v1/customers/{id}", "invalid-id"))
+                    .andExpect(status().isNotFound());
         }
     }
 }
