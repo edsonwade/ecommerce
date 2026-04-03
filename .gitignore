@@ -36,7 +36,11 @@ sheets/
 
 # Documentation and AI-related files
 CLAUDE.md
+CLAUDE.md.*
+/CLAUDE.md
 Skill.md
+/Skill.md
+Skill.md.*
 /claude/
 /.claude/
 /docs/
@@ -62,5 +66,4 @@ build/
 
 ### VS Code ###
 .vscode/
-.worktrees/
 .worktrees/
