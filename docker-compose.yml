@@ -2,22 +2,54 @@
 # docker-compose.yml — SaaS eCommerce Platform (Phase 2)
 # Services: 10 Spring Boot apps + full infrastructure
 #
-# Ports:
+# Ports (external access):
 #   8888 config-service    8761 discovery-service
 #   8222 gateway           8085 authentication-service
 #   8090 customer-service  8082 product-service
 #   8083 order-service     8086 payment-service
 #   8091 cart-service      8040 notification-service
 #
-# Infrastructure:
-#   9092 Kafka   2181 Zookeeper   6379 Redis
-#   5432 postgres-order   5433 postgres-product
-#   5434 postgres-payment 5435 postgres-auth
-#   27017 MongoDB
+# Infrastructure (internal only — no external ports):
+#   Kafka, Zookeeper, Redis, PostgreSQL x4, MongoDB, Vault
+#
+# Observability:
 #   9090 Prometheus  3000 Grafana  9411 Zipkin  8025 MailHog
+#   8200 Vault UI (dev only — remove in production)
+#
+# Networks:
+#   infra-net     → databases, kafka, redis, vault (internal)
+#   services-net  → Spring Boot services + config + discovery
+#   monitoring-net→ prometheus, grafana, zipkin
 ###############################################################
 
 services:
+
+  # ============================================================
+  # INFRASTRUCTURE — Secrets Management
+  # ============================================================
+
+  vault:
+    image: hashicorp/vault:1.16
+    container_name: vault
+    ports:
+      - "8200:8200"   # UI + API — restrict access in production
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault-data:/vault/data
+      - ./vault/config:/vault/config:ro
+      - ./vault/policies:/vault/policies:ro
+    command: ["vault", "server", "-dev"]
+    # Production: use -config=/vault/config/vault.hcl instead of -dev
+    networks: [infra-net, services-net]
+    healthcheck:
+      test: ["CMD-SHELL", "vault status 2>/dev/null | grep -q 'Initialized'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ============================================================
   # INFRASTRUCTURE — Message Bus
@@ -26,12 +58,11 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: zookeeper
+    # No external port — internal only
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    networks: [ecommerce-net]
+    networks: [infra-net]
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "2181"]
       interval: 10s
@@ -44,15 +75,19 @@ services:
     depends_on:
       zookeeper:
         condition: service_healthy
+    # Port 9092 exposed for local dev tools (Kafka UI, kafka-cli)
+    # Remove in production — services communicate via infra-net on port 29092
     ports:
       - "9092:9092"
-      - "9101:9101"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # SASL/PLAIN listeners — PLAINTEXT_HOST for local dev, SASL_PLAINTEXT for internal
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -60,7 +95,10 @@ services:
       KAFKA_ENABLE_IDEMPOTENCE: "true"
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
-    networks: [ecommerce-net]
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf"
+    volumes:
+      - ./kafka/jaas:/etc/kafka/jaas:ro
+    networks: [infra-net]
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 15s
@@ -74,6 +112,8 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: redis
+    # No external port in production — internal only
+    # Keeping for local dev access; remove port binding in production
     ports:
       - "6379:6379"
     command: >
@@ -82,17 +122,18 @@ services:
       --maxmemory-policy allkeys-lru
       --save 60 1
       --loglevel warning
+      --requirepass ${REDIS_PASSWORD:-redis-secret-2024}
     volumes:
       - redis-data:/data
-    networks: [ecommerce-net]
+    networks: [infra-net, services-net]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis-secret-2024}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # ============================================================
-  # INFRASTRUCTURE — Databases (one per service)
+  # INFRASTRUCTURE — Databases (one per service, internal only)
   # ============================================================
 
   postgres-order:
@@ -102,11 +143,10 @@ services:
       POSTGRES_DB: order_service_db
       POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
-    ports:
-      - "5432:5432"
+    # No external port — internal only. Access via: docker exec postgres-order psql
     volumes:
       - postgres-order-data:/var/lib/postgresql/data
-    networks: [ecommerce-net]
+    networks: [infra-net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d order_service_db"]
       interval: 10s
@@ -120,11 +160,9 @@ services:
       POSTGRES_DB: product_service_db
       POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
-    ports:
-      - "5433:5432"
     volumes:
       - postgres-product-data:/var/lib/postgresql/data
-    networks: [ecommerce-net]
+    networks: [infra-net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d product_service_db"]
       interval: 10s
@@ -138,18 +176,15 @@ services:
       POSTGRES_DB: payment_db
       POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
-    ports:
-      - "5434:5432"
     volumes:
       - postgres-payment-data:/var/lib/postgresql/data
-    networks: [ecommerce-net]
+    networks: [infra-net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d payment_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Phase 2: Auth service database
   postgres-auth:
     image: postgres:15-alpine
     container_name: postgres-auth
@@ -157,11 +192,9 @@ services:
       POSTGRES_DB: auth_db
       POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
-    ports:
-      - "5435:5432"
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
-    networks: [ecommerce-net]
+    networks: [infra-net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db"]
       interval: 10s
@@ -171,15 +204,14 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: mongodb
-    ports:
-      - "27017:27017"
+    # No external port — internal only
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-vanilson}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-vanilson}
     volumes:
       - mongodb-data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    networks: [ecommerce-net]
+    networks: [infra-net]
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -195,7 +227,9 @@ services:
     container_name: zipkin
     ports:
       - "9411:9411"
-    networks: [ecommerce-net]
+    volumes:
+      - zipkin-data:/zipkin
+    networks: [monitoring-net, services-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9411/health || exit 1"]
       interval: 10s
@@ -209,18 +243,65 @@ services:
       - "9090:9090"
     volumes:
       - ./config-service/src/main/resources/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config-service/src/main/resources/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"
       - "--web.enable-lifecycle"
-    networks: [ecommerce-net]
+    networks: [monitoring-net, services-net]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy | grep -q Prometheus"]
       interval: 15s
       timeout: 5s
       retries: 5
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    networks: [monitoring-net, services-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/tmp/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    networks: [monitoring-net, services-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: promtail
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    depends_on:
+      - loki
+    networks: [monitoring-net, services-net]
 
   grafana:
     image: grafana/grafana:10.4.2
@@ -229,13 +310,18 @@ services:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-Gr@fana#Secure2024}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
-    networks: [ecommerce-net]
+      - loki
+    networks: [monitoring-net]
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -243,7 +329,7 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
-    networks: [ecommerce-net]
+    networks: [services-net]
 
   # ============================================================
   # SPRING CLOUD INFRASTRUCTURE
@@ -258,7 +344,11 @@ services:
       - "8888:8888"
     environment:
       SPRING_PROFILES_ACTIVE: native
-    networks: [ecommerce-net]
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_PORT: ${VAULT_PORT:-8200}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
       interval: 15s
@@ -279,7 +369,12 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
-    networks: [ecommerce-net]
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
       interval: 15s
@@ -308,11 +403,17 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       GATEWAY_MAX_CONCURRENT: 5000
-    networks: [ecommerce-net]
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8222/actuator/health || exit 1"]
       interval: 15s
@@ -320,7 +421,6 @@ services:
       retries: 8
     restart: on-failure
 
-  # Phase 2: Authentication Service
   authentication-service:
     build:
       context: ./authentication-service
@@ -338,11 +438,16 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       POSTGRES_HOST: postgres-auth
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
-    networks: [ecommerce-net]
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
       interval: 15s
@@ -367,9 +472,15 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       MONGO_HOST: mongodb
       REDIS_HOST: redis
-    networks: [ecommerce-net]
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8090/actuator/health || exit 1"]
       interval: 15s
@@ -394,11 +505,20 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       POSTGRES_HOST: postgres-product
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       REDIS_HOST: redis
-    networks: [ecommerce-net]
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
       interval: 15s
@@ -423,12 +543,19 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       POSTGRES_HOST: postgres-order
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
       GATEWAY_HOST: gateway-api-service
-    networks: [ecommerce-net]
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
       interval: 15s
@@ -453,11 +580,18 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       POSTGRES_HOST: postgres-payment
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-    networks: [ecommerce-net]
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
       interval: 15s
@@ -465,7 +599,6 @@ services:
       retries: 8
     restart: on-failure
 
-  # Phase 2: Cart Service (Redis-native)
   cart-service:
     build:
       context: ./cart-service
@@ -483,9 +616,15 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-    networks: [ecommerce-net]
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8091/actuator/health || exit 1"]
       interval: 15s
@@ -512,13 +651,20 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       MONGO_HOST: mongodb
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MAIL_USERNAME: noreply@vanilsonshop.io
       MAIL_PASSWORD: unused
-    networks: [ecommerce-net]
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8040/actuator/health || exit 1"]
       interval: 15s
@@ -527,16 +673,28 @@ services:
     restart: on-failure
 
 # ============================================================
-# NETWORKS
+# NETWORKS — Segmented for security
 # ============================================================
 networks:
-  ecommerce-net:
+  # Internal infrastructure: databases, kafka, redis, vault, mongodb
+  # No external access; only services that explicitly need infra are connected
+  infra-net:
+    driver: bridge
+    internal: false   # Set to true in production (breaks DNS for external-facing needs)
+
+  # Application network: Spring Boot services communicate here
+  services-net:
+    driver: bridge
+
+  # Monitoring network: Prometheus, Grafana, Zipkin
+  monitoring-net:
     driver: bridge
 
 # ============================================================
 # VOLUMES
 # ============================================================
 volumes:
+  vault-data:
   redis-data:
   postgres-order-data:
   postgres-product-data:
@@ -544,4 +702,7 @@ volumes:
   postgres-auth-data:
   mongodb-data:
   prometheus-data:
+  alertmanager-data:
+  loki-data:
   grafana-data:
+  zipkin-data:

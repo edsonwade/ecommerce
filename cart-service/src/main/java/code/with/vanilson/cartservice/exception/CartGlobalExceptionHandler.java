@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.Instant;
@@ -66,6 +67,16 @@ public class CartGlobalExceptionHandler {
                 messageSource.getMessage("cart.validation.failed", null, LocaleContextHolder.getLocale()),
                 "cart.validation.failed", req);
         body.put("fieldErrors", fieldErrors);
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodValidation(
+            HandlerMethodValidationException ex, WebRequest req) {
+        log.warn("[CartHandler] Method validation failed: {}", ex.getMessage());
+        Map<String, Object> body = base(HttpStatus.BAD_REQUEST,
+                messageSource.getMessage("cart.validation.failed", null, LocaleContextHolder.getLocale()),
+                "cart.validation.failed", req);
         return ResponseEntity.badRequest().body(body);
     }
 

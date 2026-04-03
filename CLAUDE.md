@@ -1,103 +1,159 @@
-# CLAUDE.md
+# Plan: Create Comprehensive  Production-Readiness Improvements
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Context
 
-## Build & Run Commands
+The e-commerce microservice project (10 Spring Boot services + infrastructure) has a well-architected foundation but lacks production-readiness in security, observability, reliability, and operations. The existing CLAUDE.md is essentially empty. The user wants a complete replacement that serves as both a project guide AND a detailed production-readiness improvement plan.
 
-```bash
-# Build all modules (skip tests)
-mvn clean package -DskipTests
+## What We're Doing
 
-# Build a single service
-mvn clean package -DskipTests -pl order-service
+Replace `CLAUDE.md` with a comprehensive document that:
+1. Documents the current architecture (build commands, service ports, dependencies, patterns)
+2. Provides a phased production-readiness improvement plan covering all areas
+3. Serves as actionable guidance for implementing each improvement
 
-# Run all tests
-mvn test
+## CLAUDE.md Structure
 
-# Run tests for a single module
-mvn test -pl order-service
+### Section 1: Build & Run Commands
+- Maven build commands (all modules, single service, skip tests)
+- Docker-compose commands (full stack, infra only)
+- Test commands (all, single module, single class/method)
 
-# Run a single test class
-mvn test -pl order-service -Dtest=OrderServiceAsyncTest
+### Section 2: Architecture Overview
+- Multi-module Maven project (Java 17, Spring Boot 3.2.5, Spring Cloud 2023.0.1)
+- Service startup order (config → discovery → apps)
+- Service ports table (10 services)
+- Database strategy (PostgreSQL x4, MongoDB, Redis)
+- Inter-service communication (Feign sync, Kafka async)
+- Order saga (transactional outbox pattern)
+- Gateway filter chain (JWT + tenant validation)
+- Multi-tenancy (tenant-context shared library)
 
-# Run a single test method
-mvn test -pl order-service -Dtest=OrderServiceAsyncTest#methodName
+### Section 3: Current Infrastructure State
+- Summary of what's deployed (Kafka, Redis, PostgreSQL, MongoDB, Zipkin, Prometheus, Grafana, MailHog)
+- Known limitations (single broker Kafka, no replication, hardcoded credentials)
 
-# Start full stack (all services + infrastructure)
-docker-compose up -d
+### Section 4: Production-Readiness Improvement Plan
 
-# Start only infrastructure (DBs, Kafka, Redis, etc.)
-docker-compose up -d zookeeper kafka redis postgres-order postgres-product postgres-payment postgres-auth mongodb zipkin
-```
+#### Phase 1: Security Hardening (Highest Priority)
+1. **Secrets Management**
+- Integrate HashiCorp Vault or Spring Cloud Vault
+- Move all credentials from `.env`/`docker-compose.yml` to Vault
+- Implement credential rotation for PostgreSQL, MongoDB, Redis
+- Encrypt JWT secret and store in Vault
+- Add `bootstrap.yml` configs for Vault in each service
 
-## Architecture Overview
+2. **Service Authentication**
+- Add authentication to Eureka dashboard
+- Secure Prometheus/Grafana with proper credentials (not admin/admin)
+- Add Redis AUTH password
+- Configure Kafka SASL/SCRAM authentication
+- Secure actuator endpoints (expose only health/prometheus, restrict others)
 
-**Multi-module Maven project** — Java 17, Spring Boot 3.2.5, Spring Cloud 2023.0.1.
+3. **TLS/Encryption**
+- Enable TLS for inter-service communication
+- Configure SSL for PostgreSQL connections
+- Enable Redis TLS
+- Configure Kafka SSL listeners
+- Add mTLS between services (optional, service mesh)
 
-### Service Startup Order (critical dependency chain)
-Config-service must be healthy before discovery-service starts. Both must be healthy before all application services start. Services fetch their config via `SPRING_CONFIG_IMPORT=optional:configserver:http://config-service:8888`. Per-service YAML configs live in `config-service/src/main/resources/configurations/<service-name>.yml`.
+4. **Network Security**
+- Define Docker network policies (restrict service-to-service access)
+- Remove exposed ports for internal-only services
+- Add rate limiting per tenant on gateway (already partial)
 
-### Service Ports
-| Service | Port |
-|---|---|
-| config-service | 8888 |
-| discovery-service (Eureka) | 8761 |
-| gateway-api-service | 8222 |
-| authentication-service | 8085 |
-| customer-service | 8090 |
-| product-service | 8082 |
-| order-service | 8083 |
-| payment-service | 8086 |
-| cart-service | 8091 |
-| notification-service | 8040 |
+#### Phase 2: Observability (High Priority)
+5. **Structured Logging**
+- Add `logback-spring.xml` to all 10 services
+- Configure JSON format output (logstash-logback-encoder)
+- Include traceId, spanId, tenantId in MDC
+- Set appropriate log levels per environment (dev/staging/prod)
+- Add log rotation and max file size limits
 
-### Database Strategy (one DB per service)
-- **PostgreSQL**: order-service (`:5432`), product-service (`:5433`), payment-service (`:5434`), authentication-service (`:5435`)
-- **MongoDB**: customer-service, notification-service (`:27017`)
-- **Redis**: cart-service (session store), gateway (rate limiting), customer-service (caching) — `:6379`
+6. **Log Aggregation**
+- Add ELK stack to docker-compose (Elasticsearch, Logstash, Kibana)
+- OR add Loki + Promtail (lighter alternative)
+- Configure Logstash/Promtail to collect from all services
+- Create Kibana/Grafana dashboards for log search
 
-Database migrations for PostgreSQL services use **Flyway**, with migration scripts in `<service>/src/main/resources/db/migration/`.
+7. **Prometheus Alerting**
+- Create alerting rules file: `prometheus/alert.rules.yml`
+- Rules: service down, high error rate (>5%), high latency (p99 > 2s), disk/memory pressure, Kafka consumer lag, database connection pool exhaustion
+- Configure Alertmanager in docker-compose
+- Add Slack/email notification channels
 
-### Inter-Service Communication
-- **Synchronous**: OpenFeign clients for service-to-service HTTP calls (e.g., order-service calls customer-service and product-service via Feign). Feign interceptors automatically propagate `X-Tenant-ID`.
-- **Asynchronous**: Kafka for the order saga and notifications. Topics: `order.requested`, payment/inventory events.
+8. **Grafana Dashboards**
+- Provision dashboards via JSON files in docker-compose
+- Dashboards: JVM metrics, HTTP request rates, database connections, Kafka throughput, Redis hit rates, order saga flow, per-tenant metrics
+- Configure Grafana datasources automatically
 
-### Order Saga (Transactional Outbox Pattern)
-`createOrder()` returns HTTP 202 with a `correlationId`. The flow:
-1. Validate customer (sync Feign call)
-2. Persist `Order` (status=`REQUESTED`) + `OutboxEvent` in a **single transaction**
-3. `OutboxEventPublisher` (scheduled every 5s) polls `outbox_event` table and publishes to Kafka
-4. `OrderSagaConsumer` processes downstream saga events (payment, inventory) and updates order status
-5. Client polls `GET /api/v1/orders/status/{correlationId}` for updates
+9. **Distributed Tracing Improvements**
+- Reduce sampling from 100% to 10-20% for production
+- Add persistent storage for Zipkin (Elasticsearch backend)
+- Configure trace retention policy
 
-After 5 failed Kafka publish retries, the `OutboxEvent` is marked `FAILED`.
+#### Phase 3: Reliability & Resilience (Medium Priority)
+10. **Database Reliability**
+- Add PostgreSQL replication (primary-replica) for read scaling
+- Configure MongoDB replica set (minimum 3 nodes)
+- Document backup/restore procedures
+- Add automated backup cron job to docker-compose
 
-### Gateway Filter Chain (Spring Cloud Gateway — reactive)
-Two global filters run in order:
-1. `JwtAuthenticationFilter` — `HIGHEST_PRECEDENCE + 10`: validates JWT, extracts `X-Tenant-ID` from claims and injects it as a request header
-2. `TenantValidationFilter` — `HIGHEST_PRECEDENCE + 20`: reads `X-Tenant-ID`, calls `tenant-service` to verify the tenant is `ACTIVE`; enriches request with `X-Tenant-Rate-Limit`
+11. **Kafka Reliability**
+- Scale to 3 brokers with replication factor 3
+- Configure proper topic partitioning
+- Set `min.insync.replicas=2`
+- Replace Zookeeper with KRaft (Kafka 3.x+)
 
-Public paths (configured via `gateway.public-paths`) bypass both filters.
+12. **Graceful Shutdown**
+- Add `SIGTERM` handling in all Dockerfiles (`STOPSIGNAL SIGTERM`)
+- Configure Spring Boot graceful shutdown (`server.shutdown=graceful`)
+- Set shutdown timeout (30s default)
+- Ensure Kafka consumers commit offsets on shutdown
 
-### Phase 4: SaaS Multi-Tenancy
-`tenant-context` is a **shared library module** (not a standalone service) depended on by all application services. Key components:
-- `TenantContext` — `InheritableThreadLocal<String>` holding the current tenant ID per request thread
-- `TenantInterceptor` — Spring MVC `HandlerInterceptor` that sets/clears `TenantContext` from the `X-Tenant-ID` header
-- `TenantHibernateFilterActivator` — activates a Hibernate `@Filter` on read operations to scope queries to the current tenant
-- `TenantFeignInterceptor` — propagates `X-Tenant-ID` to all outgoing Feign calls automatically
-- `@EnableMultiTenancy` — annotation to opt a service into multi-tenancy auto-configuration
+13. **Dockerfile Fixes**
+- Fix port mismatch (EXPOSE should match actual service port)
+- Add `STOPSIGNAL SIGTERM`
+- Document required environment variables
 
-`tenant-service` is the standalone CRUD service for managing tenant records (domain/application/infrastructure/presentation layered architecture).
+#### Phase 4: Operational Excellence (Lower Priority)
+14. **Configuration Management**
+- Encrypt sensitive config values in Config Server (Spring Cloud Config encryption)
+- Add config file versioning (git-backed config server)
+- Document all environment variables per service
 
-### Error Messages
-All user-facing and log messages are externalised to `messages.properties` per service (located in `src/main/resources/`). No hardcoded strings in business logic — always use `MessageSource.getMessage(key, args, locale)`.
+15. **API Documentation**
+- Validate OpenAPI schemas in CI
+- Add API versioning strategy (URL path: /api/v1/, /api/v2/)
+- Generate API client SDKs from OpenAPI specs
 
-### Testing Strategy
-- **Unit tests**: JUnit 5 + Mockito (`*Test.java`)
-- **Integration tests**: Testcontainers for real Docker instances of MongoDB/Redis/PostgreSQL (`*IntegrationTest.java`, extend `AbstractIntegrationTest`)
-- **BDD**: product-service uses Cucumber (`CucumberTestRunner`)
+16. **CI/CD Pipeline**
+- Add GitHub Actions workflow (build, test, lint, security scan)
+- Add SAST scanning (SpotBugs, OWASP dependency check)
+- Add container image scanning (Trivy)
+- Enable tests in Docker builds (remove `-DskipTests`)
 
-### Observability
-- **Distributed tracing**: Zipkin at `:9411`
-- **Metrics**: Prometheus (`:9090`) + Grafana (`:3000`); Prometheus config at `config-service/src/main/resources/prometheus/prometheus.yml`
-- **Email (dev)**: MailHog UI at `:8025`, SMTP at `:1025`
+17. **Performance & Scaling**
+- Add resource limits to docker-compose (CPU/memory)
+- Document horizontal scaling strategy
+- Add load testing config (k6 or Gatling)
+- Configure Kafka partitioning for parallelism
+
+### Section 5: Error Messages & Conventions
+- MessageSource pattern for externalized messages
+- Testing strategy (unit, integration with Testcontainers, BDD with Cucumber)
+
+### Section 6: Flyway Migrations
+- Migration naming conventions
+- Which services have migrations (auth, order, payment, product, tenant)
+
+## Files to Modify
+
+| File | Action |
+|------|--------|
+| `CLAUDE.md` | Replace entirely with comprehensive content |
+
+## Verification
+
+- Read the generated CLAUDE.md and verify all sections are present
+- Verify accuracy against current docker-compose.yml, pom.xml, and service configs
+- Ensure build commands are correct by dry-running `mvn clean package -DskipTests`

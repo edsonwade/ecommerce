@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: order-service-test
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+application:
+  config:
+    customer-url: http://mock-customer
+    payment-url: http://mock-payment
+    product-url: http://mock-product

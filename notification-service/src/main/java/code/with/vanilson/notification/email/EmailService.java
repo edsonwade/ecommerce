@@ -90,7 +90,7 @@ public class EmailService {
             mailSender.send(mimeMessage);
             log.info(msg("notification.log.sent.payment", destinationEmail, orderReference));
 
-        } catch (MessagingException ex) {
+        } catch (Exception ex) {
             log.error(msg("notification.log.failed.payment", destinationEmail, orderReference,
                     ex.getMessage()));
         }
@@ -136,7 +136,7 @@ public class EmailService {
             mailSender.send(mimeMessage);
             log.info(msg("notification.log.sent.order", destinationEmail, orderReference));
 
-        } catch (MessagingException ex) {
+        } catch (Exception ex) {
             log.error(msg("notification.log.failed.order", destinationEmail, orderReference,
                     ex.getMessage()));
         }

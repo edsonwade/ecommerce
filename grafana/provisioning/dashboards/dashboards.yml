@@ -1,0 +1,15 @@
+# ==============================================================
+# Grafana Dashboard Provisioning
+# ==============================================================
+apiVersion: 1
+
+providers:
+  - name: 'ecommerce-dashboards'
+    orgId: 1
+    folder: 'eCommerce'
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards
