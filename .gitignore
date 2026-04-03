@@ -34,13 +34,14 @@ endpoints/
 # Ignore sheets directory
 sheets/
 
-notes/
-
-diagramas/
-
-
-
-../configuration-service/data
+# Documentation and AI-related files
+CLAUDE.md
+Skill.md
+/claude/
+/.claude/
+/docs/
+/notes/
+/diagramas/
 
 ### NetBeans ###
 /nbproject/private/
