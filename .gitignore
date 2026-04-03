@@ -46,6 +46,8 @@ Skill.md.*
 /docs/
 /notes/
 /diagramas/
+**/*.jar
+**/*.war
 notes/
 
 diagramas/
@@ -53,6 +55,7 @@ diagramas/
 
 
 ../configuration-service/data
+
 
 ### NetBeans ###
 /nbproject/private/
