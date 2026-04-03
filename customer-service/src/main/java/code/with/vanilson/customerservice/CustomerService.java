@@ -8,6 +8,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -131,7 +132,7 @@ public class CustomerService {
             return saved.getCustomerId();
         } catch (EmailAlreadyExistsException ex) {
             throw ex; // re-throw typed exception
-        } catch (IncorrectResultSizeDataAccessException ex) {
+        } catch (DataIntegrityViolationException | IncorrectResultSizeDataAccessException ex) {
             throw new EmailAlreadyExistsException(
                     msg("customer.email.already.exists", request.email()),
                     "customer.email.already.exists");

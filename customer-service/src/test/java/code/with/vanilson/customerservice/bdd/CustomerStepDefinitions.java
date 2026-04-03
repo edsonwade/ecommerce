@@ -111,7 +111,9 @@ public class CustomerStepDefinitions {
 
     @Given("a customer with ID {string} exists")
     public void a_customer_with_ID_exists(String id) {
+        Customer existing = Customer.builder().customerId(id).build();
         when(customerRepository.existsById(id)).thenReturn(true);
+        when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         this.savedCustomerId = id;
     }
 
