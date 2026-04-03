@@ -1,11 +1,15 @@
 server:
   port: 8091
+  shutdown: graceful
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis-secret-2024}
       timeout: 2000ms
       lettuce:
         pool:
@@ -19,7 +23,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:localhost}:8761/eureka/
   instance:
     prefer-ip-address: true
 
@@ -33,10 +37,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,prometheus
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
     prometheus:
       enabled: true
   metrics:
@@ -45,4 +49,4 @@ management:
         enabled: true
   tracing:
     sampling:
-      probability: 1.0
+      probability: 0.1  # 10% sampling — use 1.0 only in dev/debugging

@@ -1,0 +1,28 @@
+# bootstrap.yml — loaded before application context
+# Configures Spring Cloud Vault for secrets management
+spring:
+  application:
+    name: authentication-service
+
+  cloud:
+    vault:
+      enabled: ${VAULT_ENABLED:false}           # Set to true in production
+      host: ${VAULT_HOST:localhost}
+      port: ${VAULT_PORT:8200}
+      scheme: ${VAULT_SCHEME:http}              # Use https in production
+      token: ${VAULT_TOKEN:root-token}
+      kv:
+        enabled: true
+        backend: secret
+        default-context: ecommerce/authentication-service
+        application-name: authentication-service
+        profiles:
+          paths:
+            - ecommerce/shared               # shared secrets (JWT, Kafka, Redis)
+            - ecommerce/authentication-service       # service-specific secrets
+
+    config:
+      import: optional:configserver:${SPRING_CONFIG_IMPORT:http://config-service:8888}
+
+  config:
+    import: "optional:vault://"

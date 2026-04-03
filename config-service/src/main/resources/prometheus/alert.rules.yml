@@ -1,0 +1,188 @@
+# ==============================================================
+# Prometheus Alerting Rules — eCommerce Microservices
+# ==============================================================
+groups:
+
+  # -------------------------------------------------------
+  # Service Availability
+  # -------------------------------------------------------
+  - name: service_availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is DOWN"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      - alert: ServiceHighRestartRate
+        expr: rate(process_start_time_seconds[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service {{ $labels.job }} restarting frequently"
+          description: "{{ $labels.job }} has restarted more than once in the last 5 minutes."
+
+  # -------------------------------------------------------
+  # HTTP Error Rates
+  # -------------------------------------------------------
+  - name: http_errors
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (job)
+          /
+          sum(rate(http_server_requests_seconds_count[5m])) by (job)
+          > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.job }}."
+
+      - alert: HighClientErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"4.."}[5m])) by (job)
+          /
+          sum(rate(http_server_requests_seconds_count[5m])) by (job)
+          > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 4xx rate on {{ $labels.job }}"
+          description: "4xx rate is {{ $value | humanizePercentage }} on {{ $labels.job }}."
+
+  # -------------------------------------------------------
+  # Latency
+  # -------------------------------------------------------
+  - name: latency
+    rules:
+      - alert: HighP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_server_requests_seconds_bucket[5m])) by (job, le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P99 latency > 2s on {{ $labels.job }}"
+          description: "p99 latency is {{ $value }}s on {{ $labels.job }}."
+
+      - alert: CriticalP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_server_requests_seconds_bucket[5m])) by (job, le)
+          ) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "P99 latency > 5s on {{ $labels.job }}"
+          description: "p99 latency is {{ $value }}s on {{ $labels.job }}."
+
+  # -------------------------------------------------------
+  # JVM / Memory
+  # -------------------------------------------------------
+  - name: jvm_health
+    rules:
+      - alert: JvmMemoryHigh
+        expr: |
+          jvm_memory_used_bytes{area="heap"}
+          / jvm_memory_max_bytes{area="heap"}
+          > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM heap > 85% on {{ $labels.job }}"
+          description: "Heap usage is {{ $value | humanizePercentage }} on {{ $labels.job }}."
+
+      - alert: JvmMemoryCritical
+        expr: |
+          jvm_memory_used_bytes{area="heap"}
+          / jvm_memory_max_bytes{area="heap"}
+          > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM heap > 95% on {{ $labels.job }} — OOM imminent"
+          description: "Heap usage is {{ $value | humanizePercentage }} on {{ $labels.job }}."
+
+      - alert: JvmGcPressure
+        expr: rate(jvm_gc_pause_seconds_sum[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GC pressure on {{ $labels.job }}"
+          description: "GC is consuming {{ $value }}s/s on {{ $labels.job }}."
+
+  # -------------------------------------------------------
+  # Database Connection Pool
+  # -------------------------------------------------------
+  - name: database
+    rules:
+      - alert: DbConnectionPoolExhausted
+        expr: |
+          hikaricp_connections_active / hikaricp_connections_max > 0.90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB connection pool > 90% on {{ $labels.job }}"
+          description: "Pool {{ $labels.pool }} is {{ $value | humanizePercentage }} utilized."
+
+      - alert: DbConnectionPoolHigh
+        expr: |
+          hikaricp_connections_active / hikaricp_connections_max > 0.75
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB connection pool > 75% on {{ $labels.job }}"
+          description: "Pool {{ $labels.pool }} is {{ $value | humanizePercentage }} utilized."
+
+  # -------------------------------------------------------
+  # Kafka Consumer Lag
+  # -------------------------------------------------------
+  - name: kafka
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_fetch_manager_records_lag_max > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag > 1000 on {{ $labels.job }}"
+          description: "Consumer group {{ $labels.group }} has lag of {{ $value }} on topic {{ $labels.topic }}."
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumer_fetch_manager_records_lag_max > 10000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka consumer lag > 10000 — consumers falling behind"
+          description: "Consumer group {{ $labels.group }} has critical lag of {{ $value }}."
+
+  # -------------------------------------------------------
+  # Disk / Storage
+  # -------------------------------------------------------
+  - name: disk
+    rules:
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space < 15% on {{ $labels.instance }}"
+          description: "Available disk is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
