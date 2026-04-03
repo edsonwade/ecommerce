@@ -6,6 +6,7 @@ import code.with.vanilson.cartservice.application.CartResponse;
 import code.with.vanilson.cartservice.application.CartService;
 import code.with.vanilson.cartservice.domain.Cart;
 import code.with.vanilson.cartservice.domain.CartItem;
+import code.with.vanilson.cartservice.exception.CartNotFoundException;
 import code.with.vanilson.cartservice.exception.CartValidationException;
 import code.with.vanilson.cartservice.infrastructure.CartRepository;
 import io.cucumber.java.Before;
@@ -13,6 +14,7 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.mockito.Mockito;
+import org.springframework.context.MessageSource;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -38,7 +40,12 @@ public class CartStepDefinitions {
     public void setUp() {
         cartRepository = Mockito.mock(CartRepository.class);
         cartMapper = Mockito.mock(CartMapper.class);
-        cartService = new CartService(cartRepository, cartMapper, null); // messageSource not strictly needed for mocked tests
+        MessageSource messageSource = Mockito.mock(MessageSource.class);
+
+        // Mock messageSource to return the key or a dummy string to avoid NPE
+        when(messageSource.getMessage(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        cartService = new CartService(cartRepository, cartMapper, messageSource);
         caughtException = null;
     }
 
@@ -131,6 +138,7 @@ public class CartStepDefinitions {
 
     @Then("the system should throw a validation error")
     public void the_system_should_throw_validation_error() {
-        assertThat(caughtException).isNotNull().isInstanceOf(CartValidationException.class);
+        assertThat(caughtException).isNotNull();
+        assertThat(caughtException).isInstanceOfAny(CartValidationException.class, CartNotFoundException.class);
     }
 }

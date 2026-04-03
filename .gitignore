@@ -35,14 +35,11 @@ endpoints/
 sheets/
 
 # Documentation and AI-related files
+.claude/
 CLAUDE.md
-CLAUDE.md.*
-/CLAUDE.md
+Skills.md
+Claude.md
 Skill.md
-/Skill.md
-Skill.md.*
-/claude/
-/.claude/
 /docs/
 /notes/
 /diagramas/
