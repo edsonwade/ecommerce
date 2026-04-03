@@ -34,6 +34,14 @@ endpoints/
 # Ignore sheets directory
 sheets/
 
+# Documentation and AI-related files
+CLAUDE.md
+Skill.md
+/claude/
+/.claude/
+/docs/
+/notes/
+/diagramas/
 notes/
 
 diagramas/
