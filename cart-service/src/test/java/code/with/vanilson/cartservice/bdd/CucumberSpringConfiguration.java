@@ -1,4 +1,4 @@
-package code.with.vanilson.customerservice.bdd;
+package code.with.vanilson.cartservice.bdd;
 
 /**
  * CucumberSpringConfiguration
@@ -8,13 +8,13 @@ package code.with.vanilson.customerservice.bdd;
  * @since 2024-06-14
  */
 
-import code.with.vanilson.customerservice.CustomerMapper;
-import code.with.vanilson.customerservice.CustomerRepository;
+
+import code.with.vanilson.cartservice.application.CartMapper;
+import code.with.vanilson.cartservice.infrastructure.CartRepository;
 import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.MessageSource;
-import org.springframework.data.mongodb.core.MongoTemplate;
 
 @SpringBootTest(properties = {
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration"
@@ -23,14 +23,12 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 @SuppressWarnings("unused")
 public class CucumberSpringConfiguration {
 
-    @MockBean
-    private MongoTemplate mongoTemplate;
 
     @MockBean
-    private CustomerRepository customerRepository;
+    private CartRepository cartRepository;
 
     @MockBean
-    private CustomerMapper customerMapper;
+    private CartMapper cartMapper;
 
     @MockBean
     private MessageSource messageSource;
