@@ -69,7 +69,8 @@ management:
         include: health,prometheus
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
+      show-components: always
     prometheus:
       enabled: true
   metrics:
