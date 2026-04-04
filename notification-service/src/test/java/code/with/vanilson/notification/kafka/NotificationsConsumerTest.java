@@ -4,6 +4,7 @@ import code.with.vanilson.notification.Notification;
 import code.with.vanilson.notification.NotificationRepository;
 import code.with.vanilson.notification.NotificationType;
 import code.with.vanilson.notification.email.EmailService;
+import code.with.vanilson.notification.idempotency.ProcessedEventRepository;
 import code.with.vanilson.notification.kafka.order.OrderConfirmation;
 import code.with.vanilson.notification.kafka.payment.PaymentConfirmation;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ class NotificationsConsumerTest {
     @Mock private NotificationRepository repository;
     @Mock private EmailService emailService;
     @Mock private MessageSource messageSource;
+    @Mock private ProcessedEventRepository processedEventRepository;
     @Mock private Acknowledgment acknowledgment;
 
     @InjectMocks
