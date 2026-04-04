@@ -61,6 +61,10 @@ public class NotificationsConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
+        // Idempotency note: this guard is effective for sequential replays (the dominant failure mode).
+        // Concurrent processing of the same partition:offset by multiple threads in the same consumer
+        // group is not possible by Kafka's design (one partition is assigned to one consumer thread),
+        // so no distributed lock is needed here.
         String eventId = "payment-topic:" + partition + ":" + offset;
 
         if (processedEventRepository.findById(eventId).isPresent()) {
@@ -79,6 +83,10 @@ public class NotificationsConsumer {
                 .paymentConfirmation(paymentConfirmation)
                 .build());
 
+        // Guard saved before email send: if consumer restarts after this point,
+        // the duplicate check will skip the message rather than re-sending the email.
+        processedEventRepository.save(ProcessedEvent.of("payment-topic", partition, offset));
+
         String customerName = paymentConfirmation.customerFirstname()
                 + " " + paymentConfirmation.customerLastname();
 
@@ -88,7 +96,6 @@ public class NotificationsConsumer {
                 paymentConfirmation.amount(),
                 paymentConfirmation.orderReference());
 
-        processedEventRepository.save(ProcessedEvent.of("payment-topic", partition, offset));
         ack.acknowledge();
     }
 
@@ -102,6 +109,10 @@ public class NotificationsConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
+        // Idempotency note: this guard is effective for sequential replays (the dominant failure mode).
+        // Concurrent processing of the same partition:offset by multiple threads in the same consumer
+        // group is not possible by Kafka's design (one partition is assigned to one consumer thread),
+        // so no distributed lock is needed here.
         String eventId = "order-topic:" + partition + ":" + offset;
 
         if (processedEventRepository.findById(eventId).isPresent()) {
@@ -120,6 +131,10 @@ public class NotificationsConsumer {
                 .orderConfirmation(orderConfirmation)
                 .build());
 
+        // Guard saved before email send: if consumer restarts after this point,
+        // the duplicate check will skip the message rather than re-sending the email.
+        processedEventRepository.save(ProcessedEvent.of("order-topic", partition, offset));
+
         OrderConfirmation.CustomerSummary customer = orderConfirmation.customer();
         String customerName = customer.firstname() + " " + customer.lastname();
 
@@ -130,7 +145,6 @@ public class NotificationsConsumer {
                 orderConfirmation.orderReference(),
                 orderConfirmation);
 
-        processedEventRepository.save(ProcessedEvent.of("order-topic", partition, offset));
         ack.acknowledge();
     }
 

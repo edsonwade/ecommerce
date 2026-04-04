@@ -4,6 +4,7 @@ import code.with.vanilson.notification.NotificationRepository;
 import code.with.vanilson.notification.email.EmailService;
 import code.with.vanilson.notification.idempotency.ProcessedEvent;
 import code.with.vanilson.notification.idempotency.ProcessedEventRepository;
+import code.with.vanilson.notification.kafka.order.OrderConfirmation;
 import code.with.vanilson.notification.kafka.payment.PaymentConfirmation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +15,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.kafka.support.Acknowledgment;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -59,6 +61,42 @@ class NotificationsConsumerIdempotencyTest {
         consumer.consumePaymentSuccessNotifications(newEvent, 0, 2L, ack);
 
         verify(emailService).sendPaymentSuccessEmail(any(), any(), any(), any());
+        verify(processedEventRepository).save(any(ProcessedEvent.class));
+        verify(ack).acknowledge();
+    }
+
+    @Test
+    void duplicateOrderEvent_isSkipped_emailNotSentAgain() {
+        OrderConfirmation.CustomerSummary customer = new OrderConfirmation.CustomerSummary(
+                "cust-1", "Jane", "Doe", "jane@example.com");
+        OrderConfirmation duplicate = new OrderConfirmation(
+                "ORD-003", new BigDecimal("199.99"), "CREDIT_CARD", customer, List.of());
+
+        when(processedEventRepository.findById("order-topic:0:5"))
+                .thenReturn(Optional.of(ProcessedEvent.of("order-topic", 0, 5L)));
+        when(messageSource.getMessage(any(), any(), any())).thenReturn("msg");
+
+        consumer.consumeOrderConfirmationNotifications(duplicate, 0, 5L, ack);
+
+        verify(emailService, never()).sendOrderConfirmationEmail(any(), any(), any(), any(), any());
+        verify(repository, never()).save(any());
+        verify(ack).acknowledge();
+    }
+
+    @Test
+    void newOrderEvent_isProcessed_andMarkedAsProcessed() {
+        OrderConfirmation.CustomerSummary customer = new OrderConfirmation.CustomerSummary(
+                "cust-2", "Bob", "Smith", "bob@example.com");
+        OrderConfirmation newEvent = new OrderConfirmation(
+                "ORD-004", new BigDecimal("299.99"), "DEBIT_CARD", customer, List.of());
+
+        when(processedEventRepository.findById("order-topic:0:6"))
+                .thenReturn(Optional.empty());
+        when(messageSource.getMessage(any(), any(), any())).thenReturn("msg");
+
+        consumer.consumeOrderConfirmationNotifications(newEvent, 0, 6L, ack);
+
+        verify(emailService).sendOrderConfirmationEmail(any(), any(), any(), any(), any());
         verify(processedEventRepository).save(any(ProcessedEvent.class));
         verify(ack).acknowledge();
     }
