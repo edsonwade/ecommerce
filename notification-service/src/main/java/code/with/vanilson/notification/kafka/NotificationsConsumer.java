@@ -4,6 +4,8 @@ import code.with.vanilson.notification.Notification;
 import code.with.vanilson.notification.NotificationRepository;
 import code.with.vanilson.notification.NotificationType;
 import code.with.vanilson.notification.email.EmailService;
+import code.with.vanilson.notification.idempotency.ProcessedEvent;
+import code.with.vanilson.notification.idempotency.ProcessedEventRepository;
 import code.with.vanilson.notification.kafka.order.OrderConfirmation;
 import code.with.vanilson.notification.kafka.payment.PaymentConfirmation;
 import lombok.RequiredArgsConstructor;
@@ -33,10 +35,11 @@ import java.time.LocalDateTime;
  *    so EmailService can generate the PDF invoice.
  * 5. MessagingException is now caught inside EmailService (@Async) — consumer
  *    thread is never blocked by email I/O.
+ * 6. Idempotency guard: duplicate events (same topic:partition:offset) are skipped.
  * </p>
  *
  * @author vamuhong
- * @version 2.0
+ * @version 3.0
  */
 @Service
 @Slf4j
@@ -46,6 +49,7 @@ public class NotificationsConsumer {
     private final NotificationRepository repository;
     private final EmailService emailService;
     private final MessageSource messageSource;
+    private final ProcessedEventRepository processedEventRepository;
 
     @KafkaListener(
             topics = "payment-topic",
@@ -57,6 +61,19 @@ public class NotificationsConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
+        // Idempotency note: this guard is effective for sequential replays (the dominant failure mode).
+        // Concurrent processing of the same partition:offset by multiple threads in the same consumer
+        // group is not possible by Kafka's design (one partition is assigned to one consumer thread),
+        // so no distributed lock is needed here.
+        String eventId = "payment-topic:" + partition + ":" + offset;
+
+        if (processedEventRepository.findById(eventId).isPresent()) {
+            log.warn(msg("notification.log.duplicate.payment",
+                    paymentConfirmation.orderReference(), partition, offset));
+            ack.acknowledge();
+            return;
+        }
+
         log.info(msg("notification.log.consumed.payment",
                 paymentConfirmation.orderReference(), partition, offset));
 
@@ -65,6 +82,10 @@ public class NotificationsConsumer {
                 .notificationDate(LocalDateTime.now())
                 .paymentConfirmation(paymentConfirmation)
                 .build());
+
+        // Guard saved before email send: if consumer restarts after this point,
+        // the duplicate check will skip the message rather than re-sending the email.
+        processedEventRepository.save(ProcessedEvent.of("payment-topic", partition, offset));
 
         String customerName = paymentConfirmation.customerFirstname()
                 + " " + paymentConfirmation.customerLastname();
@@ -75,7 +96,7 @@ public class NotificationsConsumer {
                 paymentConfirmation.amount(),
                 paymentConfirmation.orderReference());
 
-        ack.acknowledge(); // commit offset only after processing
+        ack.acknowledge();
     }
 
     @KafkaListener(
@@ -88,6 +109,19 @@ public class NotificationsConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
+        // Idempotency note: this guard is effective for sequential replays (the dominant failure mode).
+        // Concurrent processing of the same partition:offset by multiple threads in the same consumer
+        // group is not possible by Kafka's design (one partition is assigned to one consumer thread),
+        // so no distributed lock is needed here.
+        String eventId = "order-topic:" + partition + ":" + offset;
+
+        if (processedEventRepository.findById(eventId).isPresent()) {
+            log.warn(msg("notification.log.duplicate.order",
+                    orderConfirmation.orderReference(), partition, offset));
+            ack.acknowledge();
+            return;
+        }
+
         log.info(msg("notification.log.consumed.order",
                 orderConfirmation.orderReference(), partition, offset));
 
@@ -97,6 +131,10 @@ public class NotificationsConsumer {
                 .orderConfirmation(orderConfirmation)
                 .build());
 
+        // Guard saved before email send: if consumer restarts after this point,
+        // the duplicate check will skip the message rather than re-sending the email.
+        processedEventRepository.save(ProcessedEvent.of("order-topic", partition, offset));
+
         OrderConfirmation.CustomerSummary customer = orderConfirmation.customer();
         String customerName = customer.firstname() + " " + customer.lastname();
 
@@ -105,7 +143,7 @@ public class NotificationsConsumer {
                 customerName,
                 orderConfirmation.totalAmount(),
                 orderConfirmation.orderReference(),
-                orderConfirmation); // full object for PDF invoice generation
+                orderConfirmation);
 
         ack.acknowledge();
     }

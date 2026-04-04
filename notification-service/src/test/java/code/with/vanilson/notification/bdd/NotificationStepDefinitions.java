@@ -4,6 +4,7 @@ import code.with.vanilson.notification.Notification;
 import code.with.vanilson.notification.NotificationRepository;
 import code.with.vanilson.notification.NotificationType;
 import code.with.vanilson.notification.email.EmailService;
+import code.with.vanilson.notification.idempotency.ProcessedEventRepository;
 import code.with.vanilson.notification.kafka.NotificationsConsumer;
 import code.with.vanilson.notification.kafka.order.OrderConfirmation;
 import code.with.vanilson.notification.kafka.payment.PaymentConfirmation;
@@ -30,6 +31,7 @@ public class NotificationStepDefinitions {
     private NotificationRepository repository;
     private EmailService emailService;
     private MessageSource messageSource;
+    private ProcessedEventRepository processedEventRepository;
     private Acknowledgment acknowledgment;
     private NotificationsConsumer consumer;
 
@@ -41,12 +43,13 @@ public class NotificationStepDefinitions {
         repository = Mockito.mock(NotificationRepository.class);
         emailService = Mockito.mock(EmailService.class);
         messageSource = Mockito.mock(MessageSource.class);
+        processedEventRepository = Mockito.mock(ProcessedEventRepository.class);
         acknowledgment = Mockito.mock(Acknowledgment.class);
 
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        consumer = new NotificationsConsumer(repository, emailService, messageSource);
+        consumer = new NotificationsConsumer(repository, emailService, messageSource, processedEventRepository);
     }
 
     @Given("a payment confirmation message for order {string} with amount {double}")
