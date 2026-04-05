@@ -1,7 +1,6 @@
 package code.with.vanilson.authentication.infrastructure;
 
 import code.with.vanilson.authentication.domain.UserDetailsAdapter;
-import code.with.vanilson.authentication.exception.AuthUserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -41,7 +40,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                             "auth.user.not.found", new Object[]{email},
                             LocaleContextHolder.getLocale());
                     log.warn("[UserDetailsService] User not found: email=[{}]", email);
-                    return new AuthUserNotFoundException(message, "auth.user.not.found");
+                    // Must throw UsernameNotFoundException (not a custom subclass) so that
+                    // DaoAuthenticationProvider.hideUserNotFoundExceptions converts it to
+                    // BadCredentialsException — preventing user enumeration and 500 errors.
+                    return new UsernameNotFoundException(message);
                 });
     }
 }

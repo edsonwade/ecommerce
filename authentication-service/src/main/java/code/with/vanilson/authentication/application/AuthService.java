@@ -151,9 +151,20 @@ public class AuthService {
     public void logout(HttpServletRequest httpRequest) {
         String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
-            return;
+            // No token at all → 401, not silent 204
+            throw new InvalidTokenException(msg("auth.jwt.invalid"), "auth.jwt.invalid");
         }
         String jwt = authHeader.substring(7);
+
+        // Reject revoked / unknown tokens — prevents silent 204 on reuse after logout
+        String  jti        = jwtService.extractJti(jwt);
+        boolean tokenValid = tokenRepository.findByJti(jti)
+                .map(t -> !t.isExpired() && !t.isRevoked())
+                .orElse(false);
+        if (!tokenValid) {
+            throw new InvalidTokenException(msg("auth.jwt.invalid"), "auth.jwt.invalid");
+        }
+
         Long userId = jwtService.extractUserId(jwt);
         log.info(msg("auth.log.logout.attempt", userId));
         tokenRepository.revokeAllUserTokens(userId);

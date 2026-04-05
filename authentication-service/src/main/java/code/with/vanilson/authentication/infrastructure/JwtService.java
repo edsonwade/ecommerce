@@ -2,6 +2,7 @@ package code.with.vanilson.authentication.infrastructure;
 
 import code.with.vanilson.authentication.domain.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -106,7 +107,13 @@ public class JwtService {
     }
 
     public boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        try {
+            return extractExpiration(token).before(new Date());
+        } catch (ExpiredJwtException ex) {
+            // JJWT 0.12+ throws ExpiredJwtException during parsing when exp < now.
+            // Treat that as "yes, expired" instead of propagating as a parse error.
+            return true;
+        }
     }
 
     public String extractSubject(String token) {
