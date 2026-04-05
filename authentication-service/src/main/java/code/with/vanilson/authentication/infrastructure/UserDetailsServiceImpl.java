@@ -1,5 +1,6 @@
 package code.with.vanilson.authentication.infrastructure;
 
+import code.with.vanilson.authentication.domain.UserDetailsAdapter;
 import code.with.vanilson.authentication.exception.AuthUserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         return userRepository.findByEmail(email)
+                .map(UserDetailsAdapter::new)
                 .orElseThrow(() -> {
                     String message = messageSource.getMessage(
                             "auth.user.not.found", new Object[]{email},

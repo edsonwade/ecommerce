@@ -1,5 +1,7 @@
 package code.with.vanilson.authentication.exception;
 
+import code.with.vanilson.authentication.exception.InvalidTokenException;
+import code.with.vanilson.authentication.exception.TokenExpiredException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -78,6 +80,20 @@ public class AuthGlobalExceptionHandler {
                 "auth.validation.failed", req);
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(TokenExpiredException.class)
+    public ResponseEntity<Map<String, Object>> handleTokenExpired(
+            TokenExpiredException ex, WebRequest req) {
+        log.warn("[AuthHandler] Token expired: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidToken(
+            InvalidTokenException ex, WebRequest req) {
+        log.warn("[AuthHandler] Invalid token: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
     }
 
     @ExceptionHandler(Exception.class)

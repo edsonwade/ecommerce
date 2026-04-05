@@ -1,10 +1,9 @@
 package code.with.vanilson.authentication.application;
 
 import code.with.vanilson.authentication.domain.Role;
-import code.with.vanilson.authentication.domain.Token;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
-import code.with.vanilson.authentication.exception.TokenRevokedException;
+import code.with.vanilson.authentication.exception.InvalidTokenException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.JwtService;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
@@ -25,16 +24,9 @@ import org.springframework.util.StringUtils;
 /**
  * AuthService — Application Layer
  * <p>
- * Orchestrates registration, login, logout, and token refresh.
- * <p>
- * Key design decisions:
- * 1. On login: revoke all previous tokens, issue fresh access + refresh pair.
- *    Prevents token accumulation and ensures logout-from-all-devices works.
- * 2. On refresh: validate refresh token in DB (not revoked), generate new access token.
- *    Refresh token itself is re-issued (rotation) — stolen refresh tokens become one-time use.
- * 3. On logout: revoke the presented token only.
- * 4. Password encoding via PasswordEncoder injected from SecurityConfig (DIP — SOLID-D).
- * 5. All messages from messages.properties (SRP — SOLID-S).
+ * Orchestrates registration, login, and logout.
+ * Token refresh is delegated to {@link RefreshTokenService} (SRP).
+ * Token persistence is delegated to {@link RefreshTokenService#persistTokenPair}.
  * </p>
  *
  * @author vamuhong
@@ -44,22 +36,28 @@ import org.springframework.util.StringUtils;
 @Service
 public class AuthService {
 
-    private final UserRepository      userRepository;
-    private final TokenRepository     tokenRepository;
-    private final JwtService          jwtService;
-    private final PasswordEncoder     passwordEncoder;
+    private final UserRepository        userRepository;
+    private final TokenRepository       tokenRepository;
+    private final JwtService            jwtService;
+    private final PasswordEncoder       passwordEncoder;
     private final AuthenticationManager authManager;
-    private final MessageSource       messageSource;
+    private final MessageSource         messageSource;
+    private final RefreshTokenService   refreshTokenService;
 
-    public AuthService(UserRepository userRepository, TokenRepository tokenRepository,
-                       JwtService jwtService, PasswordEncoder passwordEncoder,
-                       AuthenticationManager authManager, MessageSource messageSource) {
-        this.userRepository   = userRepository;
-        this.tokenRepository  = tokenRepository;
-        this.jwtService       = jwtService;
-        this.passwordEncoder  = passwordEncoder;
-        this.authManager      = authManager;
-        this.messageSource    = messageSource;
+    public AuthService(UserRepository userRepository,
+                       TokenRepository tokenRepository,
+                       JwtService jwtService,
+                       PasswordEncoder passwordEncoder,
+                       AuthenticationManager authManager,
+                       MessageSource messageSource,
+                       RefreshTokenService refreshTokenService) {
+        this.userRepository      = userRepository;
+        this.tokenRepository     = tokenRepository;
+        this.jwtService          = jwtService;
+        this.passwordEncoder     = passwordEncoder;
+        this.authManager         = authManager;
+        this.messageSource       = messageSource;
+        this.refreshTokenService = refreshTokenService;
     }
 
     // -------------------------------------------------------
@@ -90,11 +88,11 @@ public class AuthService {
         User saved = userRepository.save(user);
         log.info(msg("auth.log.register.success", saved.getId(), saved.getEmail()));
 
-        String accessToken  = jwtService.generateAccessToken(saved);
-        String refreshToken = jwtService.generateRefreshToken(saved);
-        saveToken(saved, accessToken, Token.TokenType.BEARER);
+        String accessJwt  = jwtService.generateAccessToken(saved);
+        String refreshJwt = jwtService.generateRefreshToken(saved);
+        refreshTokenService.persistTokenPair(saved, accessJwt, refreshJwt);
 
-        return AuthResponse.of(accessToken, refreshToken,
+        return AuthResponse.of(accessJwt, refreshJwt,
                 String.valueOf(saved.getId()), saved.getEmail(),
                 saved.getRole().name(), saved.getTenantId());
     }
@@ -119,89 +117,49 @@ public class AuthService {
                 .orElseThrow(() -> new InvalidCredentialsException(
                         msg("auth.login.invalid.credentials"), "auth.login.invalid.credentials"));
 
-        // Revoke all existing tokens — single active session per user
         tokenRepository.revokeAllUserTokens(user.getId());
         log.debug(msg("auth.token.revoke.all", user.getId()));
 
-        String accessToken  = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-        saveToken(user, accessToken, Token.TokenType.BEARER);
+        String accessJwt  = jwtService.generateAccessToken(user);
+        String refreshJwt = jwtService.generateRefreshToken(user);
+        refreshTokenService.persistTokenPair(user, accessJwt, refreshJwt);
 
         log.info(msg("auth.log.login.success", user.getId(), user.getEmail()));
-        return AuthResponse.of(accessToken, refreshToken,
+        return AuthResponse.of(accessJwt, refreshJwt,
                 String.valueOf(user.getId()), user.getEmail(),
                 user.getRole().name(), user.getTenantId());
     }
 
     // -------------------------------------------------------
-    // Refresh Token
+    // Refresh Token — delegated to RefreshTokenService
     // -------------------------------------------------------
 
     @Transactional
     public AuthResponse refreshToken(HttpServletRequest httpRequest) {
         String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
-            throw new TokenRevokedException(
-                    msg("auth.token.revoked"), "auth.token.revoked");
+            throw new InvalidTokenException(msg("auth.jwt.invalid"), "auth.jwt.invalid");
         }
-
-        String refreshToken = authHeader.substring(7);
-        String userEmail    = jwtService.extractSubject(refreshToken);
-
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new TokenRevokedException(
-                        msg("auth.token.revoked"), "auth.token.revoked"));
-
-        if (!jwtService.isTokenValid(refreshToken, user)) {
-            throw new TokenRevokedException(msg("auth.jwt.expired"), "auth.jwt.expired");
-        }
-
-        log.info(msg("auth.log.token.refresh", user.getId()));
-
-        tokenRepository.revokeAllUserTokens(user.getId());
-        String newAccessToken  = jwtService.generateAccessToken(user);
-        String newRefreshToken = jwtService.generateRefreshToken(user);
-        saveToken(user, newAccessToken, Token.TokenType.BEARER);
-
-        return AuthResponse.of(newAccessToken, newRefreshToken,
-                String.valueOf(user.getId()), user.getEmail(),
-                user.getRole().name(), user.getTenantId());
+        return refreshTokenService.rotate(authHeader.substring(7));
     }
 
     // -------------------------------------------------------
-    // Logout
+    // Logout — revoke ALL tokens (closes the refresh bypass)
     // -------------------------------------------------------
 
     @Transactional
     public void logout(HttpServletRequest httpRequest) {
         String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
-            return; // already logged out or no token presented
+            return;
         }
-
-        String tokenValue = authHeader.substring(7);
-        log.info(msg("auth.log.logout.attempt", jwtService.extractUserId(tokenValue)));
-
-        tokenRepository.findByTokenValue(tokenValue).ifPresent(token -> {
-            token.setRevoked(true);
-            token.setExpired(true);
-            tokenRepository.save(token);
-        });
+        String jwt = authHeader.substring(7);
+        Long userId = jwtService.extractUserId(jwt);
+        log.info(msg("auth.log.logout.attempt", userId));
+        tokenRepository.revokeAllUserTokens(userId);
     }
 
     // -------------------------------------------------------
-    private void saveToken(User user, String tokenValue, Token.TokenType type) {
-        Token token = Token.builder()
-                .tokenValue(tokenValue)
-                .tokenType(type)
-                .user(user)
-                .expired(false)
-                .revoked(false)
-                .build();
-        tokenRepository.save(token);
-        log.debug(msg("auth.token.saved", user.getId(), type));
-    }
-
     private String msg(String key, Object... args) {
         return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }

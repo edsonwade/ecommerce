@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -15,6 +16,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -26,10 +28,12 @@ import java.util.function.Function;
  * - Claims extraction
  * <p>
  * Token claims include:
+ * - jti      → unique token identifier (UUID, for revocation)
  * - sub      → user email (subject)
  * - userId   → database ID
  * - tenantId → SaaS tenant identifier (propagated by gateway as X-Tenant-ID)
  * - role     → user role (propagated as X-User-Role)
+ * - tokenType → ACCESS or REFRESH
  * - iat      → issued-at timestamp
  * - exp      → expiry timestamp
  * <p>
@@ -72,9 +76,10 @@ public class JwtService {
      */
     public String generateAccessToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId",   user.getId());
-        claims.put("tenantId", user.getTenantId());
-        claims.put("role",     user.getRole().name());
+        claims.put("userId",    user.getId());
+        claims.put("tenantId",  user.getTenantId());
+        claims.put("role",      user.getRole().name());
+        claims.put("tokenType", "ACCESS");
 
         String token = buildToken(claims, user.getEmail(), accessTokenExpiry);
         log.info(msg("auth.jwt.generated", user.getId(), user.getTenantId()));
@@ -82,20 +87,22 @@ public class JwtService {
     }
 
     /**
-     * Generates a refresh token (no extra claims — just subject + expiry).
+     * Generates a refresh token with a tokenType claim for type-safe DB lookups.
      * Used by the /auth/refresh endpoint to issue new access tokens.
      */
     public String generateRefreshToken(User user) {
-        return buildToken(new HashMap<>(), user.getEmail(), refreshTokenExpiry);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("tokenType", "REFRESH");
+        return buildToken(claims, user.getEmail(), refreshTokenExpiry);
     }
 
     // -------------------------------------------------------
     // Token validation + extraction
     // -------------------------------------------------------
 
-    public boolean isTokenValid(String token, User user) {
+    public boolean isTokenValid(String token, UserDetails userDetails) {
         String subject = extractSubject(token);
-        return subject.equals(user.getEmail()) && !isTokenExpired(token);
+        return subject.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
     public boolean isTokenExpired(String token) {
@@ -118,6 +125,14 @@ public class JwtService {
         return extractClaim(token, claims -> claims.get("userId", Long.class));
     }
 
+    public String extractJti(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("tokenType", String.class));
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         return claimsResolver.apply(extractAllClaims(token));
     }
@@ -129,6 +144,7 @@ public class JwtService {
     private String buildToken(Map<String, Object> extraClaims, String subject, long expiry) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .claims(extraClaims)
                 .subject(subject)
                 .issuedAt(new Date(now))
