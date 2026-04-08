@@ -241,7 +241,7 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("should return REQUESTED immediately after order creation")
         void shouldReturnRequested() {
-            when(orderRepository.findByCorrelationId("test-correlation-id"))
+            when(orderRepository.findByCorrelationIdAndTenantId("test-correlation-id", "test-tenant-123"))
                     .thenReturn(Optional.of(savedOrder));
 
             OrderStatusResponse status = orderService.getOrderStatus("test-correlation-id");
@@ -255,7 +255,7 @@ class OrderServiceAsyncTest {
         @DisplayName("should return CONFIRMED after saga completes")
         void shouldReturnConfirmedAfterSaga() {
             savedOrder.setStatus(OrderStatus.CONFIRMED);
-            when(orderRepository.findByCorrelationId("test-correlation-id"))
+            when(orderRepository.findByCorrelationIdAndTenantId("test-correlation-id", "test-tenant-123"))
                     .thenReturn(Optional.of(savedOrder));
 
             OrderStatusResponse status = orderService.getOrderStatus("test-correlation-id");
@@ -267,7 +267,7 @@ class OrderServiceAsyncTest {
         @DisplayName("should return CANCELLED when saga compensation triggered")
         void shouldReturnCancelledAfterCompensation() {
             savedOrder.setStatus(OrderStatus.CANCELLED);
-            when(orderRepository.findByCorrelationId("test-correlation-id"))
+            when(orderRepository.findByCorrelationIdAndTenantId("test-correlation-id", "test-tenant-123"))
                     .thenReturn(Optional.of(savedOrder));
 
             OrderStatusResponse status = orderService.getOrderStatus("test-correlation-id");
@@ -278,7 +278,7 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("should throw OrderNotFoundException for unknown correlationId")
         void shouldThrowForUnknownCorrelationId() {
-            when(orderRepository.findByCorrelationId("unknown-id"))
+            lenient().when(orderRepository.findByCorrelationIdAndTenantId("unknown-id", "test-tenant-123"))
                     .thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.getOrderStatus("unknown-id"))

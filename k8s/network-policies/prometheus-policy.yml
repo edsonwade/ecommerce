@@ -1,0 +1,39 @@
+---
+# Allow Prometheus to scrape metrics from all application services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      tier: application   # all app services expose /actuator/prometheus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8222   # gateway
+        - protocol: TCP
+          port: 8888   # config-service
+        - protocol: TCP
+          port: 8761   # discovery-service
+        - protocol: TCP
+          port: 8085   # authentication-service
+        - protocol: TCP
+          port: 8090   # customer-service
+        - protocol: TCP
+          port: 8082   # product-service
+        - protocol: TCP
+          port: 8083   # order-service
+        - protocol: TCP
+          port: 8086   # payment-service
+        - protocol: TCP
+          port: 8091   # cart-service
+        - protocol: TCP
+          port: 8040   # notification-service

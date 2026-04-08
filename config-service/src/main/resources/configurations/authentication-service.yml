@@ -10,6 +10,14 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5435/auth_db
     username: ${POSTGRES_USERNAME:vanilson}
     password: ${POSTGRES_PASSWORD:vanilson}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+      pool-name: AuthServiceHikariPool
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -29,15 +37,18 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: >
+        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/,
+        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST2:discovery-service-2}:8761/eureka/
   instance:
     prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
 
 # JWT configuration — secret must match the Gateway's JWT secret exactly
 application:
   security:
     jwt:
-      secret-key: ${JWT_SECRET:bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
+      secret-key: ${JWT_SECRET}
       expiration: 86400000         # 24 hours in ms
       refresh-expiration: 604800000 # 7 days in ms
 
@@ -61,6 +72,8 @@ management:
     export:
       prometheus:
         enabled: true
+    enable:
+      hikaricp: true
   tracing:
     sampling:
       probability: 0.1  # 10% sampling — use 1.0 only in dev/debugging

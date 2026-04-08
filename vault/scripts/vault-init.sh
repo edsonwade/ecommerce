@@ -53,6 +53,44 @@ vault kv put secret/ecommerce/notification-service \
   mongo_username="${MONGO_USERNAME:-vanilson}" \
   mongo_password="${MONGO_PASSWORD:-vanilson}"
 
+vault kv put secret/ecommerce/cart-service \
+  redis_password="${REDIS_PASSWORD:-redis-secret}"
+
+vault kv put secret/ecommerce/gateway-api-service \
+  jwt_secret="${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}" \
+  redis_password="${REDIS_PASSWORD:-redis-secret}"
+
+vault kv put secret/ecommerce/discovery-service \
+  eureka_username="${EUREKA_USERNAME:-eureka}" \
+  eureka_password="${EUREKA_PASSWORD:-eureka-secret-2024}"
+
+vault kv put secret/ecommerce/config-service \
+  placeholder="config-service-secrets"
+
+echo "[vault-init] Enabling database secrets engine for dynamic credentials..."
+vault secrets enable database 2>/dev/null || echo "Database engine already enabled"
+
+# Configure PostgreSQL dynamic credentials for each database
+for SERVICE_DB in "order-service:order_service_db:5432" "product-service:product_service_db:5433" "payment-service:payment_db:5434" "authentication-service:auth_db:5435"; do
+  IFS=':' read -r SERVICE DB PORT <<< "$SERVICE_DB"
+  CONN_NAME="${SERVICE}-db"
+
+  vault write "database/config/${CONN_NAME}" \
+    plugin_name=postgresql-database-plugin \
+    allowed_roles="${SERVICE}-role" \
+    connection_url="postgresql://{{username}}:{{password}}@postgres-${SERVICE%-service}:${PORT}/${DB}?sslmode=disable" \
+    username="${POSTGRES_USERNAME:-vanilson}" \
+    password="${POSTGRES_PASSWORD:-vanilson}"
+
+  vault write "database/roles/${SERVICE}-role" \
+    db_name="${CONN_NAME}" \
+    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT ALL PRIVILEGES ON DATABASE ${DB} TO \"{{name}}\";" \
+    default_ttl="1h" \
+    max_ttl="24h"
+
+  echo "[vault-init] Dynamic credentials configured for ${SERVICE} (${DB})"
+done
+
 echo "[vault-init] Writing app policy..."
 vault policy write app-policy /vault/policies/app-policy.hcl
 

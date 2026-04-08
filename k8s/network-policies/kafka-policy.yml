@@ -1,0 +1,50 @@
+---
+# Allow all application services → Kafka brokers (9092)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-services-to-kafka
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: application
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9094   # broker2
+        - protocol: TCP
+          port: 9096   # broker3
+---
+# Allow inter-broker communication (KRaft controller port 9093)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kafka-internal
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: kafka
+      ports:
+        - protocol: TCP
+          port: 9093
+        - protocol: TCP
+          port: 9095
+        - protocol: TCP
+          port: 9097

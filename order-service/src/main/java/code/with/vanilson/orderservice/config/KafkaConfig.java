@@ -1,13 +1,16 @@
 package code.with.vanilson.orderservice.config;
 
+import jakarta.annotation.PreDestroy;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -28,6 +31,7 @@ import java.util.Map;
  * Configures:
  * 1. String KafkaTemplate for OutboxEventPublisher (publishes serialised JSON strings)
  * 2. Saga consumer factory with MANUAL_IMMEDIATE ack + DLQ error handler
+ * 3. Graceful shutdown: setStopImmediate(false) drains the current batch before the JVM exits
  * <p>
  * Two separate KafkaTemplate beans:
  * - String KafkaTemplate: used by OutboxEventPublisher (payload already serialised)
@@ -35,13 +39,16 @@ import java.util.Map;
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 3.1
  */
 @Configuration
 public class KafkaConfig {
 
     @Value("${spring.kafka.producer.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
+
+    @Autowired
+    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
     // -------------------------------------------------------
     // String KafkaTemplate — for OutboxEventPublisher
@@ -86,6 +93,7 @@ public class KafkaConfig {
     /**
      * Saga listener container factory:
      * - MANUAL_IMMEDIATE ack: offset committed after DB update succeeds
+     * - setStopImmediate(false): finish processing the current poll batch before stopping
      * - DLQ: failed events go to {topic}.DLQ after 3 retries with 1s delay
      */
     @Bean
@@ -95,6 +103,7 @@ public class KafkaConfig {
         var factory = new ConcurrentKafkaListenerContainerFactory<String, Object>();
         factory.setConsumerFactory(sagaConsumerFactory());
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.getContainerProperties().setStopImmediate(false);
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 stringKafkaTemplate,
@@ -107,5 +116,20 @@ public class KafkaConfig {
         factory.setCommonErrorHandler(errorHandler);
         factory.setConcurrency(3);
         return factory;
+    }
+
+    /**
+     * Graceful shutdown — called during Spring context close (SIGTERM / actuator /shutdown).
+     * Stops all listener containers so in-flight messages are acknowledged before the JVM exits.
+     * Works with server.shutdown=graceful and spring.lifecycle.timeout-per-shutdown-phase=30s.
+     */
+    @PreDestroy
+    public void onDestroy() {
+        kafkaListenerEndpointRegistry.getListenerContainers()
+                .forEach(container -> {
+                    if (container.isRunning()) {
+                        container.stop();
+                    }
+                });
     }
 }

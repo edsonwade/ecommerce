@@ -1,0 +1,105 @@
+# values-staging.yaml — Staging environment overrides
+# Usage: helm upgrade --install ecommerce ./helm/ecommerce -f values-staging.yaml -n ecommerce-staging
+
+global:
+  logLevel: DEBUG
+  tracingSamplingRate: "1.0"   # 100% tracing in staging
+
+ingress:
+  enabled: true
+  host: staging.ecommerce.vanilsonshop.io
+  tls:
+    enabled: true
+    selfSigned: true
+    secretName: ecommerce-staging-tls
+
+# All services: 1 replica, smaller resources for staging cost savings
+services:
+  gateway-api-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    hpa:
+      minReplicas: 1
+      maxReplicas: 3
+
+  authentication-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  customer-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  product-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  order-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  payment-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  cart-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  notification-service:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  config-service:
+    replicaCount: 1
+
+  discovery-service:
+    replicaCount: 1

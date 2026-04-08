@@ -20,8 +20,7 @@ public class DlqConsumer {
             groupId = "paymentDlqGroup",
             containerFactory = "kafkaListenerContainerFactory")
     public void consumePaymentDlq(ConsumerRecord<String, Object> record) {
-        log.error("DLQ event received — topic={}, partition={}, offset={}, payload={}",
-                record.topic(), record.partition(), record.offset(), record.value());
+        dqlEventLog(record);
         dlqEventRepository.save(
                 DlqEvent.of(record.topic(), record.partition(), record.offset(), record.value()));
     }
@@ -31,9 +30,13 @@ public class DlqConsumer {
             groupId = "orderDlqGroup",
             containerFactory = "kafkaListenerContainerFactory")
     public void consumeOrderDlq(ConsumerRecord<String, Object> record) {
-        log.error("DLQ event received — topic={}, partition={}, offset={}, payload={}",
-                record.topic(), record.partition(), record.offset(), record.value());
+        dqlEventLog(record);
         dlqEventRepository.save(
                 DlqEvent.of(record.topic(), record.partition(), record.offset(), record.value()));
+    }
+
+    private static void dqlEventLog(ConsumerRecord<String, Object> record) {
+        log.error("DLQ event received — topic={}, partition={}, offset={}, payload={}",
+                record.topic(), record.partition(), record.offset(), record.value());
     }
 }

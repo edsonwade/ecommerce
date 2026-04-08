@@ -6,11 +6,12 @@ spring:
 
   cloud:
     vault:
-      enabled: ${VAULT_ENABLED:false}           # Set to true in production
+      enabled: ${VAULT_ENABLED:true}             # Enabled: services pull secrets from Vault
       host: ${VAULT_HOST:localhost}
       port: ${VAULT_PORT:8200}
-      scheme: ${VAULT_SCHEME:http}              # Use https in production
+      scheme: ${VAULT_SCHEME:http}               # Use https in production with Vault TLS
       token: ${VAULT_TOKEN:root-token}
+      fail-fast: false                           # Non-blocking: use cached secrets if Vault down
       kv:
         enabled: true
         backend: secret
@@ -20,6 +21,13 @@ spring:
           paths:
             - ecommerce/shared               # shared secrets (JWT, Kafka, Redis)
             - ecommerce/config-service       # service-specific secrets
+
+      # Lease renewal — auto-renew dynamic credentials before TTL expiry
+      config:
+        lifecycle:
+          enabled: true
+          min-renewal: 10s       # renew when 10s remain before expiry
+          expiry-threshold: 1m   # start renewal when 1 min remains
 
     config:
       import: optional:configserver:${SPRING_CONFIG_IMPORT:http://config-service:8888}

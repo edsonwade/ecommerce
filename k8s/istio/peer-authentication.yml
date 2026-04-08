@@ -1,0 +1,12 @@
+---
+# Enforce STRICT mTLS for all pods in the ecommerce namespace.
+# All service-to-service communication must use mutual TLS.
+# Istio automatically provisions and rotates certificates.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: ecommerce
+spec:
+  mtls:
+    mode: STRICT

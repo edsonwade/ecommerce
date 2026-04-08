@@ -1,0 +1,69 @@
+---
+# VirtualService for gateway-api-service — main external entry point
+# Supports canary deployments via weight-based routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gateway-api-service
+  namespace: ecommerce
+spec:
+  hosts:
+    - gateway-api-service
+    - ecommerce.vanilsonshop.io
+  gateways:
+    - ecommerce-gateway
+    - mesh
+  http:
+    # Canary: route 10% to canary, 90% to stable (set gateway-api-service-canary replicas > 0 to enable)
+    - match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: gateway-api-service
+            subset: canary
+          weight: 100
+    # Default: all traffic to stable
+    - route:
+        - destination:
+            host: gateway-api-service
+            subset: stable
+          weight: 90
+        - destination:
+            host: gateway-api-service
+            subset: canary
+          weight: 10
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: 5xx,gateway-error,reset,retriable-4xx
+---
+# Istio Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ecommerce-gateway
+  namespace: ecommerce
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: ecommerce-tls
+      hosts:
+        - ecommerce.vanilsonshop.io
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      tls:
+        httpsRedirect: true
+      hosts:
+        - ecommerce.vanilsonshop.io

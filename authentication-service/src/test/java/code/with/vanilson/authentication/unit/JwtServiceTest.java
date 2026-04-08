@@ -38,7 +38,8 @@ class JwtServiceTest {
         MessageSource messageSource = mock(MessageSource.class);
         when(messageSource.getMessage(any(), any(), any())).thenReturn("test message");
 
-        jwtService = new JwtService(TEST_SECRET, ACCESS_EXPIRY, REFRESH_EXPIRY, messageSource);
+        // JwtService constructor: (privateKey, secretKey, accessTokenExpiry, refreshTokenExpiry, messageSource)
+        jwtService = new JwtService("", TEST_SECRET, ACCESS_EXPIRY, REFRESH_EXPIRY, messageSource);
 
         testUser = User.builder()
                 .id(42L)
@@ -196,7 +197,7 @@ class JwtServiceTest {
         @DisplayName("expired token is detected correctly")
         void expiredTokenDetected() throws Exception {
             // Issue a token that expires in 1 ms
-            JwtService shortLived = new JwtService(TEST_SECRET, 1L, REFRESH_EXPIRY,
+            JwtService shortLived = new JwtService("", TEST_SECRET, 1L, REFRESH_EXPIRY,
                     mock(MessageSource.class));
             String token = shortLived.generateAccessToken(testUser);
             Thread.sleep(10); // wait for expiry
@@ -223,7 +224,7 @@ class JwtServiceTest {
             // Different secret key
             String otherSecret =
                     "b3RoZXJTZWNyZXRLZXlGb3JUZXN0aW5nT25seU5vdEZvclByb2R1Y3Rpb25Vc2FnZTAwMDAwMDAwMDA=";
-            JwtService other = new JwtService(otherSecret, ACCESS_EXPIRY, REFRESH_EXPIRY,
+            JwtService other = new JwtService("",otherSecret, ACCESS_EXPIRY, REFRESH_EXPIRY,
                     mock(MessageSource.class));
             String foreignToken = other.generateAccessToken(testUser);
 
