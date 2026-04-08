@@ -1,0 +1,52 @@
+🚀 E-Commerce Platform deployed successfully!
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Values.global.namespace }}
+Chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ SERVICE ENDPOINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if .Values.ingress.enabled }}
+  API Gateway:   https://{{ .Values.ingress.host }}/api/v1/
+  Grafana:       https://{{ .Values.ingress.host }}/grafana
+{{- else }}
+  API Gateway (port-forward):
+    kubectl port-forward svc/gateway-api-service 8222:8222 -n {{ .Values.global.namespace }}
+    Then: http://localhost:8222/api/v1/
+
+  Grafana (port-forward):
+    kubectl port-forward svc/grafana 3000:3000 -n {{ .Values.global.namespace }}
+    Then: http://localhost:3000
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ POST-INSTALL CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Initialize Vault secrets:
+   kubectl exec -n {{ .Values.global.namespace }} vault-0 -- /vault/scripts/vault-init.sh
+
+2. Initialize MongoDB replica set:
+   kubectl exec -n {{ .Values.global.namespace }} mongodb-0 -- \
+     mongosh --file /scripts/mongo-replicaset-init.js
+
+3. Verify all pods are running:
+   kubectl get pods -n {{ .Values.global.namespace }}
+
+4. Check service health:
+   kubectl get pods -n {{ .Values.global.namespace }} -l tier=application
+
+5. View logs:
+   kubectl logs -f -l app=gateway-api-service -n {{ .Values.global.namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ UPGRADE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # Staging
+  helm upgrade {{ .Release.Name }} ./helm/ecommerce -f values-staging.yaml -n {{ .Values.global.namespace }}
+
+  # Production
+  helm upgrade {{ .Release.Name }} ./helm/ecommerce -f values-production.yaml -n {{ .Values.global.namespace }}

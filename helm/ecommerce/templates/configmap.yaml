@@ -1,0 +1,21 @@
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-config
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    app: {{ $name }}
+    {{ include "ecommerce.labels" $ | nindent 4 }}
+data:
+  SPRING_CONFIG_IMPORT: "optional:configserver:http://config-service:8888"
+  EUREKA_HOST: "discovery-service"
+  VAULT_ENABLED: "true"
+  VAULT_HOST: "vault"
+  VAULT_PORT: "8200"
+  VAULT_SCHEME: "http"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9094,kafka3:9096"
+  REDIS_SENTINEL_MASTER: "mymaster"
+  REDIS_SENTINEL_NODES: "sentinel-1:26379,sentinel-2:26379,sentinel-3:26379"
+{{- end }}

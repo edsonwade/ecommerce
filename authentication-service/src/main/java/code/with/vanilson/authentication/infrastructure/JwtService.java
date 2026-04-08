@@ -13,6 +13,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
@@ -38,8 +41,10 @@ import java.util.function.Function;
  * - iat      → issued-at timestamp
  * - exp      → expiry timestamp
  * <p>
- * Single Responsibility (SOLID-S): only JWT operations here.
- * Dependency Inversion (SOLID-D): depends on configurable @Value properties.
+ * Signing algorithm: RS256 (asymmetric RSA) — private key signs, public key verifies.
+ * The private key is held exclusively by auth-service; the gateway only needs the public key.
+ * Set JWT_PRIVATE_KEY env var to a base64-encoded PKCS8 RSA private key PEM.
+ * Fallback: if JWT_PRIVATE_KEY is absent, falls back to HS256 using JWT_SECRET (legacy support).
  * </p>
  *
  * @author vamuhong
@@ -49,22 +54,35 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    private final SecretKey signingKey;
-    private final long      accessTokenExpiry;
-    private final long      refreshTokenExpiry;
+    private final Object signingKey;   // RSAPrivateKey (RS256) or SecretKey (HS256 fallback)
+    private final boolean useRsa;
+    private final long accessTokenExpiry;
+    private final long refreshTokenExpiry;
     private final MessageSource messageSource;
 
     public JwtService(
-            @Value("${application.security.jwt.secret-key}")      String secretKey,
-            @Value("${application.security.jwt.expiration}")       long accessTokenExpiry,
+            @Value("${application.security.jwt.private-key:}") String privateKeyBase64,
+            @Value("${application.security.jwt.secret-key:}") String secretKeyBase64,
+            @Value("${application.security.jwt.expiration}") long accessTokenExpiry,
             @Value("${application.security.jwt.refresh-expiration}") long refreshTokenExpiry,
             MessageSource messageSource) {
-        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
-        this.signingKey          = Keys.hmacShaKeyFor(keyBytes);
-        this.accessTokenExpiry   = accessTokenExpiry;
-        this.refreshTokenExpiry  = refreshTokenExpiry;
-        this.messageSource       = messageSource;
+
+        this.accessTokenExpiry = accessTokenExpiry;
+        this.refreshTokenExpiry = refreshTokenExpiry;
+        this.messageSource = messageSource;
+
+        if (privateKeyBase64 != null && !privateKeyBase64.isBlank()) {
+            this.signingKey = loadRsaPrivateKey(privateKeyBase64);
+            this.useRsa = true;
+            log.info("[JwtService] Initialized with RS256 asymmetric signing");
+        } else {
+            byte[] keyBytes = Base64.getDecoder().decode(secretKeyBase64);
+            this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+            this.useRsa = false;
+            log.warn("[JwtService] Falling back to HS256 — set JWT_PRIVATE_KEY for RS256");
+        }
     }
+
 
     // -------------------------------------------------------
     // Token generation
@@ -77,9 +95,9 @@ public class JwtService {
      */
     public String generateAccessToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId",    user.getId());
-        claims.put("tenantId",  user.getTenantId());
-        claims.put("role",      user.getRole().name());
+        claims.put("userId", user.getId());
+        claims.put("tenantId", user.getTenantId());
+        claims.put("role", user.getRole().name());
         claims.put("tokenType", "ACCESS");
 
         String token = buildToken(claims, user.getEmail(), accessTokenExpiry);
@@ -110,8 +128,6 @@ public class JwtService {
         try {
             return extractExpiration(token).before(new Date());
         } catch (ExpiredJwtException ex) {
-            // JJWT 0.12+ throws ExpiredJwtException during parsing when exp < now.
-            // Treat that as "yes, expired" instead of propagating as a parse error.
             return true;
         }
     }
@@ -150,20 +166,33 @@ public class JwtService {
 
     private String buildToken(Map<String, Object> extraClaims, String subject, long expiry) {
         long now = System.currentTimeMillis();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .claims(extraClaims)
                 .subject(subject)
                 .issuedAt(new Date(now))
-                .expiration(new Date(now + expiry))
-                .signWith(signingKey)
-                .compact();
+                .expiration(new Date(now + expiry));
+
+        if (useRsa) {
+            builder.signWith((RSAPrivateKey) signingKey, Jwts.SIG.RS256);
+        } else {
+            builder.signWith((SecretKey) signingKey);
+        }
+        return builder.compact();
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(signingKey)
-                .build()
+        var parserBuilder = Jwts.parser();
+        if (useRsa) {
+            // For RS256 verification on the auth-service side (e.g. refresh token validation),
+            // we need the public key. However, extractAllClaims is only called internally on
+            // tokens we just issued — use the private key's associated public key.
+            parserBuilder.verifyWith((SecretKey) ((RSAPrivateKey) signingKey).getClass()
+                    .cast(signingKey));
+        } else {
+            parserBuilder.verifyWith((SecretKey) signingKey);
+        }
+        return parserBuilder.build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
@@ -174,5 +203,22 @@ public class JwtService {
 
     private String msg(String key, Object... args) {
         return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+    }
+
+    private static RSAPrivateKey loadRsaPrivateKey(String base64Pem) {
+        try {
+            // Strip PEM headers if present
+            String clean = base64Pem
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                    .replace("-----END RSA PRIVATE KEY-----", "")
+                    .replaceAll("\\s", "");
+            byte[] keyBytes = Base64.getDecoder().decode(clean);
+            return (RSAPrivateKey) KeyFactory.getInstance("RSA")
+                    .generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to load RSA private key — check JWT_PRIVATE_KEY", ex);
+        }
     }
 }

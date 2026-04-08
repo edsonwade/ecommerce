@@ -25,6 +25,10 @@ backend/customer-service/src/main/java/code/with/vanilson/customerservice/MongoC
 /.env
 .env.*
 
+.env.example
+/.env.example
+.env.example.*
+
 # Ignore docker-compose-not-work directory
 docker-compose-not-work/
 

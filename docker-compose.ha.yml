@@ -1,0 +1,322 @@
+###############################################################
+# docker-compose.ha.yml — High Availability overlay
+# Replaces single Kafka+Zookeeper with 3-broker KRaft cluster
+# Adds Redis Sentinel (1 master + 2 replicas + 3 sentinels)
+# Adds second Eureka instance for peer awareness
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ha.yml up
+###############################################################
+
+services:
+
+  # ============================================================
+  # Disable single-broker Kafka + Zookeeper (replaced by KRaft cluster)
+  # ============================================================
+  zookeeper:
+    deploy:
+      replicas: 0
+
+  kafka:
+    deploy:
+      replicas: 0
+
+  # ============================================================
+  # Kafka KRaft — 3-broker cluster (no Zookeeper)
+  # All brokers serve as combined controller + broker (KRaft combined mode)
+  # ============================================================
+
+  kafka1:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9095,3@kafka3:9097
+      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_ENABLE_IDEMPOTENCE: "true"
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf"
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+      - ./kafka/jaas:/etc/kafka/jaas:ro
+    networks: [infra-net]
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092",
+             "--command-config", "/etc/kafka/jaas/client.properties"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  kafka2:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka2
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9095,3@kafka3:9097
+      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:9095
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka2:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_ENABLE_IDEMPOTENCE: "true"
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf"
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+      - ./kafka/jaas:/etc/kafka/jaas:ro
+    networks: [infra-net]
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9094",
+             "--command-config", "/etc/kafka/jaas/client.properties"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  kafka3:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka3
+    environment:
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9095,3@kafka3:9097
+      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9096,CONTROLLER://0.0.0.0:9097
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka3:9096
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_ENABLE_IDEMPOTENCE: "true"
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf"
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+      - ./kafka/jaas:/etc/kafka/jaas:ro
+    networks: [infra-net]
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9096",
+             "--command-config", "/etc/kafka/jaas/client.properties"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  # ============================================================
+  # Redis Sentinel — 1 master + 2 replicas + 3 sentinels
+  # ============================================================
+
+  redis:
+    # Override base redis with explicit master config
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --appendonly yes
+      --appendfsync everysec
+      --loglevel warning
+      --requirepass ${REDIS_PASSWORD:-redis-secret-2024}
+    volumes:
+      - redis-data:/data
+
+  redis-replica-1:
+    image: redis:7.2-alpine
+    container_name: redis-replica-1
+    command: >
+      redis-server
+      --replicaof redis 6379
+      --requirepass ${REDIS_PASSWORD:-redis-secret-2024}
+      --masterauth ${REDIS_PASSWORD:-redis-secret-2024}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --loglevel warning
+    volumes:
+      - redis-replica1-data:/data
+    networks: [infra-net, services-net]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis-replica-2:
+    image: redis:7.2-alpine
+    container_name: redis-replica-2
+    command: >
+      redis-server
+      --replicaof redis 6379
+      --requirepass ${REDIS_PASSWORD:-redis-secret-2024}
+      --masterauth ${REDIS_PASSWORD:-redis-secret-2024}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --loglevel warning
+    volumes:
+      - redis-replica2-data:/data
+    networks: [infra-net, services-net]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  sentinel-1:
+    image: redis:7.2-alpine
+    container_name: sentinel-1
+    command: >
+      redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./config/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    networks: [infra-net, services-net]
+    depends_on:
+      - redis
+      - redis-replica-1
+      - redis-replica-2
+
+  sentinel-2:
+    image: redis:7.2-alpine
+    container_name: sentinel-2
+    command: >
+      redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./config/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    networks: [infra-net, services-net]
+    depends_on:
+      - redis
+      - redis-replica-1
+      - redis-replica-2
+
+  sentinel-3:
+    image: redis:7.2-alpine
+    container_name: sentinel-3
+    command: >
+      redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./config/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    networks: [infra-net, services-net]
+    depends_on:
+      - redis
+      - redis-replica-1
+      - redis-replica-2
+
+  # ============================================================
+  # Eureka — second instance for peer awareness
+  # ============================================================
+
+  discovery-service-2:
+    image: ${DISCOVERY_SERVICE_IMAGE:-ecommerce/discovery-service:latest}
+    container_name: discovery-service-2
+    ports:
+      - "8762:8761"
+    depends_on:
+      config-service:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      EUREKA_HOST: discovery-service-2
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
+      EUREKA_PEER_URL: http://${EUREKA_USERNAME:-eureka}:${EUREKA_PASSWORD:-eureka-secret-2024}@discovery-service:8761/eureka/
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+    networks: [services-net, infra-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+    restart: on-failure
+
+  # ============================================================
+  # MongoDB Replica Set — 3 nodes
+  # ============================================================
+
+  mongodb:
+    # Override single instance to be named mongo1
+    container_name: mongo1
+    command: mongod --replSet rs0 --bind_ip_all
+
+  mongo2:
+    image: mongo:7.0
+    container_name: mongo2
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-vanilson}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-vanilson}
+    command: mongod --replSet rs0 --bind_ip_all
+    volumes:
+      - mongodb2-data:/data/db
+    networks: [infra-net]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo3:
+    image: mongo:7.0
+    container_name: mongo3
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-vanilson}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-vanilson}
+    command: mongod --replSet rs0 --bind_ip_all
+    volumes:
+      - mongodb3-data:/data/db
+    networks: [infra-net]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Initialize replica set after all 3 nodes are healthy
+  mongo-rs-init:
+    image: mongo:7.0
+    container_name: mongo-rs-init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    command: >
+      mongosh --host mongo1:27017
+        -u ${MONGO_USERNAME:-vanilson}
+        -p ${MONGO_PASSWORD:-vanilson}
+        --authenticationDatabase admin
+        /scripts/mongo-replicaset-init.js
+    volumes:
+      - ./scripts/mongo-replicaset-init.js:/scripts/mongo-replicaset-init.js:ro
+    networks: [infra-net]
+    restart: "no"
+
+volumes:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
+  redis-replica1-data:
+  redis-replica2-data:
+  mongodb2-data:
+  mongodb3-data:

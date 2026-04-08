@@ -1,0 +1,103 @@
+---
+# Default deny-all AuthorizationPolicy — no traffic allowed unless explicitly permitted
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: ecommerce
+spec:
+  {}   # empty spec = deny all
+
+---
+# Allow Istio ingress gateway → gateway-api-service
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-gateway
+  namespace: ecommerce
+spec:
+  selector:
+    matchLabels:
+      app: gateway-api-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+
+---
+# Allow gateway-api-service → all application services
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-gateway-to-services
+  namespace: ecommerce
+spec:
+  selector:
+    matchLabels:
+      tier: application
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/ecommerce/sa/gateway-api-service"
+
+---
+# Allow Prometheus → all services (metrics scraping)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: ecommerce
+spec:
+  selector:
+    matchLabels:
+      tier: application
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/monitoring/sa/prometheus"
+      to:
+        - operation:
+            paths: ["/actuator/prometheus"]
+            methods: ["GET"]
+
+---
+# Allow order-service → product-service (inventory check via Feign)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-product
+  namespace: ecommerce
+spec:
+  selector:
+    matchLabels:
+      app: product-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/ecommerce/sa/order-service"
+
+---
+# Allow order-service → customer-service (customer lookup)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-customer
+  namespace: ecommerce
+spec:
+  selector:
+    matchLabels:
+      app: customer-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/ecommerce/sa/order-service"

@@ -1,0 +1,37 @@
+---
+# Allow external ingress to the gateway on port 8222
+# Allow gateway to reach all application services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-ingress
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: gateway-api-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - {}   # allow from anywhere (NGINX Ingress controller or internet)
+      ports:
+        - protocol: TCP
+          port: 8222
+---
+# Allow all services to receive ingress from the gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-gateway
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      tier: application   # label applied to all app services (not infra)
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway-api-service

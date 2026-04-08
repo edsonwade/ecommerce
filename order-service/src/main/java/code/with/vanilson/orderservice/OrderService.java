@@ -139,7 +139,8 @@ public class OrderService {
      */
     public OrderStatusResponse getOrderStatus(String correlationId) {
         filterActivator.activateFilter();
-        return orderRepository.findByCorrelationId(correlationId)
+        String tenantId = TenantContext.requireCurrentTenantId();
+        return orderRepository.findByCorrelationIdAndTenantId(correlationId, tenantId)
                 .map(order -> {
                     log.info("[OrderService] Status query: correlationId=[{}] status=[{}]",
                             correlationId, order.getStatus());

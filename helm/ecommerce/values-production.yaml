@@ -1,0 +1,97 @@
+# values-production.yaml — Production environment overrides
+# Usage: helm upgrade --install ecommerce ./helm/ecommerce -f values-production.yaml -n ecommerce
+
+global:
+  logLevel: INFO
+  tracingSamplingRate: "0.1"   # 10% tracing in production
+
+ingress:
+  enabled: true
+  host: ecommerce.vanilsonshop.io
+  tls:
+    enabled: true
+    certManager: true
+    secretName: ecommerce-prod-tls
+    clusterIssuer: letsencrypt-prod
+
+services:
+  gateway-api-service:
+    replicaCount: 3
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    hpa:
+      minReplicas: 3
+      maxReplicas: 10
+    pdb:
+      minAvailable: 2
+
+  authentication-service:
+    replicaCount: 2
+    hpa:
+      minReplicas: 2
+      maxReplicas: 5
+    pdb:
+      minAvailable: 1
+
+  customer-service:
+    replicaCount: 2
+    hpa:
+      minReplicas: 2
+      maxReplicas: 6
+    pdb:
+      minAvailable: 1
+
+  product-service:
+    replicaCount: 2
+    hpa:
+      minReplicas: 2
+      maxReplicas: 6
+    pdb:
+      minAvailable: 1
+
+  order-service:
+    replicaCount: 3
+    hpa:
+      minReplicas: 3
+      maxReplicas: 8
+    pdb:
+      minAvailable: 2
+
+  payment-service:
+    replicaCount: 3
+    hpa:
+      minReplicas: 3
+      maxReplicas: 8
+    pdb:
+      minAvailable: 2
+
+  cart-service:
+    replicaCount: 2
+    hpa:
+      minReplicas: 2
+      maxReplicas: 8
+    pdb:
+      minAvailable: 1
+
+  notification-service:
+    replicaCount: 2
+    hpa:
+      minReplicas: 2
+      maxReplicas: 5
+    pdb:
+      minAvailable: 1
+
+  config-service:
+    replicaCount: 2
+    pdb:
+      minAvailable: 1
+
+  discovery-service:
+    replicaCount: 2
+    pdb:
+      minAvailable: 1

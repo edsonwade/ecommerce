@@ -1,0 +1,129 @@
+---
+# Allow order-service → postgres-order (5432)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-order-to-postgres
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-order
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Allow product-service → postgres-product (5433)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-product-to-postgres
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-product
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 5433
+---
+# Allow payment-service → postgres-payment (5434)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-payment-to-postgres
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-payment
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 5434
+---
+# Allow authentication-service → postgres-auth (5435)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth-to-postgres
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-auth
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: authentication-service
+      ports:
+        - protocol: TCP
+          port: 5435
+---
+# Allow customer-service and notification-service → MongoDB (27017)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-services-to-mongodb
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: customer-service
+        - podSelector:
+            matchLabels:
+              app: notification-service
+      ports:
+        - protocol: TCP
+          port: 27017
+---
+# Allow all application services → Redis (6379)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-services-to-redis
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: application
+      ports:
+        - protocol: TCP
+          port: 6379

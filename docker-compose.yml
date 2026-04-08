@@ -42,11 +42,11 @@ services:
       - vault-data:/vault/data
       - ./vault/config:/vault/config:ro
       - ./vault/policies:/vault/policies:ro
-    command: ["vault", "server", "-dev"]
+    command: [ "vault", "server", "-dev" ]
     # Production: use -config=/vault/config/vault.hcl instead of -dev
-    networks: [infra-net, services-net]
+    networks: [ infra-net, services-net ]
     healthcheck:
-      test: ["CMD-SHELL", "vault status 2>/dev/null | grep -q 'Initialized'"]
+      test: [ "CMD-SHELL", "vault status 2>/dev/null | grep -q 'Initialized'" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,9 +62,9 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      test: [ "CMD", "nc", "-z", "localhost", "2181" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -98,9 +98,9 @@ services:
       KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf"
     volumes:
       - ./kafka/jaas:/etc/kafka/jaas:ro
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -125,9 +125,9 @@ services:
       --requirepass ${REDIS_PASSWORD:-redis-secret-2024}
     volumes:
       - redis-data:/data
-    networks: [infra-net, services-net]
+    networks: [ infra-net, services-net ]
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis-secret-2024}", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis-secret-2024}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -146,9 +146,9 @@ services:
     # No external port — internal only. Access via: docker exec postgres-order psql
     volumes:
       - postgres-order-data:/var/lib/postgresql/data
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d order_service_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d order_service_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -162,9 +162,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
     volumes:
       - postgres-product-data:/var/lib/postgresql/data
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d product_service_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d product_service_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -178,9 +178,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
     volumes:
       - postgres-payment-data:/var/lib/postgresql/data
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d payment_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d payment_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -194,9 +194,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -211,9 +211,9 @@ services:
     volumes:
       - mongodb-data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    networks: [infra-net]
+    networks: [ infra-net ]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -229,9 +229,9 @@ services:
       - "9411:9411"
     volumes:
       - zipkin-data:/zipkin
-    networks: [monitoring-net, services-net]
+    networks: [ monitoring-net, services-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9411/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9411/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -250,9 +250,9 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"
       - "--web.enable-lifecycle"
-    networks: [monitoring-net, services-net]
+    networks: [ monitoring-net, services-net ]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy | grep -q Prometheus"]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy | grep -q Prometheus" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -268,9 +268,9 @@ services:
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
       - "--storage.path=/alertmanager"
-    networks: [monitoring-net, services-net]
+    networks: [ monitoring-net, services-net ]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -284,9 +284,9 @@ services:
       - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/tmp/loki
     command: -config.file=/etc/loki/loki-config.yml
-    networks: [monitoring-net, services-net]
+    networks: [ monitoring-net, services-net ]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -301,7 +301,7 @@ services:
     command: -config.file=/etc/promtail/promtail-config.yml
     depends_on:
       - loki
-    networks: [monitoring-net, services-net]
+    networks: [ monitoring-net, services-net ]
 
   grafana:
     image: grafana/grafana:10.4.2
@@ -321,7 +321,7 @@ services:
     depends_on:
       - prometheus
       - loki
-    networks: [monitoring-net]
+    networks: [ monitoring-net ]
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -329,7 +329,7 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
-    networks: [services-net]
+    networks: [ services-net ]
 
   # ============================================================
   # SPRING CLOUD INFRASTRUCTURE
@@ -344,13 +344,13 @@ services:
       - "8888:8888"
     environment:
       SPRING_PROFILES_ACTIVE: native
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_PORT: ${VAULT_PORT:-8200}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -371,12 +371,12 @@ services:
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -410,12 +410,12 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       GATEWAY_MAX_CONCURRENT: 5000
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8222/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8222/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -444,12 +444,12 @@ services:
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -477,12 +477,12 @@ services:
       MONGO_HOST: mongodb
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8090/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8090/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -515,12 +515,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -552,12 +552,12 @@ services:
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
       GATEWAY_HOST: gateway-api-service
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -588,12 +588,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -621,12 +621,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8091/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8091/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -661,12 +661,12 @@ services:
       MAIL_PORT: 1025
       MAIL_USERNAME: noreply@vanilsonshop.io
       MAIL_PASSWORD: unused
-      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_ENABLED: ${VAULT_ENABLED:-true}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
-    networks: [services-net, infra-net]
+    networks: [ services-net, infra-net ]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8040/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8040/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8

@@ -10,7 +10,7 @@ spring:
     # Sharding in production: hashed shard key on _id (customerId)
     # Replica set: rs0 with 3 nodes (1 primary, 2 secondaries)
     mongodb:
-      uri: mongodb://${MONGO_HOST:localhost}:27017/customer_db
+      uri: mongodb://${MONGO_HOST:localhost}:27017,${MONGO_HOST2:localhost}:27018,${MONGO_HOST3:localhost}:27019/customer_db?replicaSet=rs0&readPreference=primaryPreferred&w=majority
       auto-index-creation: true  # creates @Indexed indexes on startup
 
     # Redis L2 Cache
@@ -35,9 +35,12 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:localhost}:8761/eureka/
+      defaultZone: >
+        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/,
+        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST2:discovery-service-2}:8761/eureka/
   instance:
     prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
 
 springdoc:
   api-docs:

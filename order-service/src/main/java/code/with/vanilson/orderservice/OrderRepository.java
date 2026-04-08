@@ -19,7 +19,16 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     /**
      * Finds an order by its client-facing correlationId.
-     * Used by the status polling endpoint: GET /orders/status/{correlationId}
+     * Used internally by the Kafka saga consumer (OrderSagaConsumer.updateStatus)
+     * where no tenant context is available — intentionally unscoped.
+     * External callers MUST use {@link #findByCorrelationIdAndTenantId} instead.
      */
     Optional<Order> findByCorrelationId(String correlationId);
+
+    /**
+     * Tenant-scoped lookup by correlationId.
+     * Use for all client-facing status polling to enforce tenant isolation at
+     * the query level — defense-in-depth alongside the Hibernate filter.
+     */
+    Optional<Order> findByCorrelationIdAndTenantId(String correlationId, String tenantId);
 }

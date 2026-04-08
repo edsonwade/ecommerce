@@ -1,12 +1,3 @@
-eureka:
-  instance:
-    hostname: localhost
-  client:
-    registerWithEureka: false
-    fetchRegistry: false
-    serviceUrl:
-      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
-
 server:
   port: 8761
   shutdown: graceful
@@ -18,6 +9,20 @@ spring:
     user:
       name: ${EUREKA_USERNAME:eureka}
       password: ${EUREKA_PASSWORD:eureka-secret-2024}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOST:localhost}
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    serviceUrl:
+      # Peer-aware: register with both instances
+      defaultZone: >
+        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@discovery-service:8761/eureka/,
+        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@discovery-service-2:8761/eureka/
 
 management:
   endpoints:

@@ -1,0 +1,29 @@
+{{ define "slack.title" -}}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+{{- range .GroupLabels.SortedPairs }} {{ .Name }}={{ .Value }}{{ end }}
+{{- end }}
+
+{{ define "slack.body" -}}
+{{ range .Alerts }}
+*Service:* {{ .Labels.job | default "unknown" }}
+*Severity:* {{ .Labels.severity | toUpper }}
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+*Started:* {{ .StartsAt }}
+{{ end }}
+{{- end }}
+
+{{ define "email.subject" -}}
+[{{ .Status | toUpper }}] {{ range .GroupLabels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+{{- end }}
+
+{{ define "email.body" -}}
+{{ range .Alerts }}
+Alert:       {{ .Annotations.summary }}
+Service:     {{ .Labels.job | default "unknown" }}
+Severity:    {{ .Labels.severity | toUpper }}
+Description: {{ .Annotations.description }}
+Started:     {{ .StartsAt }}
+Labels:      {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+{{ end }}
+{{- end }}

@@ -1,0 +1,540 @@
+---
+# ============================================================
+# Order Service — 3 replicas (critical business service)
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: ecommerce
+  labels:
+    app: order-service
+    tier: application
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+        tier: application
+    spec:
+      containers:
+        - name: order-service
+          image: ghcr.io/vanilsonshop/order-service:latest
+          ports:
+            - containerPort: 8083
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8083
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8083
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: order-service-config
+            - secretRef:
+                name: order-service-secret
+---
+# ============================================================
+# Payment Service — 3 replicas (critical financial service)
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: ecommerce
+  labels:
+    app: payment-service
+    tier: application
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+        tier: application
+    spec:
+      containers:
+        - name: payment-service
+          image: ghcr.io/vanilsonshop/payment-service:latest
+          ports:
+            - containerPort: 8086
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8086
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8086
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8086
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: payment-service-config
+            - secretRef:
+                name: payment-service-secret
+---
+# ============================================================
+# Authentication Service — 2 replicas
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentication-service
+  namespace: ecommerce
+  labels:
+    app: authentication-service
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: authentication-service
+  template:
+    metadata:
+      labels:
+        app: authentication-service
+        tier: application
+    spec:
+      containers:
+        - name: authentication-service
+          image: ghcr.io/vanilsonshop/authentication-service:latest
+          ports:
+            - containerPort: 8085
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8085
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8085
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: authentication-service-config
+            - secretRef:
+                name: authentication-service-secret
+---
+# ============================================================
+# Customer Service — 2 replicas
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-service
+  namespace: ecommerce
+  labels:
+    app: customer-service
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer-service
+  template:
+    metadata:
+      labels:
+        app: customer-service
+        tier: application
+    spec:
+      containers:
+        - name: customer-service
+          image: ghcr.io/vanilsonshop/customer-service:latest
+          ports:
+            - containerPort: 8090
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8090
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8090
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8090
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: customer-service-config
+            - secretRef:
+                name: customer-service-secret
+---
+# ============================================================
+# Product Service — 2 replicas
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: ecommerce
+  labels:
+    app: product-service
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+        tier: application
+    spec:
+      containers:
+        - name: product-service
+          image: ghcr.io/vanilsonshop/product-service:latest
+          ports:
+            - containerPort: 8082
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: product-service-config
+            - secretRef:
+                name: product-service-secret
+---
+# ============================================================
+# Cart Service — 2 replicas
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-service
+  namespace: ecommerce
+  labels:
+    app: cart-service
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cart-service
+  template:
+    metadata:
+      labels:
+        app: cart-service
+        tier: application
+    spec:
+      containers:
+        - name: cart-service
+          image: ghcr.io/vanilsonshop/cart-service:latest
+          ports:
+            - containerPort: 8091
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8091
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8091
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8091
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: cart-service-config
+            - secretRef:
+                name: cart-service-secret
+---
+# ============================================================
+# Notification Service — 2 replicas
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: ecommerce
+  labels:
+    app: notification-service
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        tier: application
+    spec:
+      containers:
+        - name: notification-service
+          image: ghcr.io/vanilsonshop/notification-service:latest
+          ports:
+            - containerPort: 8040
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8040
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8040
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8040
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: notification-service-config
+            - secretRef:
+                name: notification-service-secret
+---
+# ============================================================
+# Config Service — 2 replicas (must start first)
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-service
+  namespace: ecommerce
+  labels:
+    app: config-service
+    tier: infrastructure
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: config-service
+  template:
+    metadata:
+      labels:
+        app: config-service
+        tier: infrastructure
+    spec:
+      containers:
+        - name: config-service
+          image: ghcr.io/vanilsonshop/config-service:latest
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8888
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8888
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8888
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: config-service-config
+            - secretRef:
+                name: config-service-secret
+---
+# ============================================================
+# Discovery Service — 2 replicas (peer-aware Eureka)
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-service
+  namespace: ecommerce
+  labels:
+    app: discovery-service
+    tier: infrastructure
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: discovery-service
+  template:
+    metadata:
+      labels:
+        app: discovery-service
+        tier: infrastructure
+    spec:
+      containers:
+        - name: discovery-service
+          image: ghcr.io/vanilsonshop/discovery-service:latest
+          ports:
+            - containerPort: 8761
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8761
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8761
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            failureThreshold: 30
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: discovery-service-config
+            - secretRef:
+                name: discovery-service-secret

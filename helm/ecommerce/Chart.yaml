@@ -1,0 +1,19 @@
+apiVersion: v2
+name: ecommerce
+description: SaaS E-Commerce Microservices Platform — Spring Boot 3.2.5 with 10 services
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ecommerce
+  - microservices
+  - spring-boot
+  - kafka
+  - mongodb
+  - postgresql
+maintainers:
+  - name: Platform Team
+    email: platform@vanilsonshop.io
+home: https://github.com/edsonwade/e-commerce
+sources:
+  - https://github.com/edsonwade/e-commerce

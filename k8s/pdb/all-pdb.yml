@@ -1,0 +1,120 @@
+---
+# Gateway PDB: minAvailable=2 (ensures 2 always up during rolling updates)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway-api-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: gateway-api-service
+---
+# Order Service PDB: minAvailable=2
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: order-service
+---
+# Payment Service PDB: minAvailable=2 (financial critical)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: payment-service
+---
+# Auth Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: authentication-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: authentication-service
+---
+# Customer Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: customer-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: customer-service
+---
+# Product Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: product-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: product-service
+---
+# Cart Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cart-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: cart-service
+---
+# Notification Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: notification-service
+---
+# Config Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: config-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: config-service
+---
+# Discovery Service PDB: minAvailable=1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: discovery-service-pdb
+  namespace: ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: discovery-service

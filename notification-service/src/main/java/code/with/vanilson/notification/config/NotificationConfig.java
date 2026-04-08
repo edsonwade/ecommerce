@@ -1,13 +1,16 @@
 package code.with.vanilson.notification.config;
 
+import jakarta.annotation.PreDestroy;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -42,6 +45,9 @@ public class NotificationConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
+
+    @Autowired
+    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
     // -------------------------------------------------------
     // MessageSource
@@ -78,6 +84,7 @@ public class NotificationConfig {
     /**
      * Listener container factory with:
      * - MANUAL_IMMEDIATE ack mode → offset committed only after @KafkaListener method returns
+     * - setStopImmediate(false): finish processing the current poll batch before stopping
      * - DefaultErrorHandler with FixedBackOff(1000ms, 3 retries) → after 3 failures sends to DLQ
      */
     @Bean
@@ -91,6 +98,7 @@ public class NotificationConfig {
 
         // MANUAL_IMMEDIATE: offset committed immediately when Acknowledgment.acknowledge() is called
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.getContainerProperties().setStopImmediate(false);
 
         // Error handler: retry 3x with 1s delay, then route to {topic}.DLQ
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
@@ -105,5 +113,20 @@ public class NotificationConfig {
         // Concurrency = 3: one thread per partition group (payment, order)
         factory.setConcurrency(3);
         return factory;
+    }
+
+    /**
+     * Graceful shutdown — called during Spring context close (SIGTERM / actuator /shutdown).
+     * Stops all listener containers so in-flight messages are acknowledged before the JVM exits.
+     * Works with server.shutdown=graceful and spring.lifecycle.timeout-per-shutdown-phase=30s.
+     */
+    @PreDestroy
+    public void onDestroy() {
+        kafkaListenerEndpointRegistry.getListenerContainers()
+                .forEach(container -> {
+                    if (container.isRunning()) {
+                        container.stop();
+                    }
+                });
     }
 }

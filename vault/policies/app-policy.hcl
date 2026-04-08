@@ -46,3 +46,20 @@ path "secret/data/ecommerce/discovery-service" {
 path "secret/data/ecommerce/config-service" {
   capabilities = ["read"]
 }
+
+# Dynamic database credentials
+path "database/creds/order-service-role" {
+  capabilities = ["read"]
+}
+
+path "database/creds/product-service-role" {
+  capabilities = ["read"]
+}
+
+path "database/creds/payment-service-role" {
+  capabilities = ["read"]
+}
+
+path "database/creds/auth-service-role" {
+  capabilities = ["read"]
+}
