@@ -178,9 +178,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ============================================================
-  # Deploy to Staging
+  # Deploy to Staging + Smoke Test + Rollback (single job —
+  # Kind cluster must persist across deploy, test, and rollback)
   # ============================================================
-  deploy-staging:
+  staging:
     needs: build-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -200,6 +201,7 @@ jobs:
           version: '3.14.0'
 
       - name: Deploy to staging (Kind)
+        id: deploy
         run: |
           helm upgrade --install ecommerce ./helm/ecommerce \
             --namespace ecommerce-staging \
@@ -208,19 +210,6 @@ jobs:
             --set global.imageRegistry=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }} \
             --timeout 10m \
             --wait
-
-  # ============================================================
-  # Smoke Tests against Staging
-  # ============================================================
-  smoke-test:
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create Kind cluster
-        uses: helm/kind-action@v1.10.0
-        with:
-          cluster_name: ecommerce-staging
-          config: .github/kind-config.yaml
 
       - name: Wait for services to be ready
         run: sleep 30
@@ -241,35 +230,15 @@ jobs:
           curl -f --retry 3 --retry-delay 5 \
             http://localhost:8222/api/v1/auth/health || true
 
-  # ============================================================
-  # Rollback on smoke test failure
-  # ============================================================
-  rollback-staging:
-    needs: smoke-test
-    if: failure()
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Kind cluster
-        uses: helm/kind-action@v1.10.0
-        with:
-          cluster_name: ecommerce-staging
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: '3.14.0'
-
-      - name: Rollback staging deployment
+      - name: Rollback on smoke test failure
+        if: failure() && steps.deploy.outcome == 'success'
         run: helm rollback ecommerce --namespace ecommerce-staging
 
   # ============================================================
   # Deploy to Production (manual approval gate)
   # ============================================================
   deploy-prod:
-    needs: smoke-test
+    needs: staging
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production   # requires manual approval in GitHub Environments settings
