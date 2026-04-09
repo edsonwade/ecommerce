@@ -136,7 +136,7 @@ jobs:
       - name: Build Docker image for scanning
         run: |
           docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:scan \
-            ./${{ matrix.service }}
+            -f ./${{ matrix.service }}/Dockerfile .
 
       - name: Run Trivy container scan
         uses: aquasecurity/trivy-action@master
@@ -149,8 +149,9 @@ jobs:
         continue-on-error: true
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-results-${{ matrix.service }}.sarif
 
@@ -183,7 +184,8 @@ jobs:
       - name: Build and push — ${{ matrix.service }}
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ matrix.service }}
+          context: .
+          file: ./${{ matrix.service }}/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
