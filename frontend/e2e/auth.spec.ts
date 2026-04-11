@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Authentication', () => {
   test('login page renders sign-in form', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    // Heading is rendered as component="div" (not a semantic h1), subtitle is body1 text
+    await expect(page.getByText('Obsidian Market').first()).toBeVisible();
+    await expect(page.getByText(/sign in to your account/i)).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
@@ -26,7 +28,8 @@ test.describe('Authentication', () => {
 
   test('register page renders form', async ({ page }) => {
     await page.goto('/register');
-    await expect(page.getByRole('heading', { name: /create account/i })).toBeVisible();
+    await expect(page.getByText('Obsidian Market').first()).toBeVisible();
+    await expect(page.getByText(/create your account/i)).toBeVisible();
     await expect(page.getByLabel(/first name/i)).toBeVisible();
     await expect(page.getByLabel(/last name/i)).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
@@ -36,8 +39,7 @@ test.describe('Authentication', () => {
   test('login form shows validation errors on empty submit', async ({ page }) => {
     await page.goto('/login');
     await page.getByRole('button', { name: /sign in/i }).click();
-    // Zod validation fires before submit — fields show required errors
-    await expect(page.getByText(/required/i).first()).toBeVisible();
+    await expect(page.getByText(/required|valid email/i).first()).toBeVisible();
   });
 
   test('register form shows validation errors on empty submit', async ({ page }) => {

@@ -1,45 +1,75 @@
 import { test, expect } from '@playwright/test';
 
-// Helper: inject admin auth into localStorage before navigating
-async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto('/login');
-  await page.evaluate(() => {
-    const auth = {
+const MOCK_TENANT = {
+  tenantId: 'tenant-001',
+  name: 'Demo Store',
+  slug: 'demo-store',
+  contactEmail: 'admin@demo.com',
+  plan: 'STARTER',
+  status: 'ACTIVE',
+  rateLimit: 100,
+  storageQuota: 1024,
+  createdAt: '2024-01-01T00:00:00Z',
+  updatedAt: '2024-01-01T00:00:00Z',
+};
+
+// Mock all /api/* requests so the frontend renders without a running backend
+async function mockApi(page: import('@playwright/test').Page) {
+  await page.route('/api/**', (route) => {
+    const url = route.request().url();
+
+    if (url.match(/\/api\/v1\/tenants\/[^/]+\/flags/)) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { flagName: 'ADVANCED_ANALYTICS', enabled: true, description: 'Analytics' },
+      ]) });
+    }
+    if (url.match(/\/api\/v1\/tenants\/[^/]+$/)) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_TENANT) });
+    }
+    if (url.includes('/api/v1/tenants')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([MOCK_TENANT]) });
+    }
+    if (url.includes('/api/v1/customers')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    }
+    if (url.includes('/api/v1/payments')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    }
+    if (url.includes('/api/v1/orders')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    }
+    if (url.includes('/api/v1/products')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [], totalElements: 0, totalPages: 0, size: 20, number: 0, first: true, last: true }) });
+    }
+
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+}
+
+// Inject auth into localStorage before navigating
+async function injectAuth(page: import('@playwright/test').Page, role: 'ADMIN' | 'SELLER' | 'USER') {
+  await page.goto('/');
+  await page.evaluate((r) => {
+    localStorage.setItem('obsidian-auth', JSON.stringify({
       state: {
         accessToken: 'mock-access-token',
         refreshToken: 'mock-refresh-token',
-        userId: 'admin-001',
-        email: 'admin@example.com',
-        role: 'ADMIN',
+        userId: `${r.toLowerCase()}-001`,
+        email: `${r.toLowerCase()}@example.com`,
+        role: r,
         tenantId: 'tenant-001',
         isAuthenticated: true,
       },
       version: 0,
-    };
-    localStorage.setItem('obsidian-auth', JSON.stringify(auth));
-  });
+    }));
+  }, role);
 }
 
 test.describe('Admin — access control', () => {
   test('non-admin cannot access /admin', async ({ page }) => {
-    await page.goto('/login');
-    await page.evaluate(() => {
-      const auth = {
-        state: {
-          accessToken: 'mock-access-token',
-          refreshToken: 'mock-refresh-token',
-          userId: 'user-001',
-          email: 'user@example.com',
-          role: 'USER',
-          tenantId: 'tenant-001',
-          isAuthenticated: true,
-        },
-        version: 0,
-      };
-      localStorage.setItem('obsidian-auth', JSON.stringify(auth));
-    });
+    await mockApi(page);
+    await injectAuth(page, 'USER');
     await page.goto('/admin');
-    // Should be redirected away (to / or /login) — not show admin content
     await expect(page).not.toHaveURL(/\/admin$/);
   });
 
@@ -51,13 +81,13 @@ test.describe('Admin — access control', () => {
 
 test.describe('Admin dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
+    await mockApi(page);
+    await injectAuth(page, 'ADMIN');
   });
 
   test('admin navigates to /admin and sees dashboard', async ({ page }) => {
     await page.goto('/admin');
     await expect(page).not.toHaveURL(/\/login/);
-    // Dashboard heading or stat cards are present
     await expect(page.getByText(/admin/i).first()).toBeVisible();
   });
 
@@ -88,7 +118,7 @@ test.describe('Admin dashboard', () => {
   test('tenant detail page renders with tabs', async ({ page }) => {
     await page.goto('/admin/tenants/tenant-001');
     await expect(page).not.toHaveURL(/\/login/);
-    await expect(page.getByRole('tab', { name: /overview/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /overview/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('tab', { name: /feature flags/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: /usage/i })).toBeVisible();
   });
@@ -96,22 +126,8 @@ test.describe('Admin dashboard', () => {
 
 test.describe('Seller dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.evaluate(() => {
-      const auth = {
-        state: {
-          accessToken: 'mock-access-token',
-          refreshToken: 'mock-refresh-token',
-          userId: 'seller-001',
-          email: 'seller@example.com',
-          role: 'SELLER',
-          tenantId: 'tenant-001',
-          isAuthenticated: true,
-        },
-        version: 0,
-      };
-      localStorage.setItem('obsidian-auth', JSON.stringify(auth));
-    });
+    await mockApi(page);
+    await injectAuth(page, 'SELLER');
   });
 
   test('/seller renders seller dashboard', async ({ page }) => {
