@@ -8,7 +8,7 @@ import { ArrowBack } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { ordersApi } from '@api/orders.api';
 import { QUERY_KEYS, ROUTES } from '@utils/constants';
-import { formatCurrency, formatDateTime } from '@utils/format';
+import { formatCurrency } from '@utils/format';
 import OrderStatusBadge from '@components/order/OrderStatusBadge';
 import type { OrderStatus } from '@api/types';
 
