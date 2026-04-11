@@ -421,6 +421,19 @@ services:
       retries: 8
     restart: on-failure
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      gateway-api-service:
+        condition: service_healthy
+    networks: [ services-net ]
+    restart: unless-stopped
+
   authentication-service:
     build:
       context: ./authentication-service
