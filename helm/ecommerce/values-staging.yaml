@@ -4,6 +4,16 @@
 global:
   logLevel: DEBUG
   tracingSamplingRate: "1.0"   # 100% tracing in staging
+  externalSecrets:
+    enabled: false   # Kind cluster in CI has no External Secrets Operator or Vault backend
+  secrets:
+    postgresPassword: "staging-postgres-pass"
+    mongoPassword: "staging-mongo-pass"
+    jwtSecret: "staging-jwt-secret-for-ci-testing-only-32b"
+    kafkaPassword: "staging-kafka-pass"
+    redisPassword: "staging-redis-pass"
+    vaultToken: "root-token"
+    eurekaPassword: "staging-eureka-pass"
 
 ingress:
   enabled: true
