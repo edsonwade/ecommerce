@@ -7,6 +7,16 @@ global:
   logLevel: DEBUG
   tracingSamplingRate: "1.0"
   namespace: ecommerce
+  externalSecrets:
+    enabled: true   # set false in envs without External Secrets Operator (e.g. Kind CI)
+  secrets:          # used only when externalSecrets.enabled is false
+    postgresPassword: ""
+    mongoPassword: ""
+    jwtSecret: ""
+    kafkaPassword: ""
+    redisPassword: ""
+    vaultToken: ""
+    eurekaPassword: ""
 
 ingress:
   enabled: false
