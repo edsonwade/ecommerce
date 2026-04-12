@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, CircularProgress, Container, Divider,
@@ -26,18 +26,14 @@ export default function TenantDetailPage() {
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   const [tab, setTab] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<TenantPlan>('FREE');
+  // null = no user selection yet; derive display value from server data
+  const [pendingPlan, setPendingPlan] = useState<TenantPlan | null>(null);
 
   const { data: tenant, isLoading } = useQuery<TenantResponse>({
     queryKey: [QUERY_KEYS.TENANT, id],
     queryFn: () => tenantsApi.getById(id!),
     enabled: !!id,
   });
-
-  // Sync selectedPlan when tenant data arrives
-  useEffect(() => {
-    if (tenant) setSelectedPlan(tenant.plan);
-  }, [tenant]);
 
   const { data: flags } = useQuery({
     queryKey: [QUERY_KEYS.TENANT_FLAGS, id],
@@ -49,6 +45,7 @@ export default function TenantDetailPage() {
     mutationFn: (plan: TenantPlan) => tenantsApi.changePlan(id!, plan),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.TENANT, id] });
+      setPendingPlan(null); // reset selection after successful update
       addToast({ message: 'Plan updated', variant: 'success' });
     },
   });
@@ -77,6 +74,9 @@ export default function TenantDetailPage() {
   if (!tenant) {
     return <Container maxWidth="md" sx={{ py: 8 }}><Alert severity="error">Tenant not found.</Alert></Container>;
   }
+
+  // Derive the displayed plan: user's pending selection takes precedence over server value
+  const displayedPlan: TenantPlan = pendingPlan ?? tenant.plan;
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
@@ -127,11 +127,16 @@ export default function TenantDetailPage() {
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <FormControl size="small" sx={{ minWidth: 140 }}>
                     <InputLabel>Plan</InputLabel>
-                    <Select value={selectedPlan} label="Plan" onChange={(e) => setSelectedPlan(e.target.value as TenantPlan)}>
+                    <Select value={displayedPlan} label="Plan" onChange={(e) => setPendingPlan(e.target.value as TenantPlan)}>
                       {PLANS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                     </Select>
                   </FormControl>
-                  <Button variant="contained" size="small" onClick={() => changePlan(selectedPlan)} disabled={changingPlan || selectedPlan === tenant.plan}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => changePlan(displayedPlan)}
+                    disabled={changingPlan || displayedPlan === tenant.plan}
+                  >
                     Apply
                   </Button>
                 </Box>

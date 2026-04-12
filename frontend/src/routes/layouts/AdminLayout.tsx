@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { MotionConfig } from 'framer-motion';
 import Navbar from '@components/layout/Navbar';
 import Sidebar from '@components/layout/Sidebar';
 import { useUIStore } from '@stores/ui.store';
@@ -22,24 +24,33 @@ const ADMIN_NAV = [
 
 export default function AdminLayout() {
   const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+
+  // Auto-close sidebar on mobile so the overlay drawer doesn't cover content
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile, setSidebarOpen]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Navbar />
-      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-        <Sidebar
-          items={ADMIN_NAV}
-          title="Admin"
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
-        <Box
-          component="main"
-          sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, md: 4 } }}
-        >
-          <Outlet />
+    <MotionConfig reducedMotion="user">
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <Navbar />
+        <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+          <Sidebar
+            items={ADMIN_NAV}
+            title="Admin"
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+          <Box
+            component="main"
+            sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, md: 4 } }}
+          >
+            <Outlet />
+          </Box>
         </Box>
       </Box>
-    </Box>
+    </MotionConfig>
   );
 }

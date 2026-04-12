@@ -159,7 +159,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress size={32} />
           </Box>
-        ) : !cart || cart.items.length === 0 ? (
+        ) : !cart || !cart.items || cart.items.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <ShoppingBag sx={{ fontSize: 56, color: 'text.disabled', mb: 2 }} />
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
@@ -184,7 +184,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
       </Box>
 
       {/* Footer */}
-      {cart && cart.items.length > 0 && isAuthenticated && (
+      {cart && cart.items?.length > 0 && isAuthenticated && (
         <Box
           sx={{
             borderTop: '1px solid',
