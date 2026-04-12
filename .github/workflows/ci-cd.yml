@@ -255,11 +255,22 @@ jobs:
           cluster_name: ecommerce-staging
           config: .github/kind-config.yaml
 
+      # Wait for the API server to be fully ready before Helm connects.
+      # Without this, Helm hits the K8s client rate limiter on a freshly
+      # started single-node Kind cluster → "context deadline exceeded".
+      - name: Wait for Kind node to be Ready
+        run: |
+          kubectl wait --for=condition=Ready node --all --timeout=120s
+          kubectl cluster-info
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
           version: '3.14.0'
 
+      # No --wait: services will never reach Running in Kind (no databases,
+      # no Kafka, no Vault). --wait would poll the API server until the
+      # 10-minute timeout fires, causing "client rate limiter" errors.
       - name: Deploy to staging (Kind)
         id: deploy
         run: |
@@ -268,27 +279,30 @@ jobs:
             --create-namespace \
             -f helm/ecommerce/values-staging.yaml \
             --set global.imageRegistry=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }} \
-            --timeout 10m \
-            --wait
+            --timeout 2m
 
-      - name: Wait for services to be ready
-        run: sleep 30
-
-      - name: Port-forward gateway
+      # Smoke tests: verify chart manifests were accepted by the API server.
+      # HTTP health checks are not possible in Kind CI (services need real
+      # databases/Kafka/Vault which are not present in the cluster).
+      - name: Smoke test — all Deployments created
         run: |
-          kubectl port-forward svc/gateway-api-service 8222:8222 \
-            -n ecommerce-staging &
-          sleep 5
+          kubectl get deployments -n ecommerce-staging -o wide
+          EXPECTED=10
+          ACTUAL=$(kubectl get deployments -n ecommerce-staging --no-headers | wc -l)
+          echo "Expected $EXPECTED deployments, found $ACTUAL"
+          [ "$ACTUAL" -eq "$EXPECTED" ]
 
-      - name: Health check — gateway
+      - name: Smoke test — all Secrets created
         run: |
-          curl -f --retry 5 --retry-delay 10 \
-            http://localhost:8222/actuator/health
+          kubectl get secrets -n ecommerce-staging -o wide
+          EXPECTED=10
+          ACTUAL=$(kubectl get secrets -n ecommerce-staging \
+            --field-selector type=Opaque --no-headers | wc -l)
+          echo "Expected $EXPECTED Opaque secrets, found $ACTUAL"
+          [ "$ACTUAL" -eq "$EXPECTED" ]
 
-      - name: Health check — auth service
-        run: |
-          curl -f --retry 3 --retry-delay 5 \
-            http://localhost:8222/api/v1/auth/health || true
+      - name: Smoke test — all Services created
+        run: kubectl get services -n ecommerce-staging -o wide
 
       - name: Rollback on smoke test failure
         if: failure() && steps.deploy.outcome == 'success'

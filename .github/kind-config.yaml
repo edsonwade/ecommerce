@@ -2,5 +2,12 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-  - role: worker
-  - role: worker
+    # Single node keeps memory under 2 GB on ubuntu-latest runners (~7 GB total RAM).
+    # Multi-node (control-plane + workers) starves the API server and causes
+    # "client rate limiter Wait returned an error: context deadline exceeded".
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
