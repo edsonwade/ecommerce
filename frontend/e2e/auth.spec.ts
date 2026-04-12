@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('/api/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+});
+
 test.describe('Authentication', () => {
   test('login page renders sign-in form', async ({ page }) => {
     await page.goto('/login');
@@ -7,7 +13,7 @@ test.describe('Authentication', () => {
     await expect(page.getByText('Obsidian Market').first()).toBeVisible();
     await expect(page.getByText(/sign in to your account/i)).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
   });
 
@@ -33,7 +39,7 @@ test.describe('Authentication', () => {
     await expect(page.getByLabel(/first name/i)).toBeVisible();
     await expect(page.getByLabel(/last name/i)).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
   });
 
   test('login form shows validation errors on empty submit', async ({ page }) => {

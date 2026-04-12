@@ -20,12 +20,14 @@ export default defineConfig({
   },
   server: {
     port: 3001,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8222',
-        changeOrigin: true,
-      },
-    },
+    proxy: process.env.VITE_DISABLE_PROXY
+      ? undefined
+      : {
+          '/api': {
+            target: 'http://localhost:8222',
+            changeOrigin: true,
+          },
+        },
   },
   build: {
     target: 'es2022',

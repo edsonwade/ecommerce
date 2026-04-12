@@ -37,6 +37,10 @@ async function mockApi(page: import('@playwright/test').Page) {
   });
 }
 
+test.beforeEach(async ({ page }) => {
+  await mockApi(page);
+});
+
 test.describe('Catalog & Cart', () => {
   test('home page renders hero section', async ({ page }) => {
     await page.goto('/');
@@ -68,9 +72,6 @@ test.describe('Checkout flow', () => {
   });
 
   test('checkout page renders stepper with 3 steps when authenticated', async ({ page }) => {
-    // Mock API before setting auth so no proxy errors hit the backend
-    await mockApi(page);
-
     // Inject auth into localStorage
     await page.goto('/');
     await page.evaluate(() => {
