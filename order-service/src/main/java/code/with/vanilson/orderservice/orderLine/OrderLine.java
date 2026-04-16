@@ -16,8 +16,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
-import org.hibernate.annotations.ParamDef;
 
 /**
  * OrderLine — Domain Entity (Phase 4 update)
@@ -38,8 +36,6 @@ import org.hibernate.annotations.ParamDef;
 @Entity
 @NoArgsConstructor
 @Table(name = "customer_line")
-@FilterDef(name = TenantFilterConstants.FILTER_NAME,
-           parameters = @ParamDef(name = TenantFilterConstants.PARAM_NAME, type = String.class))
 @Filter(name = TenantFilterConstants.FILTER_NAME,
         condition = "tenant_id = :" + TenantFilterConstants.PARAM_NAME)
 public class OrderLine {

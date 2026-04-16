@@ -14,59 +14,7 @@
     </appender>
 
     <!-- ============================================================
-         JSON appender — structured logs for log aggregation (Loki/ELK)
-         ============================================================ -->
-    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <providers>
-                <timestamp/>
-                <version/>
-                <logLevel/>
-                <loggerName/>
-                <threadName/>
-                <message/>
-                <mdc/>
-                <stackTrace/>
-                <arguments/>
-            </providers>
-            <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
-        </encoder>
-    </appender>
-
-    <!-- ============================================================
-         Rolling file appender — persists logs locally
-         ============================================================ -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/${appName}.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>logs/${appName}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>50MB</maxFileSize>
-            <maxHistory>7</maxHistory>
-            <totalSizeCap>500MB</totalSizeCap>
-        </rollingPolicy>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
-        </encoder>
-    </appender>
-
-    <!-- ============================================================
-         Async wrappers — non-blocking I/O
-         ============================================================ -->
-    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="JSON_CONSOLE"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>false</includeCallerData>
-    </appender>
-
-    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-    </appender>
-
-    <!-- ============================================================
-         Log levels
+         Log levels (global — outside profiles)
          ============================================================ -->
     <logger name="code.with.vanilson"                level="INFO"/>
     <logger name="org.springframework.web"            level="WARN"/>
@@ -78,21 +26,58 @@
     <logger name="com.netflix.discovery"              level="WARN"/>
 
     <!-- ============================================================
-         Profile-based root config
-         dev   → plain console (human-readable)
-         prod  → JSON console + file (machine-readable for Loki/ELK)
+         dev / default / native profile — plain console only
+         LogstashEncoder is NOT instantiated in these profiles.
          ============================================================ -->
-    <springProfile name="dev,default">
+    <springProfile name="dev,default,native">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 
+    <!-- ============================================================
+         prod / staging profile — JSON + async file (Loki/ELK)
+         LogstashEncoder is only instantiated when this profile is active.
+         ============================================================ -->
     <springProfile name="prod,staging">
+
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
+            </encoder>
+        </appender>
+
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/${appName}.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/${appName}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>50MB</maxFileSize>
+                <maxHistory>7</maxHistory>
+                <totalSizeCap>500MB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
+            </encoder>
+        </appender>
+
+        <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+
+        <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="FILE"/>
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+        </appender>
+
         <root level="INFO">
             <appender-ref ref="ASYNC_JSON"/>
             <appender-ref ref="ASYNC_FILE"/>
         </root>
+
     </springProfile>
 
 </configuration>

@@ -16,13 +16,10 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
   client:
-    registerWithEureka: true
-    fetchRegistry: true
+    registerWithEureka: false
+    fetchRegistry: false
     serviceUrl:
-      # Peer-aware: register with both instances
-      defaultZone: >
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@discovery-service:8761/eureka/,
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@discovery-service-2:8761/eureka/
+      defaultZone: "http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@discovery-service:8761/eureka/"
 
 management:
   endpoints:

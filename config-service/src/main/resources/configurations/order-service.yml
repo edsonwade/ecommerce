@@ -37,6 +37,8 @@ spring:
 
   # Kafka Producer (for OrderProducer + OutboxEventPublisher)
   kafka:
+    # Top-level bootstrap-servers used by Spring Boot's auto-configured KafkaAdmin
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     # SASL/PLAIN authentication — credentials injected from environment / Vault
     properties:
       security.protocol: SASL_PLAINTEXT
@@ -81,9 +83,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: >
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/,
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST2:discovery-service-2}:8761/eureka/
+      defaultZone: "http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/"
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
@@ -139,3 +139,6 @@ management:
   tracing:
     sampling:
       probability: 0.1  # 10% sampling — use 1.0 only in dev/debugging
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

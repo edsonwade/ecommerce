@@ -254,6 +254,14 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <configuration>
+                            <skip>false</skip>
+                        </configuration>
+                    </execution>
+                </executions>
                 <configuration>
                     <mainClass>code.with.vanilson.authentication.AuthenticationApplication</mainClass>
                     <excludes>

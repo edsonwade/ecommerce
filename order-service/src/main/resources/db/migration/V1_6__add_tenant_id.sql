@@ -5,6 +5,22 @@
 BEGIN;
 
 -- -------------------------------------------------------
+-- customer_line — create table if it was never migrated
+-- (OrderLine entity was not present in V1_3; created here
+--  so subsequent ALTER TABLE statements can succeed)
+-- -------------------------------------------------------
+CREATE TABLE IF NOT EXISTS customer_line (
+    id         SERIAL PRIMARY KEY,
+    order_id   INTEGER        NOT NULL REFERENCES customer_order (order_id),
+    product_id INTEGER,
+    quantity   DOUBLE PRECISION,
+    tenant_id  VARCHAR(36)    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_line_order_id
+    ON customer_line (order_id);
+
+-- -------------------------------------------------------
 -- customer_order — add tenant_id column
 -- -------------------------------------------------------
 ALTER TABLE customer_order

@@ -7,10 +7,8 @@ spring:
     timeout-per-shutdown-phase: 30s
   data:
     redis:
-      # Redis Sentinel for HA — Spring handles failover transparently
-      sentinel:
-        master: ${REDIS_SENTINEL_MASTER:mymaster}
-        nodes: ${REDIS_SENTINEL_NODES:sentinel-1:26379,sentinel-2:26379,sentinel-3:26379}
+      host: ${SPRING_DATA_REDIS_HOST:${REDIS_HOST:localhost}}
+      port: ${SPRING_DATA_REDIS_PORT:${REDIS_PORT:6379}}
       password: ${REDIS_PASSWORD:redis-secret-2024}
       timeout: 2000ms
       lettuce:
@@ -25,9 +23,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: >
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/,
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST2:discovery-service-2}:8761/eureka/
+      defaultZone: "http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/"
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
@@ -55,3 +51,6 @@ management:
   tracing:
     sampling:
       probability: 0.1  # 10% sampling — use 1.0 only in dev/debugging
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

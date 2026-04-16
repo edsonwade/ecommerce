@@ -1,98 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  logstash-logback-encoder 7.3 fix: all appender definitions are placed INSIDE
+  <springProfile> blocks so LogstashEncoder is only instantiated when the prod/staging
+  profile is active.  In dev/default/native mode it is never referenced.
+-->
 <configuration>
 
-    <springProperty scope="context" name="appName"     source="spring.application.name" defaultValue="ecommerce-service"/>
-    <springProperty scope="context" name="activeProfile" source="spring.profiles.active" defaultValue="default"/>
+    <springProperty scope="context" name="appName"      source="spring.application.name" defaultValue="ecommerce-service"/>
+    <springProperty scope="context" name="activeProfile" source="spring.profiles.active"  defaultValue="default"/>
 
     <!-- ============================================================
-         Console appender — plain text for local dev
+         dev / default / native profile — plain console only
          ============================================================ -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+    <springProfile name="dev,default,native">
 
-    <!-- ============================================================
-         JSON appender — structured logs for log aggregation (Loki/ELK)
-         ============================================================ -->
-    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <providers>
-                <timestamp/>
-                <version/>
-                <logLevel/>
-                <loggerName/>
-                <threadName/>
-                <message/>
-                <mdc/>
-                <stackTrace/>
-                <arguments/>
-            </providers>
-            <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
-        </encoder>
-    </appender>
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
 
-    <!-- ============================================================
-         Rolling file appender — persists logs locally
-         ============================================================ -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/${appName}.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>logs/${appName}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>50MB</maxFileSize>
-            <maxHistory>7</maxHistory>
-            <totalSizeCap>500MB</totalSizeCap>
-        </rollingPolicy>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
-        </encoder>
-    </appender>
+        <logger name="code.with.vanilson"                level="INFO"/>
+        <logger name="org.springframework.web"            level="WARN"/>
+        <logger name="org.springframework.security"       level="WARN"/>
+        <logger name="org.hibernate.SQL"                  level="WARN"/>
+        <logger name="org.hibernate.type.descriptor.sql"  level="WARN"/>
+        <logger name="org.apache.kafka"                   level="WARN"/>
+        <logger name="com.netflix.eureka"                 level="WARN"/>
+        <logger name="com.netflix.discovery"              level="WARN"/>
 
-    <!-- ============================================================
-         Async wrappers — non-blocking I/O
-         ============================================================ -->
-    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="JSON_CONSOLE"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>false</includeCallerData>
-    </appender>
-
-    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-    </appender>
-
-    <!-- ============================================================
-         Log levels
-         ============================================================ -->
-    <logger name="code.with.vanilson"                level="INFO"/>
-    <logger name="org.springframework.web"            level="WARN"/>
-    <logger name="org.springframework.security"       level="WARN"/>
-    <logger name="org.hibernate.SQL"                  level="WARN"/>
-    <logger name="org.hibernate.type.descriptor.sql"  level="WARN"/>
-    <logger name="org.apache.kafka"                   level="WARN"/>
-    <logger name="com.netflix.eureka"                 level="WARN"/>
-    <logger name="com.netflix.discovery"              level="WARN"/>
-
-    <!-- ============================================================
-         Profile-based root config
-         dev   → plain console (human-readable)
-         prod  → JSON console + file (machine-readable for Loki/ELK)
-         ============================================================ -->
-    <springProfile name="dev,default">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
+
     </springProfile>
 
+    <!-- ============================================================
+         prod / staging profile — JSON + async file (Loki/ELK)
+         LogstashEncoder is only instantiated here.
+         ============================================================ -->
     <springProfile name="prod,staging">
+
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
+            </encoder>
+        </appender>
+
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/${appName}.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/${appName}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>50MB</maxFileSize>
+                <maxHistory>7</maxHistory>
+                <totalSizeCap>500MB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","profile":"${activeProfile}"}</customFields>
+            </encoder>
+        </appender>
+
+        <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+
+        <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="FILE"/>
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+        </appender>
+
+        <logger name="code.with.vanilson"                level="INFO"/>
+        <logger name="org.springframework.web"            level="WARN"/>
+        <logger name="org.springframework.security"       level="WARN"/>
+        <logger name="org.hibernate.SQL"                  level="WARN"/>
+        <logger name="org.hibernate.type.descriptor.sql"  level="WARN"/>
+        <logger name="org.apache.kafka"                   level="WARN"/>
+        <logger name="com.netflix.eureka"                 level="WARN"/>
+        <logger name="com.netflix.discovery"              level="WARN"/>
+
         <root level="INFO">
             <appender-ref ref="ASYNC_JSON"/>
             <appender-ref ref="ASYNC_FILE"/>
         </root>
+
     </springProfile>
 
 </configuration>

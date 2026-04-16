@@ -7,7 +7,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -35,7 +34,6 @@ import java.util.Map;
  * @version 3.0
  */
 @Configuration
-@EnableJpaAuditing
 public class ProductKafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
