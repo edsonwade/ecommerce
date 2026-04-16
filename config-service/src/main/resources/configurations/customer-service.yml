@@ -10,13 +10,14 @@ spring:
     # Sharding in production: hashed shard key on _id (customerId)
     # Replica set: rs0 with 3 nodes (1 primary, 2 secondaries)
     mongodb:
-      uri: mongodb://${MONGO_HOST:localhost}:27017,${MONGO_HOST2:localhost}:27018,${MONGO_HOST3:localhost}:27019/customer_db?replicaSet=rs0&readPreference=primaryPreferred&w=majority
+      uri: mongodb://${MONGO_USERNAME:vanilson}:${MONGO_PASSWORD:vanilson}@${MONGO_HOST:localhost}:27017/customer_db?authSource=admin
       auto-index-creation: true  # creates @Indexed indexes on startup
 
     # Redis L2 Cache
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       timeout: 2000ms
       lettuce:
         pool:
@@ -35,9 +36,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: >
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/,
-        http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST2:discovery-service-2}:8761/eureka/
+      defaultZone: "http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:discovery-service}:8761/eureka/"
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
@@ -65,3 +64,6 @@ management:
   tracing:
     sampling:
       probability: 0.1  # 10% sampling — use 1.0 only in dev/debugging
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

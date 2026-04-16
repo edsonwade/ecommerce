@@ -1,8 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  logstash-logback-encoder 7.3 fix: all appender definitions are placed INSIDE
-  <springProfile> blocks so LogstashEncoder is only instantiated when the prod/staging
-  profile is active.  In dev/default/native mode it is never referenced.
+  Shared logback configuration for all eCommerce services.
+
+  WHY THIS FILE EXISTS (mounted via docker-compose LOGGING_CONFIG override):
+    logstash-logback-encoder 7.4 changed LogstashEncoder.setProviders() to throw
+    IllegalArgumentException if Logback's internal ImplicitModelHandler calls it
+    (a behaviour introduced in Logback 1.4.8+, shipped in Spring Boot 3.2.x).
+    The crash happens even when <providers> is absent from the XML — Logback itself
+    triggers the call during second-phase traversal of any CompositeJsonEncoder.
+
+  FIX:
+    Move ALL appender definitions inside <springProfile> blocks.  Logback/Spring
+    Boot only instantiates appenders whose enclosing <springProfile> matches the
+    active profile.  In the default/native profile, LogstashEncoder is therefore
+    NEVER instantiated and the crash cannot occur.
+
+  PERMANENT FIX (requires rebuild):
+    Downgrade logstash-logback-encoder to 7.3 in root pom.xml.
+    Version 7.3 is the last release compatible with Logback 1.3.x / 1.4.x
+    (Spring Boot 3.0–3.2).  After rebuilding JARs this file can be removed
+    and the embedded logback-spring.xml in each service JAR will work correctly.
 -->
 <configuration>
 
@@ -10,7 +27,8 @@
     <springProperty scope="context" name="activeProfile" source="spring.profiles.active"  defaultValue="default"/>
 
     <!-- ============================================================
-         dev / default / native profile — plain console only
+         dev / default / native profile
+         Plain console — LogstashEncoder is NOT instantiated here.
          ============================================================ -->
     <springProfile name="dev,default,native">
 
@@ -36,8 +54,9 @@
     </springProfile>
 
     <!-- ============================================================
-         prod / staging profile — JSON + async file (Loki/ELK)
-         LogstashEncoder is only instantiated here.
+         prod / staging profile
+         Structured JSON to stdout + async rolling file for Loki/ELK.
+         LogstashEncoder is only instantiated when this profile is active.
          ============================================================ -->
     <springProfile name="prod,staging">
 

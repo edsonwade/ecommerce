@@ -1,12 +1,11 @@
 package code.with.vanilson.orderservice.config;
 
 import jakarta.annotation.PreDestroy;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -20,7 +19,10 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
+
+import code.with.vanilson.orderservice.kafka.OrderConfirmation;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,22 +32,23 @@ import java.util.Map;
  * <p>
  * Configures:
  * 1. String KafkaTemplate for OutboxEventPublisher (publishes serialised JSON strings)
- * 2. Saga consumer factory with MANUAL_IMMEDIATE ack + DLQ error handler
- * 3. Graceful shutdown: setStopImmediate(false) drains the current batch before the JVM exits
+ * 2. OrderConfirmation KafkaTemplate for OrderProducer (typed JSON serialisation)
+ * 3. Saga consumer factory with MANUAL_IMMEDIATE ack + DLQ error handler
+ * 4. Graceful shutdown: setStopImmediate(false) drains the current batch before the JVM exits
  * <p>
- * Two separate KafkaTemplate beans:
- * - String KafkaTemplate: used by OutboxEventPublisher (payload already serialised)
- * - Typed KafkaTemplates: used by OrderProducer (OrderConfirmation events)
+ * All factories are built on top of {@link KafkaProperties#buildProducerProperties} /
+ * {@link KafkaProperties#buildConsumerProperties} so SASL, security protocol, and
+ * bootstrap-servers are inherited from the YAML config rather than hard-coded here.
  * </p>
  *
  * @author vamuhong
- * @version 3.1
+ * @version 3.2
  */
 @Configuration
 public class KafkaConfig {
 
-    @Value("${spring.kafka.producer.bootstrap-servers:localhost:9092}")
-    private String bootstrapServers;
+    @Autowired
+    private KafkaProperties kafkaProperties;
 
     @Autowired
     private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
@@ -56,14 +59,9 @@ public class KafkaConfig {
 
     @Bean
     public ProducerFactory<String, String> stringProducerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
-        props.put(ProducerConfig.ACKS_CONFIG, "all");
-        props.put(ProducerConfig.RETRIES_CONFIG, 3);
-        props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+        // buildProducerProperties includes bootstrap-servers, SASL config,
+        // idempotence settings, and serializers from YAML
+        Map<String, Object> props = new HashMap<>(kafkaProperties.buildProducerProperties(null));
         return new DefaultKafkaProducerFactory<>(props);
     }
 
@@ -73,18 +71,32 @@ public class KafkaConfig {
     }
 
     // -------------------------------------------------------
+    // OrderConfirmation KafkaTemplate — for OrderProducer
+    // -------------------------------------------------------
+
+    @Bean
+    public ProducerFactory<String, OrderConfirmation> orderConfirmationProducerFactory() {
+        // Inherit all producer properties (SASL, bootstrap-servers, idempotence)
+        // but override value serializer to produce typed JSON
+        Map<String, Object> props = new HashMap<>(kafkaProperties.buildProducerProperties(null));
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    @Bean
+    public KafkaTemplate<String, OrderConfirmation> orderConfirmationKafkaTemplate() {
+        return new KafkaTemplate<>(orderConfirmationProducerFactory());
+    }
+
+    // -------------------------------------------------------
     // Saga Consumer Factory — for OrderSagaConsumer
     // -------------------------------------------------------
 
     @Bean
     public ConsumerFactory<String, Object> sagaConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "order-saga-group");
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        // buildConsumerProperties includes bootstrap-servers, group-id, SASL config,
+        // deserializers, and offset settings from YAML
+        Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         return new DefaultKafkaConsumerFactory<>(props);

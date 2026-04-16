@@ -3,7 +3,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --frozen-lockfile
+RUN npm ci --frozen-lockfile --network-timeout=120000 --maxsockets=5 || \
+    (sleep 5 && npm ci --frozen-lockfile --network-timeout=120000 --maxsockets=5)
 
 COPY . .
 RUN npm run build

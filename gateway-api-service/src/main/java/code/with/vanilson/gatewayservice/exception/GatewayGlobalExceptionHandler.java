@@ -9,6 +9,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -76,6 +77,21 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             errorCode = suEx.getMessageKey();
             log.error("[GatewayExceptionHandler] Service unavailable: key=[{}] message=[{}]",
                     suEx.getMessageKey(), message);
+
+        } else if (ex instanceof ResponseStatusException rsEx) {
+            status = (HttpStatus) rsEx.getStatusCode();
+            message = rsEx.getReason();
+            if (message == null) {
+                message = status.getReasonPhrase();
+            }
+            errorCode = "gateway.error." + status.value();
+            if (status.is4xxClientError()) {
+                log.warn("[GatewayExceptionHandler] Client error [{}]: path=[{}] message=[{}]",
+                        status.value(), exchange.getRequest().getPath().value(), message);
+            } else {
+                log.error("[GatewayExceptionHandler] Server error [{}]: path=[{}] message=[{}]",
+                        status.value(), exchange.getRequest().getPath().value(), message);
+            }
 
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;

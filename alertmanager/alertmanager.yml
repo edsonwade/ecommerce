@@ -9,11 +9,8 @@ global:
   smtp_from: 'alertmanager@vanilsonshop.io'
   smtp_require_tls: false
 
-  # Slack default URL — override per-receiver if needed
-  slack_api_url: '${SLACK_WEBHOOK_URL}'
-
-templates:
-  - '/etc/alertmanager/templates/*.tmpl'
+  # Slack default URL — set SLACK_WEBHOOK_URL env var for real Slack integration
+  slack_api_url: 'https://hooks.slack.com/services/placeholder'
 
 route:
   group_by: ['alertname', 'job', 'service']
@@ -25,7 +22,7 @@ route:
     - match:
         severity: critical
       receiver: 'critical-alerts'
-      group_wait: 0s          # immediate for critical
+      group_wait: 0s
       group_interval: 1m
       repeat_interval: 1h
       continue: false
@@ -41,19 +38,12 @@ receivers:
   - name: 'default'
     email_configs:
       - to: 'ops@vanilsonshop.io'
-        subject: '[eCommerce] Alert: {{ .GroupLabels.alertname }}'
-        body: |
-          {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Description: {{ .Annotations.description }}
-          Service: {{ .Labels.job }}
-          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
-          {{ end }}
+        headers:
+          Subject: '[eCommerce] Alert: {{ .GroupLabels.alertname }}'
 
   - name: 'critical-alerts'
     slack_configs:
-      - api_url: '${SLACK_WEBHOOK_URL}'
-        channel: '#incidents'
+      - channel: '#incidents'
         send_resolved: true
         title: ':fire: CRITICAL: {{ .GroupLabels.alertname }}'
         title_link: 'http://grafana:3000'
@@ -62,25 +52,16 @@ receivers:
           {{ range .Alerts }}
           *Summary:* {{ .Annotations.summary }}
           *Description:* {{ .Annotations.description }}
-          *Runbook:* {{ .Annotations.runbook_url }}
           {{ end }}
         color: 'danger'
-        icon_emoji: ':rotating_light:'
     email_configs:
       - to: 'oncall@vanilsonshop.io'
-        subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
-        body: |
-          {{ range .Alerts }}
-          CRITICAL ALERT: {{ .Annotations.summary }}
-          Service: {{ .Labels.job }}
-          {{ .Annotations.description }}
-          Runbook: {{ .Annotations.runbook_url }}
-          {{ end }}
+        headers:
+          Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
 
   - name: 'warning-alerts'
     slack_configs:
-      - api_url: '${SLACK_WEBHOOK_URL}'
-        channel: '#alerts'
+      - channel: '#alerts'
         send_resolved: true
         title: ':warning: WARNING: {{ .GroupLabels.alertname }}'
         title_link: 'http://grafana:3000'
@@ -91,16 +72,10 @@ receivers:
           *Description:* {{ .Annotations.description }}
           {{ end }}
         color: 'warning'
-        icon_emoji: ':warning:'
     email_configs:
       - to: 'ops@vanilsonshop.io'
-        subject: '[WARNING] {{ .GroupLabels.alertname }}'
-        body: |
-          {{ range .Alerts }}
-          WARNING: {{ .Annotations.summary }}
-          Service: {{ .Labels.job }}
-          {{ .Annotations.description }}
-          {{ end }}
+        headers:
+          Subject: '[WARNING] {{ .GroupLabels.alertname }}'
 
 inhibit_rules:
   - source_match:

@@ -46,45 +46,39 @@ services:
     # Production: use -config=/vault/config/vault.hcl instead of -dev
     networks: [ infra-net, services-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "vault status 2>/dev/null | grep -q 'Initialized'" ]
+      test: [ "CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status 2>/dev/null | grep -q 'Initialized'" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 8
+      start_period: 15s
 
   # ============================================================
   # INFRASTRUCTURE — Message Bus
   # ============================================================
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    container_name: zookeeper
-    # No external port — internal only
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks: [ infra-net ]
-    healthcheck:
-      test: [ "CMD", "nc", "-z", "localhost", "2181" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
-    depends_on:
-      zookeeper:
-        condition: service_healthy
     # Port 9092 exposed for local dev tools (Kafka UI, kafka-cli)
     # Remove in production — services communicate via infra-net on port 29092
     ports:
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      # Confluent's entrypoint has TWO guards when SASL is enabled:
+      #   1. `dub ensure KAFKA_OPTS`                            — KAFKA_OPTS must be set
+      #   2. check that it *contains* java.security.auth.login.config
+      # So we must keep the JAAS file path in KAFKA_OPTS.
+      KAFKA_OPTS: >-
+        -Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf
       # SASL/PLAIN listeners — PLAINTEXT_HOST for local dev, SASL_PLAINTEXT for internal
       KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
       KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
       KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
@@ -95,15 +89,23 @@ services:
       KAFKA_ENABLE_IDEMPOTENCE: "true"
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf"
+      # Listener-level inline JAAS — no external file needed, no ZK SASL bleed.
+      KAFKA_LISTENER_NAME_SASL__PLAINTEXT_PLAIN_SASL_JAAS_CONFIG: >
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="kafka"
+        password="kafka-secret"
+        user_kafka="kafka-secret"
+        user_producer="producer-secret"
+        user_consumer="consumer-secret";
     volumes:
-      - ./kafka/jaas:/etc/kafka/jaas:ro
+      - ./kafka/jaas/kafka_server_jaas.conf:/etc/kafka/jaas/kafka_server_jaas.conf:ro
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092" ]
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 2>/dev/null || exit 1" ]
       interval: 15s
       timeout: 10s
-      retries: 8
+      retries: 15
+      start_period: 30s
 
   # ============================================================
   # INFRASTRUCTURE — Cache + Rate Limiting
@@ -130,14 +132,15 @@ services:
       test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis-secret-2024}", "ping" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
   # ============================================================
   # INFRASTRUCTURE — Databases (one per service, internal only)
   # ============================================================
 
   postgres-order:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: postgres-order
     environment:
       POSTGRES_DB: order_service_db
@@ -151,10 +154,11 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d order_service_db" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
   postgres-product:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: postgres-product
     environment:
       POSTGRES_DB: product_service_db
@@ -167,10 +171,11 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d product_service_db" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
   postgres-payment:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: postgres-payment
     environment:
       POSTGRES_DB: payment_db
@@ -183,10 +188,11 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d payment_db" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
   postgres-auth:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: postgres-auth
     environment:
       POSTGRES_DB: auth_db
@@ -199,7 +205,8 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
   mongodb:
     image: mongo:7.0
@@ -213,10 +220,11 @@ services:
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+      start_period: 30s
 
   # ============================================================
   # INFRASTRUCTURE — Observability
@@ -231,10 +239,11 @@ services:
       - zipkin-data:/zipkin
     networks: [ monitoring-net, services-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:9411/health || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9411/health || exit 1" ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
 
   prometheus:
     image: prom/prometheus:v2.51.2
@@ -278,6 +287,7 @@ services:
   loki:
     image: grafana/loki:2.9.8
     container_name: loki
+    user: "0"
     ports:
       - "3100:3100"
     volumes:
@@ -337,29 +347,37 @@ services:
 
   config-service:
     build:
-      context: ./config-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: config-service/Dockerfile
     container_name: config-service
     ports:
       - "8888:8888"
     environment:
       SPRING_PROFILES_ACTIVE: native
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
+      SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCHLOCATIONS: "file:/app/configurations"
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_PORT: ${VAULT_PORT:-8200}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
+      - ./config-service/src/main/resources/configurations:/app/configurations:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8888/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
-      retries: 8
+      retries: 15
+      start_period: 60s
     restart: on-failure
 
   discovery-service:
     build:
-      context: ./discovery-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: discovery-service/Dockerfile
     container_name: discovery-service
     ports:
       - "8761:8761"
@@ -368,18 +386,25 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -qO- 'http://eureka:eureka-secret-2024@localhost:8761/actuator/health' | grep -q '\"status\":\"UP\"' || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   # ============================================================
@@ -388,8 +413,8 @@ services:
 
   gateway-api-service:
     build:
-      context: ./gateway-api-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: gateway-api-service/Dockerfile
     container_name: gateway-api-service
     ports:
       - "8222:8222"
@@ -402,23 +427,34 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      # Disable Sentinel — use standalone Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       GATEWAY_MAX_CONCURRENT: 5000
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8222/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8222/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 90s
     restart: on-failure
 
   frontend:
@@ -436,8 +472,8 @@ services:
 
   authentication-service:
     build:
-      context: ./authentication-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: authentication-service/Dockerfile
     container_name: authentication-service
     ports:
       - "8085:8085"
@@ -450,6 +486,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
@@ -457,21 +495,26 @@ services:
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8085/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   customer-service:
     build:
-      context: ./customer-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: customer-service/Dockerfile
     container_name: customer-service
     ports:
       - "8090:8090"
@@ -484,27 +527,36 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       MONGO_HOST: mongodb
+      MONGO_USERNAME: ${MONGO_USERNAME:-vanilson}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-vanilson}
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8090/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8090/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   product-service:
     build:
-      context: ./product-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: product-service/Dockerfile
     container_name: product-service
     ports:
       - "8082:8082"
@@ -517,6 +569,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
@@ -527,22 +581,27 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
-      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8082/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   order-service:
     build:
-      context: ./order-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: order-service/Dockerfile
     container_name: order-service
     ports:
       - "8083:8083"
@@ -555,6 +614,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
@@ -563,23 +624,28 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
-      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
       GATEWAY_HOST: gateway-api-service
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8083/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   payment-service:
     build:
-      context: ./payment-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: payment-service/Dockerfile
     container_name: payment-service
     ports:
       - "8086:8086"
@@ -592,6 +658,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
@@ -600,22 +668,27 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
-      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8086/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   cart-service:
     build:
-      context: ./cart-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: cart-service/Dockerfile
     container_name: cart-service
     ports:
       - "8091:8091"
@@ -628,27 +701,38 @@ services:
         condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      # Disable Sentinel — use standalone Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8091/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8091/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
   notification-service:
     build:
-      context: ./notification-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: notification-service/Dockerfile
     container_name: notification-service
     ports:
       - "8040:8040"
@@ -663,26 +747,35 @@ services:
         condition: service_started
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
       MONGO_HOST: mongodb
+      MONGO_USERNAME: ${MONGO_USERNAME:-vanilson}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-vanilson}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
-      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret-2024}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MAIL_USERNAME: noreply@vanilsonshop.io
       MAIL_PASSWORD: unused
-      VAULT_ENABLED: ${VAULT_ENABLED:-true}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
     networks: [ services-net, infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8040/actuator/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8040/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
+      start_period: 60s
     restart: on-failure
 
 # ============================================================

@@ -4,14 +4,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
-import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * ConfigServerSecurityConfig — secures the Spring Cloud Config Server endpoints.
@@ -19,15 +20,11 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
  * All config endpoints require HTTP basic auth except:
  * - /actuator/health — for health checks (load balancer probes)
  * - /actuator/info  — non-sensitive info
- * <p>
- * Credentials: username=config, password from CONFIG_SERVER_PASSWORD env var.
- * All client services must set spring.config.import with credentials:
- *   optional:configserver:http://config:${CONFIG_SERVER_PASSWORD}@config-service:8888
  * </p>
  */
 @Configuration
 @Order(0)
-@EnableWebFluxSecurity
+@EnableWebSecurity
 public class ConfigServerSecurityConfig {
 
     @Value("${config.server.username:config}")
@@ -37,25 +34,25 @@ public class ConfigServerSecurityConfig {
     private String password;
 
     @Bean
-    public SecurityWebFilterChain configServerSecurityFilterChain(ServerHttpSecurity http) {
+    public SecurityFilterChain configServerSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .anyExchange().authenticated()
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .anyRequest().authenticated()
                 )
-                .httpBasic(basic -> {})
+                .httpBasic(Customizer.withDefaults())
                 .build();
     }
 
     @Bean
-    public MapReactiveUserDetailsService configServerUserDetailsService(PasswordEncoder encoder) {
+    public InMemoryUserDetailsManager configServerUserDetailsService(PasswordEncoder encoder) {
         UserDetails configUser = User.builder()
                 .username(username)
                 .password(encoder.encode(password))
                 .roles("CONFIG_CLIENT")
                 .build();
-        return new MapReactiveUserDetailsService(configUser);
+        return new InMemoryUserDetailsManager(configUser);
     }
 
     @Bean
