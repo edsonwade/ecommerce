@@ -8,9 +8,10 @@
 #   8090 customer-service  8082 product-service
 #   8083 order-service     8086 payment-service
 #   8091 cart-service      8040 notification-service
+#   8095 tenant-service
 #
 # Infrastructure (internal only — no external ports):
-#   Kafka, Zookeeper, Redis, PostgreSQL x4, MongoDB, Vault
+#   Kafka, Zookeeper, Redis, PostgreSQL x5, MongoDB, Vault
 #
 # Observability:
 #   9090 Prometheus  3000 Grafana  9411 Zipkin  8025 MailHog
@@ -203,6 +204,23 @@ services:
     networks: [ infra-net ]
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  postgres-tenant:
+    image: postgres:16-alpine
+    container_name: postgres-tenant
+    environment:
+      POSTGRES_DB: tenant_db
+      POSTGRES_USER: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+    volumes:
+      - postgres-tenant-data:/var/lib/postgresql/data
+    networks: [ infra-net ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d tenant_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -505,6 +523,46 @@ services:
     networks: [ services-net, infra-net ]
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:8085/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+    restart: on-failure
+
+  tenant-service:
+    build:
+      context: .
+      dockerfile: tenant-service/Dockerfile
+    container_name: tenant-service
+    ports:
+      - "8095:8095"
+    depends_on:
+      config-service:
+        condition: service_healthy
+      postgres-tenant:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
+      SPRING_CLOUD_CONFIG_USERNAME: config
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
+      EUREKA_HOST: discovery-service
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
+      POSTGRES_HOST: postgres-tenant
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+      VAULT_ENABLED: ${VAULT_ENABLED:-false}
+      VAULT_HOST: ${VAULT_HOST:-vault}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      LOGGING_CONFIG: /app/logback-spring.xml
+    volumes:
+      - ./logback-spring.xml:/app/logback-spring.xml:ro
+    networks: [ services-net, infra-net ]
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8095/actuator/health || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -821,6 +879,7 @@ volumes:
   postgres-product-data:
   postgres-payment-data:
   postgres-auth-data:
+  postgres-tenant-data:
   mongodb-data:
   prometheus-data:
   alertmanager-data:
