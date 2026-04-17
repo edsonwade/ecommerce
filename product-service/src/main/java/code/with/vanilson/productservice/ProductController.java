@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -78,6 +79,7 @@ public class ProductController {
         @ApiResponse(responseCode = "400", description = "Invalid product data")
     })
     @PostMapping("/create")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
     public ResponseEntity<ProductRequest> createProduct(@RequestBody @Valid Product product) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.createProduct(product));
@@ -85,6 +87,7 @@ public class ProductController {
 
     @Operation(summary = "Create multiple products in batch")
     @PostMapping("/batch")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
     public ResponseEntity<ProductRequest> createProducts(@RequestBody @Valid Product products) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.createProduct(products));
@@ -96,6 +99,7 @@ public class ProductController {
         @ApiResponse(responseCode = "404", description = "Product not found")
     })
     @PutMapping("/update/{id}")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
     public ResponseEntity<ProductRequest> updateProduct(
             @PathVariable int id,
             @RequestBody @Valid Product product) {
@@ -108,6 +112,7 @@ public class ProductController {
         @ApiResponse(responseCode = "404", description = "Product not found")
     })
     @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable int id) {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
@@ -120,6 +125,7 @@ public class ProductController {
         @ApiResponse(responseCode = "422", description = "Insufficient stock or product not found")
     })
     @PostMapping("/purchase")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ProductPurchaseResponse>> purchaseProducts(
             @RequestBody @Valid List<ProductPurchaseRequest> request) {
         return ResponseEntity.ok(productService.purchaseProducts(request));

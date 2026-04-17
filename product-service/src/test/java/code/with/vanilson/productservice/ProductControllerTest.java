@@ -1,15 +1,22 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.config.ProductSecurityConfig;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
+import code.with.vanilson.tenantcontext.security.JwtAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -24,7 +31,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * This is a unit test — no database needed.
  */
 @WebMvcTest(ProductController.class)
+@Import(ProductSecurityConfig.class)
 public class ProductControllerTest {
 
     @Autowired
@@ -55,18 +65,29 @@ public class ProductControllerTest {
     @MockBean
     TenantHibernateFilterActivator activator;
 
+    @MockBean
+    JwtAuthenticationFilter jwtAuthenticationFilter;
+
     private Product product;
     private ProductResponse productResponse;
     private ProductRequest productRequest;
 
     @BeforeEach
-    public void setUp() {
-
+    public void setUp() throws Exception {
         // Set up test data
         product = new Product(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0));
         productResponse = new ProductResponse(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1,
-                "Category Name", "Category Description");
+                "Category Name", "Category Description", "1");
         productRequest = new ProductRequest(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1);
+
+        // Pass JWT filter through so it does not block the filter chain
+        doAnswer(inv -> {
+            FilterChain chain = inv.getArgument(2);
+            chain.doFilter(
+                    inv.<ServletRequest>getArgument(0),
+                    inv.<ServletResponse>getArgument(1));
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
     }
 
 
@@ -128,6 +149,7 @@ public class ProductControllerTest {
 
     @DisplayName("Test createProducts method - Success")
     @Test
+    @WithMockUser(roles = "SELLER")
     public void testCreateProduct() throws Exception {
         when(productService.createProduct(any(Product.class))).thenReturn(productRequest);
 
@@ -140,6 +162,7 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "SELLER")
     @DisplayName("Test createProducts method failed")
     public void testCreateProductReturnNull() throws Exception {
         // Mock ProductService behavior to throw ProductNullException
@@ -154,6 +177,7 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser
     @DisplayName("Test purchaseProducts method - Success")
     public void testPurchaseProducts() throws Exception {
         // Arrange
@@ -182,6 +206,7 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "SELLER")
     @DisplayName("Test updateProduct method - Success")
     public void testUpdateProduct() throws Exception {
         // Arrange
@@ -203,6 +228,7 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "SELLER")
     @DisplayName("Test deleteProduct method - Success")
     public void testDeleteProduct() throws Exception {
         // Arrange
@@ -218,6 +244,7 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "SELLER")
     @DisplayName("Delete products by id failed - Id Not found")
     public void testDeleteProductFailed() throws Exception {
         int productId = -1; // Using a non-existent ID

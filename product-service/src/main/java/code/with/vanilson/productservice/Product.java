@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -22,6 +23,7 @@ import org.hibernate.annotations.ParamDef;
 import java.math.BigDecimal;
 
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode
 @Builder
 @Getter
@@ -56,6 +58,14 @@ public class Product {
      */
     @Column(name = "tenant_id", nullable = false, updatable = false)
     private String tenantId;
+
+    /** Phase 4 RBAC: userId of the SELLER/ADMIN who created this product. */
+    @Column(name = "created_by", nullable = false)
+    private String createdBy;
+
+    /** Phase 4 RBAC: userId of the last user who updated this product. Null until first update. */
+    @Column(name = "updated_by")
+    private String updatedBy;
 
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price) {
         this.id = id;

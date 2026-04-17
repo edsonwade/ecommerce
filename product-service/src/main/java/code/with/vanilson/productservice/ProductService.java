@@ -1,8 +1,11 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.exception.ProductForbiddenException;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -116,6 +119,9 @@ public class ProductService {
             throw new ProductNullException(
                     resolve("product.category.null"), "product.category.null");
         }
+        SecurityPrincipal p = currentPrincipal();
+        product.setCreatedBy(p != null ? String.valueOf(p.userId()) : "system");
+        log.info(resolve("product.log.ownership.stamp", product.getName(), product.getCreatedBy()));
         Product saved = productRepository.save(product);
         log.info(resolve("product.log.created", saved.getId(), saved.getName()));
         return productMapper.toProductRequest(saved);
@@ -134,6 +140,17 @@ public class ProductService {
         Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         resolve("product.not.found", id), "product.not.found"));
+        SecurityPrincipal p = currentPrincipal();
+        if (p != null && !"ADMIN".equals(p.role())) {
+            if (!String.valueOf(p.userId()).equals(existing.getCreatedBy())) {
+                throw new ProductForbiddenException(
+                        resolve("product.access.denied"), "product.access.denied");
+            }
+        }
+        if (p != null) {
+            existing.setUpdatedBy(String.valueOf(p.userId()));
+            log.info(resolve("product.log.ownership.update", id, p.userId()));
+        }
         applyUpdates(existing, product);
         Product saved = productRepository.save(existing);
         log.info(resolve("product.log.updated", saved.getId(), saved.getName()));
@@ -152,6 +169,13 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         resolve("product.not.found", id), "product.not.found"));
+        SecurityPrincipal p = currentPrincipal();
+        if (p != null && !"ADMIN".equals(p.role())) {
+            if (!String.valueOf(p.userId()).equals(product.getCreatedBy())) {
+                throw new ProductForbiddenException(
+                        resolve("product.access.denied"), "product.access.denied");
+            }
+        }
         productRepository.deleteById(product.getId());
         log.info(resolve("product.log.deleted", id));
     }
@@ -259,5 +283,11 @@ public class ProductService {
     /** Resolves a message key from messages.properties with optional arguments. */
     private String resolve(String key, Object... args) {
         return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+    }
+
+    private SecurityPrincipal currentPrincipal() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof SecurityPrincipal sp)) return null;
+        return sp;
     }
 }
