@@ -1,6 +1,7 @@
 package code.with.vanilson.paymentservice.infrastructure.messaging;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -35,10 +36,10 @@ public class NotificationProducer {
 
     private static final String PAYMENT_TOPIC = "payment-topic";
 
-    private final KafkaTemplate<String, PaymentNotificationRequest> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final MessageSource messageSource;
 
-    public NotificationProducer(KafkaTemplate<String, PaymentNotificationRequest> kafkaTemplate,
+    public NotificationProducer(@Qualifier("paymentSagaKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate,
                                  MessageSource messageSource) {
         this.kafkaTemplate = kafkaTemplate;
         this.messageSource = messageSource;
@@ -61,7 +62,7 @@ public class NotificationProducer {
                 .setHeader("orderReference", request.orderReference())
                 .build();
 
-        CompletableFuture<SendResult<String, PaymentNotificationRequest>> future =
+        CompletableFuture<SendResult<String, Object>> future =
                 kafkaTemplate.send(message);
 
         future.whenComplete((result, ex) -> {

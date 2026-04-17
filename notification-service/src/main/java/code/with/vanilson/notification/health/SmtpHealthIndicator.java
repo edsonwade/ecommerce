@@ -14,17 +14,20 @@ public class SmtpHealthIndicator implements HealthIndicator {
 
     @Override
     public Health health() {
+        String host = mailSender.getHost() != null ? mailSender.getHost() : "unknown";
+        int port = mailSender.getPort();
         try {
             mailSender.testConnection();
             return Health.up()
-                    .withDetail("host", mailSender.getHost())
-                    .withDetail("port", mailSender.getPort())
+                    .withDetail("host", host)
+                    .withDetail("port", port)
                     .build();
         } catch (Exception ex) {
+            String error = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
             return Health.down()
-                    .withDetail("host", mailSender.getHost())
-                    .withDetail("port", mailSender.getPort())
-                    .withDetail("error", ex.getMessage())
+                    .withDetail("host", host)
+                    .withDetail("port", port)
+                    .withDetail("error", error)
                     .build();
         }
     }

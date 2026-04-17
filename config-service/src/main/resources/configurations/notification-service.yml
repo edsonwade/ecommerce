@@ -18,16 +18,16 @@ spring:
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
-            required: true
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:true}
         transport:
           protocol: smtp
         debug: false
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka1:9092,kafka2:9094,kafka3:9096}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     # SASL/PLAIN authentication — credentials injected from environment / Vault
     properties:
       security.protocol: SASL_PLAINTEXT
@@ -35,7 +35,7 @@ spring:
       sasl.jaas.config: >
         org.apache.kafka.common.security.plain.PlainLoginModule required
         username="${KAFKA_USERNAME:kafka}"
-        password="${KAFKA_PASSWORD:kafka-secret-2024}";
+        password="${KAFKA_PASSWORD:kafka-secret}";
     consumer:
       group-id: notification-group
       auto-offset-reset: earliest

@@ -1,7 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { AppError, ApiError } from './types';
 
-const PUBLIC_PATHS = ['/auth/login', '/auth/register'];
+const PUBLIC_PATHS = ['/auth/login', '/auth/register', '/auth/refresh'];
 
 // Singleton mutex to prevent concurrent refresh attempts
 let isRefreshing = false;
@@ -54,8 +54,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const isPublicPath = PUBLIC_PATHS.some((p) => originalRequest.url?.includes(p));
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicPath) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -95,6 +96,9 @@ apiClient.interceptors.response.use(
 );
 
 export function normalizeError(error: unknown): AppError {
+  if (error && typeof error === 'object' && 'status' in error && 'message' in error) {
+    return error as AppError;
+  }
   if (axios.isAxiosError(error)) {
     const status = error.response?.status ?? 0;
     const data = error.response?.data as ApiError | undefined;
