@@ -249,7 +249,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.14.0'
+
       - name: Create Kind cluster
+        id: kind
         uses: helm/kind-action@v1.10.0
         with:
           cluster_name: ecommerce-staging
@@ -262,11 +268,6 @@ jobs:
         run: |
           kubectl wait --for=condition=Ready node --all --timeout=120s
           kubectl cluster-info
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: '3.14.0'
 
       # No --wait: services will never reach Running in Kind (no databases,
       # no Kafka, no Vault). --wait would poll the API server until the
@@ -281,6 +282,8 @@ jobs:
             --set global.imageRegistry=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }} \
             --set global.namespace=ecommerce-staging \
             --timeout 2m
+        env:
+          KUBECONFIG: ${{ steps.kind.outputs.kubeconfig }}
 
       # Smoke tests: verify chart manifests were accepted by the API server.
       # HTTP health checks are not possible in Kind CI (services need real
@@ -331,6 +334,12 @@ jobs:
         with:
           version: '3.14.0'
 
+      - name: Set Kubernetes context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.PROD_KUBECONFIG }}
+
       - name: Deploy to production
         run: |
           helm upgrade --install ecommerce ./helm/ecommerce \
@@ -342,5 +351,3 @@ jobs:
             --timeout 15m \
             --wait \
             --atomic   # auto-rollback on failure
-        env:
-          KUBECONFIG: ${{ secrets.PROD_KUBECONFIG }}
