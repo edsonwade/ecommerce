@@ -1,1 +1,2 @@
 code.with.vanilson.tenantcontext.TenantContextAutoConfiguration
+code.with.vanilson.tenantcontext.security.JwtSecurityAutoConfiguration

@@ -543,7 +543,7 @@ Location: `helm/ecommerce/`
 | Kafka | 7.6.1 | 9092 (dev) / 29092 (internal) | SASL/PLAIN auth, idempotent producer |
 | Zookeeper | 7.6.1 | 2181 (internal) | Kafka metadata |
 | Redis | 7.2-alpine | 6379 | Password-protected, 512MB max, LRU eviction |
-| PostgreSQL (x4) | 15-alpine | 5432-5436 (internal) | auth_db, order_db, product_db, payment_db |
+| PostgreSQL (x5) | 16-alpine | 5432 (internal) | auth_db, order_db, product_db, payment_db, tenant_db |
 | MongoDB | 7.0 | 27017 (internal) | Replica set, auth enabled |
 | Vault | 1.16 | 8200 | Dev mode, KV v2, database secrets engine |
 | MailHog | latest | 8025 (UI) / 1025 (SMTP) | Dev email capture |

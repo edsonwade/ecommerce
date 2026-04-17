@@ -125,6 +125,19 @@ services:
         max-size: 10m
         max-file: "3"
 
+  postgres-tenant:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   mongodb:
     restart: unless-stopped
     deploy:
@@ -290,6 +303,23 @@ services:
         max-file: "3"
 
   authentication-service:
+    ports: !reset []
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  tenant-service:
     ports: !reset []
     restart: unless-stopped
     read_only: true
