@@ -13,13 +13,21 @@ spring:
 eureka:
   instance:
     hostname: ${EUREKA_HOST:localhost}
-    prefer-ip-address: true
+    # Must match the hostname in serviceUrl so Eureka recognises itself and does NOT
+    # spawn peer-replication workers targeting its own container.
+    prefer-ip-address: false
     instance-id: ${spring.application.name}:${random.uuid}
   client:
     registerWithEureka: false
     fetchRegistry: false
     serviceUrl:
-      defaultZone: "http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@discovery-service:8761/eureka/"
+      defaultZone: "http://${EUREKA_USERNAME:eureka}:${EUREKA_PASSWORD:eureka-secret-2024}@${EUREKA_HOST:localhost}:8761/eureka/"
+  server:
+    # Standalone: no cluster peers, no self-preservation, short wait on empty registry.
+    enable-self-preservation: false
+    wait-time-in-ms-when-sync-empty: 0
+    peer-node-read-timeout-ms: 10000
+    peer-node-connect-timeout-ms: 5000
 
 management:
   endpoints:

@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '@api/auth.api';
-import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import { normalizeError } from '@api/client';
@@ -33,7 +32,6 @@ type FormValues = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.setAuth);
   const addToast = useUIStore((s) => s.addToast);
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -48,17 +46,12 @@ export default function RegisterPage() {
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
     try {
-      const res = await authApi.register(values);
-      setAuth({
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-        userId: res.userId,
-        email: res.email,
-        role: res.role,
-        tenantId: res.tenantId,
+      await authApi.register(values);
+      addToast({
+        message: 'Account created — please sign in to continue',
+        variant: 'success',
       });
-      addToast({ message: 'Account created successfully', variant: 'success' });
-      navigate(ROUTES.ACCOUNT, { replace: true });
+      navigate(ROUTES.LOGIN, { replace: true, state: { email: values.email } });
     } catch (err) {
       const normalized = normalizeError(err);
       if (normalized.fieldErrors) {

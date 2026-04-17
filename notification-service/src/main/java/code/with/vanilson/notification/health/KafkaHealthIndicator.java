@@ -24,8 +24,9 @@ public class KafkaHealthIndicator implements HealthIndicator {
                     .withDetail("topics", topics)
                     .build();
         } catch (Exception ex) {
+            String error = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
             return Health.down()
-                    .withDetail("error", ex.getMessage())
+                    .withDetail("error", error)
                     .build();
         }
     }

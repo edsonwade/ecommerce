@@ -46,12 +46,12 @@ spring:
       sasl.jaas.config: >
         org.apache.kafka.common.security.plain.PlainLoginModule required
         username="${KAFKA_USERNAME:kafka}"
-        password="${KAFKA_PASSWORD:kafka-secret-2024}";
+        password="${KAFKA_PASSWORD:kafka-secret}";
       # Graceful shutdown — commit offsets before closing
       session.timeout.ms: 30000
       max.poll.interval.ms: 300000
     producer:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka1:9092,kafka2:9094,kafka3:9096}
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
@@ -62,7 +62,7 @@ spring:
 
     # Kafka Consumer — saga outcome events (payment.authorized, payment.failed, inventory.insufficient)
     consumer:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka1:9092,kafka2:9094,kafka3:9096}
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
       group-id: order-saga-group
       auto-offset-reset: earliest
       enable-auto-commit: false
