@@ -308,11 +308,11 @@ jobs:
       - name: Rollback on smoke test failure
         if: failure() && steps.deploy.outcome == 'success'
         run: |
-          REVISIONS=$(helm list -n ecommerce-staging --filter 'ecommerce' -o json | jq '.[0].revision | tonumber')
+          REVISIONS=$(helm list -n ecommerce-staging --filter '^ecommerce$' -o json | jq '.[0].revision // 0 | tonumber')
           if [ "$REVISIONS" -gt 1 ]; then
             helm rollback ecommerce --namespace ecommerce-staging
           else
-            echo "No previous version to rollback to (current revision is $REVISIONS)"
+            echo "No previous version to rollback (current revision is $REVISIONS)"
           fi
 
   # ============================================================
