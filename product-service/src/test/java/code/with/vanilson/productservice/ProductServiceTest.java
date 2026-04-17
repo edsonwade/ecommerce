@@ -76,9 +76,9 @@ class ProductServiceTest {
         product2 = new Product(2, "Headphones","Noise Cancelling",15.0, BigDecimal.valueOf(250.00),  category);
 
         response1 = new ProductResponse(1, "Laptop",    "Gaming Laptop",  5.0,
-                BigDecimal.valueOf(1200.00), 1, "Electronics", "Electronic items");
+                BigDecimal.valueOf(1200.00), 1, "Electronics", "Electronic items", "1");
         response2 = new ProductResponse(2, "Headphones","Noise Cancelling",15.0,
-                BigDecimal.valueOf(250.00), 1, "Electronics", "Electronic items");
+                BigDecimal.valueOf(250.00), 1, "Electronics", "Electronic items", "1");
 
         // MessageSource stub: returns the key itself so tests are portable
         when(messageSource.getMessage(anyString(), any(), any(Locale.class)))

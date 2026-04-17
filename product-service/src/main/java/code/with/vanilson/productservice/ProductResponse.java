@@ -10,6 +10,7 @@ public record ProductResponse(
         BigDecimal price,
         Integer categoryId,
         String categoryName,
-        String categoryDescription) {
+        String categoryDescription,
+        String createdBy) {
 
 }

@@ -1,9 +1,11 @@
 package code.with.vanilson.productservice.exception.handler;
 
 import code.with.vanilson.productservice.exception.ProductBaseException;
+import code.with.vanilson.productservice.exception.ProductForbiddenException;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -61,6 +63,22 @@ public class ProductGlobalExceptionHandler {
             ProductPurchaseException ex, WebRequest request) {
         log.warn("[ProductExceptionHandler] Purchase failed: key=[{}] msg=[{}]", ex.getMessageKey(), ex.getMessage());
         return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    @ExceptionHandler(ProductForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleProductForbidden(
+            ProductForbiddenException ex, WebRequest request) {
+        log.warn("[ProductExceptionHandler] Forbidden: key=[{}] msg=[{}]", ex.getMessageKey(), ex.getMessage());
+        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(
+            AccessDeniedException ex, WebRequest request) {
+        String message = messageSource.getMessage(
+                "product.access.denied", null, LocaleContextHolder.getLocale());
+        log.warn("[ProductExceptionHandler] Access denied: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, message, "product.access.denied", request);
     }
 
     /** Catch-all for any remaining ProductBaseException subtype. */

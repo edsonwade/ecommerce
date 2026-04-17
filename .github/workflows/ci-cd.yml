@@ -279,6 +279,7 @@ jobs:
             --create-namespace \
             -f helm/ecommerce/values-staging.yaml \
             --set global.imageRegistry=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }} \
+            --set global.namespace=ecommerce-staging \
             --timeout 2m
 
       # Smoke tests: verify chart manifests were accepted by the API server.
@@ -306,7 +307,13 @@ jobs:
 
       - name: Rollback on smoke test failure
         if: failure() && steps.deploy.outcome == 'success'
-        run: helm rollback ecommerce --namespace ecommerce-staging
+        run: |
+          REVISIONS=$(helm list -n ecommerce-staging --filter 'ecommerce' -o json | jq '.[0].revision | tonumber')
+          if [ "$REVISIONS" -gt 1 ]; then
+            helm rollback ecommerce --namespace ecommerce-staging
+          else
+            echo "No previous version to rollback to (current revision is $REVISIONS)"
+          fi
 
   # ============================================================
   # Deploy to Production (manual approval gate)
@@ -331,6 +338,7 @@ jobs:
             --create-namespace \
             -f helm/ecommerce/values-production.yaml \
             --set global.imageRegistry=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }} \
+            --set global.namespace=ecommerce \
             --timeout 15m \
             --wait \
             --atomic   # auto-rollback on failure
