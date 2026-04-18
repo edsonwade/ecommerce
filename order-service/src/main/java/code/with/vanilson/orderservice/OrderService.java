@@ -4,7 +4,9 @@ import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderDuplicateReferenceException;
+import code.with.vanilson.orderservice.exception.OrderForbiddenException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
+import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import code.with.vanilson.orderservice.kafka.OrderRequestedEvent;
 import code.with.vanilson.orderservice.orderLine.OrderLineRequest;
 import code.with.vanilson.orderservice.orderLine.OrderLineService;
@@ -13,6 +15,7 @@ import code.with.vanilson.orderservice.outbox.OutboxRepository;
 import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -188,13 +191,25 @@ public class OrderService {
 
     public OrderResponse findById(Integer id) {
         filterActivator.activateFilter();
-        return orderRepository.findById(id)
-                .map(order -> {
-                    log.info(msg("order.log.order.found", id));
-                    return orderMapper.fromOrder(order);
-                })
+        Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException(
                         msg("order.not.found", id), "order.not.found"));
+
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal != null && !"ADMIN".equals(principal.role())
+                && !order.getCustomerId().equals(String.valueOf(principal.userId()))) {
+            throw new OrderForbiddenException(
+                    msg("order.access.denied"), "order.access.denied");
+        }
+
+        log.info(msg("order.log.order.found", id));
+        return orderMapper.fromOrder(order);
+    }
+
+    private SecurityPrincipal currentPrincipal() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof SecurityPrincipal sp)) return null;
+        return sp;
     }
 
     // -------------------------------------------------------

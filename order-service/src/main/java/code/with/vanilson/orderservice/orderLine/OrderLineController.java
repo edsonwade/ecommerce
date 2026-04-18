@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice.orderLine;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +33,7 @@ public class OrderLineController {
      * @param orderId the parent order ID
      * @return list of order lines
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{order-id}")
     public ResponseEntity<List<OrderLineResponse>> findByOrderId(
             @PathVariable("order-id") Integer orderId) {

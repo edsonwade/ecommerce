@@ -5,6 +5,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,6 +37,22 @@ public class OrderGlobalExceptionHandler {
 
     public OrderGlobalExceptionHandler(MessageSource messageSource) {
         this.messageSource = messageSource;
+    }
+
+    @ExceptionHandler(OrderForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleOrderForbidden(
+            OrderForbiddenException ex, WebRequest request) {
+        log.warn("[OrderExceptionHandler] Forbidden: key=[{}] message=[{}]",
+                ex.getMessageKey(), ex.getMessage());
+        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(
+            AccessDeniedException ex, WebRequest request) {
+        String msg = messageSource.getMessage("order.access.denied", null, LocaleContextHolder.getLocale());
+        log.warn("[OrderExceptionHandler] Access denied: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, msg, "order.access.denied", request);
     }
 
     @ExceptionHandler(OrderNotFoundException.class)

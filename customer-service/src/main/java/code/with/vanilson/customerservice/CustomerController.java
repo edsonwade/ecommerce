@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -62,6 +63,7 @@ public class CustomerController {
 
     @Operation(summary = "List all customers")
     @ApiResponse(responseCode = "200", description = "Customer list returned")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<CustomerResponse>> getAllCustomers() {
         log.info("GET /api/v1/customers — list all customers");
@@ -77,6 +79,7 @@ public class CustomerController {
         @ApiResponse(responseCode = "200", description = "Customer found"),
         @ApiResponse(responseCode = "404", description = "Customer not found")
     })
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.userId.toString()")
     @GetMapping("/{id}")
     public ResponseEntity<CustomerResponse> getCustomerById(
             @PathVariable @Parameter(description = "Customer ID") String id) {
@@ -94,6 +97,7 @@ public class CustomerController {
         @ApiResponse(responseCode = "200", description = "Customer found"),
         @ApiResponse(responseCode = "404", description = "Customer not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/by-email")
     public ResponseEntity<CustomerResponse> getCustomerByEmail(
             @RequestParam @Parameter(description = "Customer email address") String address) {
@@ -111,6 +115,7 @@ public class CustomerController {
         @ApiResponse(responseCode = "400", description = "Invalid request data"),
         @ApiResponse(responseCode = "409", description = "Email already registered")
     })
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<String> createCustomer(@RequestBody @Valid CustomerRequest request) {
         log.info("POST /api/v1/customers — create customer email=[{}]", request.email());
@@ -129,6 +134,7 @@ public class CustomerController {
         @ApiResponse(responseCode = "404", description = "Customer not found"),
         @ApiResponse(responseCode = "400", description = "Invalid request data")
     })
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.userId.toString()")
     @PutMapping("/{id}")
     public ResponseEntity<CustomerResponse> updateCustomer(
             @PathVariable String id,
@@ -146,6 +152,7 @@ public class CustomerController {
         @ApiResponse(responseCode = "204", description = "Customer deleted"),
         @ApiResponse(responseCode = "404", description = "Customer not found")
     })
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.userId.toString()")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCustomer(@PathVariable String id) {
         log.info("DELETE /api/v1/customers/{} — delete customer", id);

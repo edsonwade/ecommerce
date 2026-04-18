@@ -67,3 +67,9 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+# JWT secret — must match auth-service and gateway
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET}

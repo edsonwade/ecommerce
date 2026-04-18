@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,7 @@ public class OrderController {
             @ApiResponse(responseCode = "503", description = "Customer service unavailable"),
             @ApiResponse(responseCode = "409", description = "Duplicate order reference")
     })
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<Map<String, String>> createOrder(@RequestBody @Valid OrderRequest request) {
         String correlationId = orderService.createOrder(request);
@@ -78,6 +80,7 @@ public class OrderController {
             @ApiResponse(responseCode = "200", description = "Status returned"),
             @ApiResponse(responseCode = "404", description = "Order not found for correlationId")
     })
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/status/{correlationId}")
     public ResponseEntity<OrderStatusResponse> getOrderStatus(
             @PathVariable String correlationId) {
@@ -85,6 +88,7 @@ public class OrderController {
     }
 
     @Operation(summary = "List all orders")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<OrderResponse>> findAll() {
         return ResponseEntity.ok(orderService.findAllOrders());
@@ -95,6 +99,7 @@ public class OrderController {
             @ApiResponse(responseCode = "200", description = "Order found"),
             @ApiResponse(responseCode = "404", description = "Order not found")
     })
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/{order-id}")
     public ResponseEntity<OrderResponse> findById(@PathVariable("order-id") Integer orderId) {
         return ResponseEntity.ok(orderService.findById(orderId));

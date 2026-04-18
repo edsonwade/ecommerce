@@ -1,6 +1,7 @@
 package code.with.vanilson.customerservice.exception.handler;
 
 import code.with.vanilson.customerservice.exception.CustomerBaseException;
+import code.with.vanilson.customerservice.exception.CustomerForbiddenException;
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +9,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,6 +41,21 @@ public class CustomerGlobalExceptionHandler {
 
     public CustomerGlobalExceptionHandler(MessageSource messageSource) {
         this.messageSource = messageSource;
+    }
+
+    @ExceptionHandler(CustomerForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(
+            CustomerForbiddenException ex, WebRequest request) {
+        log.warn("[CustomerExceptionHandler] Forbidden: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(
+            AccessDeniedException ex, WebRequest request) {
+        String msg = messageSource.getMessage("customer.access.denied", null, LocaleContextHolder.getLocale());
+        log.warn("[CustomerExceptionHandler] Access denied: {}", ex.getMessage());
+        return build(HttpStatus.FORBIDDEN, msg, "customer.access.denied", request);
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)
