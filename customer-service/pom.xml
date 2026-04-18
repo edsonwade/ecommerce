@@ -138,6 +138,24 @@
             <artifactId>spring-cloud-openfeign-core</artifactId>
         </dependency>
         
+        <!-- Shared tenant-context library (multi-tenancy + JWT security primitives) -->
+        <dependency>
+            <groupId>code.with.vanilson</groupId>
+            <artifactId>tenant-context</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Cucumber for BDD -->
         <dependency>
             <groupId>io.cucumber</groupId>

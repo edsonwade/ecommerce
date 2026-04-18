@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -54,6 +55,7 @@ public class CartController {
         @ApiResponse(responseCode = "200", description = "Cart retrieved"),
         @ApiResponse(responseCode = "404", description = "Cart not found")
     })
+    @PreAuthorize("hasRole('ADMIN') or #customerId == authentication.principal.userId.toString()")
     @GetMapping("/{customerId}")
     public ResponseEntity<CartResponse> getCart(
             @PathVariable @Parameter(description = "Customer ID") String customerId) {
@@ -66,6 +68,7 @@ public class CartController {
         @ApiResponse(responseCode = "201", description = "Item added to cart"),
         @ApiResponse(responseCode = "400", description = "Invalid item data")
     })
+    @PreAuthorize("hasRole('ADMIN') or #customerId == authentication.principal.userId.toString()")
     @PostMapping("/{customerId}/items")
     public ResponseEntity<CartResponse> addItem(
             @PathVariable String customerId,
@@ -81,6 +84,7 @@ public class CartController {
         @ApiResponse(responseCode = "404", description = "Cart or item not found"),
         @ApiResponse(responseCode = "400", description = "Invalid quantity")
     })
+    @PreAuthorize("hasRole('ADMIN') or #customerId == authentication.principal.userId.toString()")
     @PatchMapping("/{customerId}/items/{productId}")
     public ResponseEntity<CartResponse> updateItemQuantity(
             @PathVariable String customerId,
@@ -94,6 +98,7 @@ public class CartController {
         @ApiResponse(responseCode = "200", description = "Item removed"),
         @ApiResponse(responseCode = "404", description = "Cart or item not found")
     })
+    @PreAuthorize("hasRole('ADMIN') or #customerId == authentication.principal.userId.toString()")
     @DeleteMapping("/{customerId}/items/{productId}")
     public ResponseEntity<CartResponse> removeItem(
             @PathVariable String customerId,
@@ -104,6 +109,7 @@ public class CartController {
     @Operation(summary = "Clear entire cart",
                description = "Removes the cart from Redis entirely. Called by order-service after successful checkout.")
     @ApiResponse(responseCode = "204", description = "Cart cleared")
+    @PreAuthorize("hasRole('ADMIN') or #customerId == authentication.principal.userId.toString()")
     @DeleteMapping("/{customerId}")
     public ResponseEntity<Void> clearCart(@PathVariable String customerId) {
         cartService.clearCart(customerId);
@@ -118,6 +124,7 @@ public class CartController {
         @ApiResponse(responseCode = "400", description = "Cart is empty"),
         @ApiResponse(responseCode = "404", description = "Cart not found")
     })
+    @PreAuthorize("hasRole('ADMIN') or #customerId == authentication.principal.userId.toString()")
     @GetMapping("/{customerId}/checkout")
     public ResponseEntity<CartResponse> checkoutSnapshot(@PathVariable String customerId) {
         return ResponseEntity.ok(cartService.checkoutSnapshot(customerId));

@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
@@ -28,7 +29,7 @@ import code.with.vanilson.tenantcontext.EnableMultiTenancy;
 @EnableScheduling
 @EnableDiscoveryClient
 @EnableMultiTenancy
-@SpringBootApplication
+@SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
 public class OrderServiceApplication {
 
     public static void main(String[] args) {

@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -74,6 +75,7 @@ public class TenantController {
     // -------------------------------------------------------
 
     @Operation(summary = "List all tenants")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<TenantResponse>> findAll() {
         return ResponseEntity.ok(tenantService.findAll());
@@ -84,6 +86,7 @@ public class TenantController {
         @ApiResponse(responseCode = "200", description = "Tenant found"),
         @ApiResponse(responseCode = "404", description = "Tenant not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{tenantId}")
     public ResponseEntity<TenantResponse> findByTenantId(@PathVariable String tenantId) {
         return ResponseEntity.ok(tenantService.findByTenantId(tenantId));
@@ -94,6 +97,7 @@ public class TenantController {
         @ApiResponse(responseCode = "200", description = "Tenant found"),
         @ApiResponse(responseCode = "404", description = "Tenant not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/by-slug/{slug}")
     public ResponseEntity<TenantResponse> findBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(tenantService.findBySlug(slug));
@@ -121,6 +125,7 @@ public class TenantController {
         @ApiResponse(responseCode = "409", description = "Slug or name already taken"),
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<TenantResponse> create(@RequestBody @Valid CreateTenantRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tenantService.createTenant(request));
@@ -131,6 +136,7 @@ public class TenantController {
         @ApiResponse(responseCode = "200", description = "Tenant updated"),
         @ApiResponse(responseCode = "404", description = "Tenant not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{tenantId}")
     public ResponseEntity<TenantResponse> update(@PathVariable String tenantId,
                                                   @RequestBody @Valid UpdateTenantRequest request) {
@@ -143,6 +149,7 @@ public class TenantController {
         @ApiResponse(responseCode = "200", description = "Plan changed"),
         @ApiResponse(responseCode = "404", description = "Tenant or plan not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{tenantId}/plan")
     public ResponseEntity<TenantResponse> changePlan(@PathVariable String tenantId,
                                                       @RequestParam String plan) {
@@ -151,6 +158,7 @@ public class TenantController {
 
     @Operation(summary = "Suspend tenant — API calls will be rejected")
     @ApiResponse(responseCode = "204", description = "Tenant suspended")
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{tenantId}/suspend")
     public ResponseEntity<Void> suspend(@PathVariable String tenantId) {
         tenantService.suspendTenant(tenantId);
@@ -159,6 +167,7 @@ public class TenantController {
 
     @Operation(summary = "Reactivate a suspended tenant")
     @ApiResponse(responseCode = "204", description = "Tenant reactivated")
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{tenantId}/reactivate")
     public ResponseEntity<Void> reactivate(@PathVariable String tenantId) {
         tenantService.reactivateTenant(tenantId);
@@ -167,6 +176,7 @@ public class TenantController {
 
     @Operation(summary = "Permanently delete a tenant")
     @ApiResponse(responseCode = "204", description = "Tenant deleted")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{tenantId}")
     public ResponseEntity<Void> delete(@PathVariable String tenantId) {
         tenantService.deleteTenant(tenantId);
@@ -178,6 +188,7 @@ public class TenantController {
     // -------------------------------------------------------
 
     @Operation(summary = "List all feature flags for a tenant")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{tenantId}/flags")
     public ResponseEntity<List<FeatureFlagResponse>> listFlags(@PathVariable String tenantId) {
         return ResponseEntity.ok(tenantService.findFlags(tenantId));
@@ -188,6 +199,7 @@ public class TenantController {
         @ApiResponse(responseCode = "200", description = "Flag updated"),
         @ApiResponse(responseCode = "404", description = "Tenant not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{tenantId}/flags/{flagName}")
     public ResponseEntity<FeatureFlagResponse> setFlag(@PathVariable String tenantId,
                                                         @PathVariable String flagName,
@@ -196,6 +208,7 @@ public class TenantController {
     }
 
     @Operation(summary = "Check if a specific feature flag is enabled")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{tenantId}/flags/{flagName}/status")
     public ResponseEntity<Boolean> isFlagEnabled(@PathVariable String tenantId,
                                                   @PathVariable String flagName) {
@@ -212,6 +225,7 @@ public class TenantController {
         @ApiResponse(responseCode = "201", description = "Usage recorded"),
         @ApiResponse(responseCode = "404", description = "Tenant not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{tenantId}/usage")
     public ResponseEntity<UsageMetricResponse> recordUsage(@PathVariable String tenantId,
                                                             @RequestBody @Valid RecordUsageRequest request) {
@@ -221,6 +235,7 @@ public class TenantController {
 
     @Operation(summary = "Query usage metrics by date",
                description = "Returns all usage metrics for a tenant on a specific date. Defaults to today.")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{tenantId}/usage")
     public ResponseEntity<List<UsageMetricResponse>> getUsageByDate(
             @PathVariable String tenantId,
@@ -230,6 +245,7 @@ public class TenantController {
 
     @Operation(summary = "Query usage metrics by date range",
                description = "Returns all usage metrics for a tenant between two dates (inclusive).")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{tenantId}/usage/range")
     public ResponseEntity<List<UsageMetricResponse>> getUsageByDateRange(
             @PathVariable String tenantId,
@@ -240,6 +256,7 @@ public class TenantController {
 
     @Operation(summary = "Sum a specific metric over a date range",
                description = "Returns the total sum of a metric for billing or analytics. E.g. total API calls this month.")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{tenantId}/usage/sum")
     public ResponseEntity<Long> sumMetric(
             @PathVariable String tenantId,
