@@ -43,7 +43,9 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:redis-secret-2024}
-      timeout: 2000ms
+      # 2s was too tight for Docker DNS + AUTH on first connection; trips RedisReactiveHealthIndicator.
+      connect-timeout: 10s
+      timeout: 10s
       lettuce:
         pool:
           max-active: 16
@@ -61,17 +63,9 @@ spring:
 
   # Phase 3 — Kafka (consumer: order.requested, producer: inventory.*)
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka1:9092,kafka2:9094,kafka3:9096}
-    # SASL/PLAIN authentication — credentials injected from environment / Vault
-    properties:
-      security.protocol: SASL_PLAINTEXT
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: >
-        org.apache.kafka.common.security.plain.PlainLoginModule required
-        username="${KAFKA_USERNAME:kafka}"
-        password="${KAFKA_PASSWORD:kafka-secret-2024}";
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     producer:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka1:9092,kafka2:9094,kafka3:9096}
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
@@ -81,7 +75,7 @@ spring:
         max.in.flight.requests.per.connection: 1
         spring.json.add.type.headers: false
     consumer:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka1:9092,kafka2:9094,kafka3:9096}
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
       group-id: inventory-reservation-group
       auto-offset-reset: earliest
       enable-auto-commit: false

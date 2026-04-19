@@ -28,6 +28,7 @@ import {
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
+import RoleBadge from './RoleBadge';
 
 interface NavbarProps {
   onCartOpen?: () => void;
@@ -138,6 +139,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0 }: NavbarProps) {
                   </Avatar>
                 </IconButton>
               </Tooltip>
+              <RoleBadge role={role} />
 
               <Menu
                 anchorEl={anchorEl}

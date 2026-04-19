@@ -37,17 +37,8 @@ spring:
 
   # Kafka Producer (for OrderProducer + OutboxEventPublisher)
   kafka:
-    # Top-level bootstrap-servers used by Spring Boot's auto-configured KafkaAdmin
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
-    # SASL/PLAIN authentication — credentials injected from environment / Vault
     properties:
-      security.protocol: SASL_PLAINTEXT
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: >
-        org.apache.kafka.common.security.plain.PlainLoginModule required
-        username="${KAFKA_USERNAME:kafka}"
-        password="${KAFKA_PASSWORD:kafka-secret}";
-      # Graceful shutdown — commit offsets before closing
       session.timeout.ms: 30000
       max.poll.interval.ms: 300000
     producer:
@@ -88,12 +79,15 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
 
-# Service URLs (via API Gateway)
+# Service URLs (via API Gateway) + JWT secret
 application:
   config:
     customer-url: http://${GATEWAY_HOST:localhost}:8222/api/v1/customers
     payment-url:  http://${GATEWAY_HOST:localhost}:8222/api/v1/payments
     product-url:  http://${GATEWAY_HOST:localhost}:8222/api/v1/products
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET}
 
 # Resilience4j — Circuit Breakers for CustomerClient (Feign)
 resilience4j:
@@ -142,9 +136,3 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
-
-# JWT secret — must match auth-service and gateway
-application:
-  security:
-    jwt:
-      secret-key: ${JWT_SECRET}

@@ -7,7 +7,7 @@ spring:
     timeout-per-shutdown-phase: 30s
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5436/tenant_db
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/tenant_db
     username: ${POSTGRES_USERNAME:vanilson}
     password: ${POSTGRES_PASSWORD:vanilson}
   jpa:
@@ -68,4 +68,4 @@ management:
 application:
   security:
     jwt:
-      secret-key: ${JWT_SECRET}
+      secret-key: ${JWT_SECRET:bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
