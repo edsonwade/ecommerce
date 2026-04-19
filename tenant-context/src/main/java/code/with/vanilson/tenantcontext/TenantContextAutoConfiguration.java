@@ -55,13 +55,23 @@ public class TenantContextAutoConfiguration implements WebMvcConfigurer {
     }
 
     /**
-     * Hibernate filter configuration loaded ONLY when JPA is on the classpath.
-     * Isolated in a nested class to prevent NoClassDefFoundError in services
-     * that don't use JPA (e.g. cart-service with Redis).
+     * Hibernate filter configuration loaded ONLY when Hibernate ORM is on the classpath.
+     * <p>
+     * We key off {@code org.hibernate.Session} (shipped by hibernate-core) rather than
+     * {@code jakarta.persistence.EntityManagerFactory}. The latter is present in services
+     * that only pull {@code jakarta.persistence-api} (e.g. customer-service uses it for
+     * stray annotations but has no JPA starter), leading to activation without a real
+     * {@code EntityManager} bean. hibernate-core is only present where spring-boot-starter-data-jpa
+     * is declared, so this is a precise "JPA is actually wired" signal.
+     * <p>
+     * We do NOT use {@code @ConditionalOnBean(EntityManagerFactory.class)} here because
+     * condition evaluation on nested configuration classes runs during configuration parsing,
+     * before {@code HibernateJpaAutoConfiguration} registers the bean — causing the config
+     * to be skipped even in JPA services.
      */
     @Slf4j
     @Configuration
-    @ConditionalOnClass(name = "jakarta.persistence.EntityManager")
+    @ConditionalOnClass(name = "org.hibernate.Session")
     static class HibernateTenantFilterConfig {
 
         @Bean

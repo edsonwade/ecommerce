@@ -36,14 +36,6 @@ spring:
   # Phase 3 — Kafka (consumer: inventory.reserved, producer: payment.authorized / payment.failed)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
-    # SASL/PLAIN authentication — credentials injected from environment / Vault
-    properties:
-      security.protocol: SASL_PLAINTEXT
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: >
-        org.apache.kafka.common.security.plain.PlainLoginModule required
-        username="${KAFKA_USERNAME:kafka}"
-        password="${KAFKA_PASSWORD:kafka-secret}";
     producer:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

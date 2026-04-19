@@ -24,6 +24,10 @@ function getAuthStore() {
   return import('../stores/auth.store').then((m) => m.useAuthStore);
 }
 
+function getUIStore() {
+  return import('../stores/ui.store').then((m) => m.useUIStore);
+}
+
 const apiClient = axios.create({
   baseURL: '/api/v1',
   timeout: 30000,
@@ -89,6 +93,14 @@ apiClient.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+
+    if (error.response?.status === 403) {
+      const useUIStore = await getUIStore();
+      useUIStore.getState().addToast({
+        message: "You don't have permission to perform this action",
+        variant: 'error',
+      });
     }
 
     return Promise.reject(normalizeError(error));

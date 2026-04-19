@@ -17,8 +17,10 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      timeout: 2000ms
+      password: ${REDIS_PASSWORD:redis-secret-2024}
+      # 2s was too tight for Docker DNS + AUTH on first connection; trips RedisReactiveHealthIndicator.
+      connect-timeout: 10s
+      timeout: 10s
       lettuce:
         pool:
           max-active: 16

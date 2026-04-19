@@ -70,42 +70,20 @@ services:
       KAFKA_PROCESS_ROLES: "broker,controller"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      # Confluent's entrypoint has TWO guards when SASL is enabled:
-      #   1. `dub ensure KAFKA_OPTS`                            — KAFKA_OPTS must be set
-      #   2. check that it *contains* java.security.auth.login.config
-      # So we must keep the JAAS file path in KAFKA_OPTS.
-      KAFKA_OPTS: >-
-        -Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server_jaas.conf
-      # SASL/PLAIN listeners — PLAINTEXT_HOST for local dev, SASL_PLAINTEXT for internal
-      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
-      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
-      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_ENABLE_IDEMPOTENCE: "true"
-      KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: localhost
-      # Listener-level inline JAAS — no external file needed, no ZK SASL bleed.
-      KAFKA_LISTENER_NAME_SASL__PLAINTEXT_PLAIN_SASL_JAAS_CONFIG: >
-        org.apache.kafka.common.security.plain.PlainLoginModule required
-        username="kafka"
-        password="kafka-secret"
-        user_kafka="kafka-secret"
-        user_producer="producer-secret"
-        user_consumer="consumer-secret";
-    volumes:
-      - ./kafka/jaas/kafka_server_jaas.conf:/etc/kafka/jaas/kafka_server_jaas.conf:ro
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 2>/dev/null || exit 1" ]
-      interval: 15s
-      timeout: 10s
-      retries: 15
+      test: [ "CMD-SHELL", "bash -c '</dev/tcp/localhost/9092' 2>/dev/null && exit 0 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
       start_period: 30s
 
   # ============================================================
@@ -134,7 +112,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 10s
+      start_period: 30s
 
   # ============================================================
   # INFRASTRUCTURE — Databases (one per service, internal only)
@@ -371,6 +349,7 @@ services:
     ports:
       - "8888:8888"
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_PROFILES_ACTIVE: native
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCHLOCATIONS: "file:/app/configurations"
@@ -403,6 +382,7 @@ services:
       config-service:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -444,6 +424,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -503,6 +484,7 @@ services:
       discovery-service:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -544,6 +526,7 @@ services:
       discovery-service:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -553,6 +536,7 @@ services:
       POSTGRES_HOST: postgres-tenant
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -586,6 +570,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -597,6 +582,7 @@ services:
       MONGO_PASSWORD: ${MONGO_PASSWORD:-vanilson}
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -632,6 +618,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -646,6 +633,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -678,7 +666,10 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -692,6 +683,7 @@ services:
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
       GATEWAY_HOST: gateway-api-service
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -724,7 +716,10 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -737,6 +732,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -768,6 +764,7 @@ services:
       discovery-service:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -781,6 +778,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis-secret-2024}
+      JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -815,7 +813,10 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+      redis:
+        condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
