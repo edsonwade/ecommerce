@@ -82,9 +82,9 @@ eureka:
 # Service URLs (via API Gateway) + JWT secret
 application:
   config:
-    customer-url: http://${GATEWAY_HOST:localhost}:8222/api/v1/customers
-    payment-url:  http://${GATEWAY_HOST:localhost}:8222/api/v1/payments
-    product-url:  http://${GATEWAY_HOST:localhost}:8222/api/v1/products
+    customer-url: http://${CUSTOMER_SERVICE_HOST:customer-service}:8090/api/v1/customers
+    payment-url:  http://${PAYMENT_SERVICE_HOST:payment-service}:8086/api/v1/payments
+    product-url:  http://${PRODUCT_SERVICE_HOST:product-service}:8082/api/v1/products
   security:
     jwt:
       secret-key: ${JWT_SECRET}

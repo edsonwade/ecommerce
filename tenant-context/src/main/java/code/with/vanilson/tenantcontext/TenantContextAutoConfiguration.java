@@ -47,7 +47,7 @@ public class TenantContextAutoConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new TenantInterceptor(true))
+        registry.addInterceptor(new TenantInterceptor(false))
                 .addPathPatterns("/**")
                 .excludePathPatterns(EXCLUDED_PATHS);
         log.info("TenantInterceptor registered — excluded paths: {}",

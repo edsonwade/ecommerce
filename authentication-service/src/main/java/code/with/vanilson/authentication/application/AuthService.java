@@ -5,6 +5,7 @@ import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
+import code.with.vanilson.authentication.infrastructure.CustomerRegistrationClient;
 import code.with.vanilson.authentication.infrastructure.JwtService;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
 import code.with.vanilson.authentication.infrastructure.UserRepository;
@@ -36,13 +37,14 @@ import org.springframework.util.StringUtils;
 @Service
 public class AuthService {
 
-    private final UserRepository        userRepository;
-    private final TokenRepository       tokenRepository;
-    private final JwtService            jwtService;
-    private final PasswordEncoder       passwordEncoder;
-    private final AuthenticationManager authManager;
-    private final MessageSource         messageSource;
-    private final RefreshTokenService   refreshTokenService;
+    private final UserRepository               userRepository;
+    private final TokenRepository              tokenRepository;
+    private final JwtService                   jwtService;
+    private final PasswordEncoder              passwordEncoder;
+    private final AuthenticationManager        authManager;
+    private final MessageSource                messageSource;
+    private final RefreshTokenService          refreshTokenService;
+    private final CustomerRegistrationClient   customerRegistrationClient;
 
     public AuthService(UserRepository userRepository,
                        TokenRepository tokenRepository,
@@ -50,14 +52,16 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authManager,
                        MessageSource messageSource,
-                       RefreshTokenService refreshTokenService) {
-        this.userRepository      = userRepository;
-        this.tokenRepository     = tokenRepository;
-        this.jwtService          = jwtService;
-        this.passwordEncoder     = passwordEncoder;
-        this.authManager         = authManager;
-        this.messageSource       = messageSource;
-        this.refreshTokenService = refreshTokenService;
+                       RefreshTokenService refreshTokenService,
+                       CustomerRegistrationClient customerRegistrationClient) {
+        this.userRepository             = userRepository;
+        this.tokenRepository            = tokenRepository;
+        this.jwtService                 = jwtService;
+        this.passwordEncoder            = passwordEncoder;
+        this.authManager                = authManager;
+        this.messageSource              = messageSource;
+        this.refreshTokenService        = refreshTokenService;
+        this.customerRegistrationClient = customerRegistrationClient;
     }
 
     // -------------------------------------------------------
@@ -87,6 +91,18 @@ public class AuthService {
 
         User saved = userRepository.save(user);
         log.info(msg("auth.log.register.success", saved.getId(), saved.getEmail()));
+
+        try {
+            customerRegistrationClient.createCustomer(
+                    new CustomerRegistrationClient.CustomerRegistrationRequest(
+                            String.valueOf(saved.getId()),
+                            saved.getFirstname(),
+                            saved.getLastname(),
+                            saved.getEmail()));
+            log.info("Customer profile created for userId=[{}]", saved.getId());
+        } catch (Exception ex) {
+            log.warn("Failed to create customer profile for userId=[{}]: {}", saved.getId(), ex.getMessage());
+        }
 
         String accessJwt  = jwtService.generateAccessToken(saved);
         String refreshJwt = jwtService.generateRefreshToken(saved);

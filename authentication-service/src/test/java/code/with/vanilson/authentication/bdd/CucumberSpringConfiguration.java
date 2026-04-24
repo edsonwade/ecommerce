@@ -1,5 +1,6 @@
 package code.with.vanilson.authentication.bdd;
 
+import code.with.vanilson.authentication.AuthenticationApplication;
 import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -8,7 +9,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * CucumberSpringConfiguration — wires the Spring Boot test context for Cucumber BDD tests.
+ * CucumberSpringConfiguration -- wires the Spring Boot test context for Cucumber BDD tests.
  *
  * The PostgreSQL container is started in a static initializer (not via @Testcontainers)
  * to guarantee it is running before Spring calls @DynamicPropertySource. Using
@@ -19,7 +20,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * Flyway migrations are applied automatically when the Spring context starts.
  */
 @CucumberContextConfiguration
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        classes = AuthenticationApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+)
 @ActiveProfiles("test")
 public class CucumberSpringConfiguration {
 

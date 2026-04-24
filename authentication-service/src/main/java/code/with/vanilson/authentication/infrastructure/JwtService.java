@@ -54,7 +54,8 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    private final Object signingKey;   // RSAPrivateKey (RS256) or SecretKey (HS256 fallback)
+    private final Object signingKey;   // RSAPrivateKey (RS256) or SecretKey (HS256)
+    private final Object verifyKey;    // RSAPublicKey (RS256) or SecretKey (HS256)
     private final boolean useRsa;
     private final long accessTokenExpiry;
     private final long refreshTokenExpiry;
@@ -73,11 +74,13 @@ public class JwtService {
 
         if (privateKeyBase64 != null && !privateKeyBase64.isBlank()) {
             this.signingKey = loadRsaPrivateKey(privateKeyBase64);
+            this.verifyKey = deriveRsaPublicKey((RSAPrivateKey) this.signingKey);
             this.useRsa = true;
             log.info("[JwtService] Initialized with RS256 asymmetric signing");
         } else {
             byte[] keyBytes = Base64.getDecoder().decode(secretKeyBase64);
             this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+            this.verifyKey = this.signingKey;
             this.useRsa = false;
             log.warn("[JwtService] Falling back to HS256 — set JWT_PRIVATE_KEY for RS256");
         }
@@ -184,13 +187,9 @@ public class JwtService {
     private Claims extractAllClaims(String token) {
         var parserBuilder = Jwts.parser();
         if (useRsa) {
-            // For RS256 verification on the auth-service side (e.g. refresh token validation),
-            // we need the public key. However, extractAllClaims is only called internally on
-            // tokens we just issued — use the private key's associated public key.
-            parserBuilder.verifyWith((SecretKey) ((RSAPrivateKey) signingKey).getClass()
-                    .cast(signingKey));
+            parserBuilder.verifyWith((java.security.interfaces.RSAPublicKey) verifyKey);
         } else {
-            parserBuilder.verifyWith((SecretKey) signingKey);
+            parserBuilder.verifyWith((SecretKey) verifyKey);
         }
         return parserBuilder.build()
                 .parseSignedClaims(token)
@@ -203,6 +202,19 @@ public class JwtService {
 
     private String msg(String key, Object... args) {
         return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+    }
+
+    private static java.security.interfaces.RSAPublicKey deriveRsaPublicKey(RSAPrivateKey privateKey) {
+        try {
+            java.security.interfaces.RSAPrivateCrtKey crtKey =
+                    (java.security.interfaces.RSAPrivateCrtKey) privateKey;
+            java.security.spec.RSAPublicKeySpec pubSpec =
+                    new java.security.spec.RSAPublicKeySpec(crtKey.getModulus(), crtKey.getPublicExponent());
+            return (java.security.interfaces.RSAPublicKey)
+                    KeyFactory.getInstance("RSA").generatePublic(pubSpec);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to derive RSA public key from private key", e);
+        }
     }
 
     private static RSAPrivateKey loadRsaPrivateKey(String base64Pem) {

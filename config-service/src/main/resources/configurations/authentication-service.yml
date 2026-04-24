@@ -44,6 +44,8 @@ eureka:
 
 # JWT configuration — secret must match the Gateway's JWT secret exactly
 application:
+  config:
+    customer-url: http://${CUSTOMER_SERVICE_HOST:customer-service}:8090/api/v1/customers
   security:
     jwt:
       secret-key: ${JWT_SECRET}
