@@ -1,6 +1,7 @@
 package code.with.vanilson.productservice.exception.handler;
 
 import code.with.vanilson.productservice.exception.*;
+import code.with.vanilson.tenantcontext.exception.MissingTenantException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -48,6 +49,13 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 request.getDescription(false));
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(MissingTenantException.class)
+    public ResponseEntity<String> missingTenantHandler(MissingTenantException exception) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(exception.getMessage());
     }
 
 }

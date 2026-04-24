@@ -11,6 +11,7 @@ import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.JwtService;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
 import code.with.vanilson.authentication.infrastructure.UserDetailsServiceImpl;
+import code.with.vanilson.authentication.presentation.AuthController;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
@@ -66,7 +67,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * HTTP-Basic chain ({@code @Order(Integer.MAX_VALUE - 5)}). Without that annotation both
  * chains may coexist in {@code @WebMvcTest} and the wrong one wins.</p>
  */
-@WebMvcTest(code.with.vanilson.authentication.presentation.AuthController.class)
+@WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
 @ActiveProfiles("test")
 @DisplayName("AuthController WebMvc Tests")

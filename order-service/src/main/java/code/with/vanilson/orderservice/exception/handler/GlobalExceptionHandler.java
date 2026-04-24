@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice.exception.handler;
 
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
 import code.with.vanilson.orderservice.exception.ErrorResponse;
+import code.with.vanilson.tenantcontext.exception.MissingTenantException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -38,5 +39,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(BAD_REQUEST)
                 .body(new ErrorResponse(errors));
+    }
+
+    @ExceptionHandler(MissingTenantException.class)
+    public ResponseEntity<String> missingTenantHandler(MissingTenantException exception) {
+        return ResponseEntity
+                .status(BAD_REQUEST)
+                .body(exception.getMessage());
     }
 }

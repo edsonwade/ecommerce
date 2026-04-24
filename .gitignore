@@ -21,6 +21,8 @@ target/
 .idea/sonarlint/issuestore/index.pb
 backend/customer-service/src/main/java/code/with/vanilson/customerservice/MongoConfig.java
 .idea/**
+.playwright-mcp/**
+.qodo/**
 .env
 /.env
 .env.*
