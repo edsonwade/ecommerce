@@ -54,6 +54,31 @@ notes/
 
 diagramas/
 
+qa-admin-dashboard.png
+qa-product-service.png
+qa-tenant-context.png
+qa-configuration-service.png
+qa-authentication-service.png
+qa-customer-service.png
+qa-retest-catalog-2.png
+qa-retest-catalog-1.png
+qa-retest-homepage.png
+qa-login-page.png
+qa-login.png
+qa-logout.png
+qa-homepage-after-wait.png
+qa-homepage-before-wait.png
+qa-homepage.png
+qa-seller-dashboard.png
+qa-seller-dashboard-after-wait.png
+qa-seller-dashboard-before-wait.png
+qa-dark-mode.png
+qa-light-mode.png
+qa-admin-users-tab.png
+qa-admin-users-tab-after-wait.png
+qa-admin-users-tab-before-wait.png
+
+
 
 
 ../configuration-service/data
