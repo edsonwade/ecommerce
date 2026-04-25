@@ -166,12 +166,10 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Flyway PostgreSQL dialect (required for Flyway 10+) -->
+        <!-- Flyway PostgreSQL dialect (required for Flyway 10+, must be runtime not test) -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
-            <version>11.7.2</version>
-            <scope>test</scope>
         </dependency>
 
         <!-- ===== TEST SCOPE ===== -->

@@ -216,7 +216,7 @@ services:
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      test: [ "CMD", "mongosh", "--quiet", "-u", "${MONGO_USERNAME:-vanilson}", "-p", "${MONGO_PASSWORD:-vanilson}", "--eval", "db.adminCommand('ping').ok" ]
       interval: 15s
       timeout: 15s
       retries: 10

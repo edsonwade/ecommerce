@@ -43,6 +43,10 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>        <!-- Jackson JSR-310 for java.time.Instant in Kafka saga events -->
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
