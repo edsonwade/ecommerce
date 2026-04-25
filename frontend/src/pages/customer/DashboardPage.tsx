@@ -43,6 +43,8 @@ export default function DashboardPage() {
     queryKey: [QUERY_KEYS.ORDERS],
     queryFn: ordersApi.getAll,
     staleTime: 30 * 1000,
+    retry: false,
+    throwOnError: false,
   });
 
   const totalSpent = orders?.reduce((s, o) => s + o.amount, 0) ?? 0;

@@ -1,9 +1,16 @@
 package code.with.vanilson.customerservice.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +19,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
@@ -56,10 +64,31 @@ public class CustomerServiceConfig {
                 .disableCachingNullValues()
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
-                                new GenericJackson2JsonRedisSerializer()));
+                                buildRedisSerializer()));
         return RedisCacheManager.builder(factory)
                 .cacheDefaults(config)
                 .build();
+    }
+
+    private GenericJackson2JsonRedisSerializer buildRedisSerializer() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        mapper.activateDefaultTyping(
+                BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+        return new GenericJackson2JsonRedisSerializer(mapper);
+    }
+
+    @Bean
+    public InitializingBean flushStaleCustomerCache(StringRedisTemplate redisTemplate) {
+        return () -> {
+            var keys = redisTemplate.keys("customer*");
+            if (keys != null && !keys.isEmpty()) redisTemplate.delete(keys);
+        };
     }
 
     @Bean
