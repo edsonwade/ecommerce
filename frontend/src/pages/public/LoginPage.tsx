@@ -65,7 +65,7 @@ export default function LoginPage() {
         res.role === 'ADMIN' ? ROUTES.ADMIN :
         res.role === 'SELLER' ? ROUTES.SELLER :
         ROUTES.ACCOUNT;
-      const dest = navState?.from ?? defaultDest;
+      const dest = from !== ROUTES.ACCOUNT ? from : defaultDest;
       navigate(dest, { replace: true });
     } catch (err) {
       const normalized = normalizeError(err);
