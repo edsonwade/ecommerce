@@ -59,7 +59,7 @@ public class CustomerService {
     /**
      * Returns all customers, cached for 10 minutes.
      */
-    @Cacheable(CACHE_CUSTOMER_LIST)
+    @Cacheable(value = CACHE_CUSTOMER_LIST, unless = "#result == null || #result.isEmpty()")
     public List<CustomerResponse> findAllCustomers() {
         List<CustomerResponse> customers = customerRepository.findAll()
                 .stream()

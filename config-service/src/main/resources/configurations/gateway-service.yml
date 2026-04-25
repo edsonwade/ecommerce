@@ -175,6 +175,30 @@ spring:
                   factor: 2
 
         # -------------------------------------------------------
+        # TENANT SERVICE — admin-only tenant management
+        # -------------------------------------------------------
+        - id: tenant-service
+          uri: lb://TENANT-SERVICE
+          predicates:
+            - Path=/api/v1/tenants/**
+          filters:
+            - AddResponseHeader=API-Version, v1
+            - AddResponseHeader=Sunset, TBD
+            - name: CircuitBreaker
+              args:
+                name: tenant-cb
+                fallbackUri: forward:/fallback/tenants
+            - name: Retry
+              args:
+                retries: 1
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 1000ms
+                  factor: 2
+
+        # -------------------------------------------------------
         # PAYMENT SERVICE — stricter rate limits (financial endpoint)
         # -------------------------------------------------------
         - id: payment-service
@@ -243,6 +267,13 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 2
         slow-call-rate-threshold: 70
         slow-call-duration-threshold: 5s
+      tenant-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
 
 # -------------------------------------------------------
 # Gateway custom properties

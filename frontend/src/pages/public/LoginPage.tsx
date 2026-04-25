@@ -61,7 +61,12 @@ export default function LoginPage() {
         tenantId: res.tenantId,
       });
       addToast({ message: `Welcome back, ${res.email}`, variant: 'success' });
-      navigate(from, { replace: true });
+      const defaultDest =
+        res.role === 'ADMIN' ? ROUTES.ADMIN :
+        res.role === 'SELLER' ? ROUTES.SELLER :
+        ROUTES.ACCOUNT;
+      const dest = navState?.from ?? defaultDest;
+      navigate(dest, { replace: true });
     } catch (err) {
       const normalized = normalizeError(err);
       setServerError(

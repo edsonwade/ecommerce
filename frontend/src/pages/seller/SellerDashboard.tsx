@@ -23,11 +23,15 @@ export default function SellerDashboard() {
     queryKey: [QUERY_KEYS.PRODUCTS, 0, 100],
     queryFn: () => productsApi.getAll(0, 100),
     staleTime: 2 * 60 * 1000,
+    retry: false,
+    throwOnError: false,
   });
   const { data: orders, isLoading: ordersLoading } = useQuery({
     queryKey: [QUERY_KEYS.ORDERS],
     queryFn: ordersApi.getAll,
     staleTime: 30 * 1000,
+    retry: false,
+    throwOnError: false,
   });
 
   const isLoading = productsLoading || ordersLoading;

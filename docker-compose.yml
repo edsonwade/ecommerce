@@ -528,7 +528,7 @@ services:
       discovery-service:
         condition: service_healthy
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
