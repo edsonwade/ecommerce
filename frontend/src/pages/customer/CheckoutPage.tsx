@@ -89,8 +89,13 @@ export default function CheckoutPage() {
       setCorrelationId(res.correlationId);
       setActiveStep(3);
     },
-    onError: () => {
-      addToast({ message: 'Failed to place order. Please try again.', variant: 'error' });
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: string; errorCode?: string } } };
+      const serverMessage = e?.response?.data?.message;
+      addToast({
+        message: serverMessage ?? 'Failed to place order. Please try again.',
+        variant: 'error',
+      });
     },
   });
 
@@ -242,7 +247,7 @@ export default function CheckoutPage() {
                     </Typography>
                   </Box>
 
-                  {orderError && (
+                  {Boolean(orderError) && (
                     <Alert severity="error">Failed to place order. Please try again.</Alert>
                   )}
 

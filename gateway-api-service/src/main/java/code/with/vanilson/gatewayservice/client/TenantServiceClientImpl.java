@@ -2,7 +2,6 @@ package code.with.vanilson.gatewayservice.client;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
@@ -50,10 +49,12 @@ public class TenantServiceClientImpl implements TenantServiceClient {
         return webClient.get()
                 .uri(VALIDATE_PATH, tenantId)
                 .retrieve()
-                .onStatus(
-                        status -> status == HttpStatus.NOT_FOUND,
-                        response -> Mono.empty()
-                )
+                // Let WebClient throw WebClientResponseException.NotFound for 404;
+                // the onErrorResume below converts it to Mono.empty() so the filter
+                // hits switchIfEmpty → handleTenantNotFound (404 to caller).
+                // Do NOT suppress 404 here with Mono.empty() — that causes WebClient to
+                // deserialize the error body as TenantValidationResponse, yielding
+                // status="404" which the filter misreads as a cancelled tenant (→ 403).
                 .bodyToMono(TenantValidationResponse.class)
                 .timeout(VALIDATION_TIMEOUT)
                 .onErrorResume(WebClientResponseException.NotFound.class, ex -> {

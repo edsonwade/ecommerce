@@ -1,9 +1,12 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.category.CategoryRepository;
+import code.with.vanilson.productservice.category.CategoryResponse;
 import code.with.vanilson.productservice.exception.ProductForbiddenException;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.extern.slf4j.Slf4j;
@@ -53,13 +56,16 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
     private final MessageSource messageSource;
+    private final CategoryRepository categoryRepository;
 
     public ProductService(ProductRepository productRepository,
                           ProductMapper productMapper,
-                          MessageSource messageSource) {
+                          MessageSource messageSource,
+                          CategoryRepository categoryRepository) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.messageSource = messageSource;
+        this.categoryRepository = categoryRepository;
     }
 
     // -------------------------------------------------------
@@ -101,6 +107,13 @@ public class ProductService {
                 });
     }
 
+    /** Returns all product categories (id + name + description). */
+    public List<CategoryResponse> getCategories() {
+        return categoryRepository.findAll().stream()
+                .map(c -> new CategoryResponse(c.getId(), c.getName(), c.getDescription()))
+                .toList();
+    }
+
     // -------------------------------------------------------
     // WRITE
     // -------------------------------------------------------
@@ -121,6 +134,8 @@ public class ProductService {
         }
         SecurityPrincipal p = currentPrincipal();
         product.setCreatedBy(p != null ? String.valueOf(p.userId()) : "system");
+        String tenantId = TenantContext.getCurrentTenantId();
+        product.setTenantId(tenantId != null ? tenantId : "default-tenant");
         log.info(resolve("product.log.ownership.stamp", product.getName(), product.getCreatedBy()));
         Product saved = productRepository.save(product);
         log.info(resolve("product.log.created", saved.getId(), saved.getName()));

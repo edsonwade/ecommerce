@@ -140,6 +140,35 @@ public class CustomerService {
     }
 
     /**
+     * Idempotent customer registration used by auth-service.
+     * If a customer with this customerId already exists, returns it.
+     * Otherwise creates a new record. Email duplicates do NOT throw —
+     * they are treated as the same logical user during cross-service sync.
+     */
+    @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
+    public String ensureCustomer(CustomerRequest request) {
+        if (request.customerId() != null && customerRepository.existsById(request.customerId())) {
+            log.info("[CustomerService] ensureCustomer: already exists id=[{}]", request.customerId());
+            return request.customerId();
+        }
+        try {
+            Customer entity = customerMapper.toEntity(request);
+            if (request.customerId() != null) {
+                entity.setCustomerId(request.customerId());
+            }
+            Customer saved = customerRepository.save(entity);
+            log.info("[CustomerService] ensureCustomer: created id=[{}] email=[{}]",
+                    saved.getCustomerId(), saved.getEmail());
+            return saved.getCustomerId();
+        } catch (DataIntegrityViolationException ex) {
+            // Concurrent insert — fall back to existing record by email
+            return customerRepository.findCustomerByEmail(request.email())
+                    .map(Customer::getCustomerId)
+                    .orElseThrow(() -> ex);
+        }
+    }
+
+    /**
      * Updates an existing customer.
      * BUG FIX: CacheEvict uses #customerId (method param) — not #request.customerId()
      * which is nullable.

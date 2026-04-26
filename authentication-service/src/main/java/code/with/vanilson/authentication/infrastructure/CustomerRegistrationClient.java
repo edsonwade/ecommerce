@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 )
 public interface CustomerRegistrationClient {
 
-    @PostMapping
+    @PostMapping("/internal")
     void createCustomer(@RequestBody CustomerRegistrationRequest request);
 
     record CustomerRegistrationRequest(

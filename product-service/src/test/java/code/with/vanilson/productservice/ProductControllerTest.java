@@ -61,6 +61,9 @@ public class ProductControllerTest {
     @MockBean
     private ProductService productService;
 
+    @MockBean
+    private ProductMapper productMapper;
+
     @SuppressWarnings("unused")
     @MockBean
     TenantHibernateFilterActivator activator;
@@ -79,6 +82,9 @@ public class ProductControllerTest {
         productResponse = new ProductResponse(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1,
                 "Category Name", "Category Description", "1");
         productRequest = new ProductRequest(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1);
+
+        // Mapper always returns the test product so service mocks receive a non-null Product
+        when(productMapper.toProduct(any())).thenReturn(product);
 
         // Pass JWT filter through so it does not block the filter chain
         doAnswer(inv -> {
@@ -151,12 +157,12 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(roles = "SELLER")
     public void testCreateProduct() throws Exception {
-        when(productService.createProduct(any(Product.class))).thenReturn(productRequest);
+        when(productService.createProduct(any())).thenReturn(productRequest);
 
         mockMvc.perform(post("/api/v1/products/create")
                         .header("X-Tenant-ID", "test-tenant-123")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Product 1\",\"description\":\"Description 1\",\"availableQuantity\":100.0,\"price\":100.0,\"category\":{\"id\":1}}"))
+                        .content("{\"name\":\"Product 1\",\"description\":\"Description 1\",\"availableQuantity\":100.0,\"price\":100.0,\"categoryId\":1}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value(productRequest.name()));
     }
@@ -211,20 +217,18 @@ public class ProductControllerTest {
     public void testUpdateProduct() throws Exception {
         // Arrange
         int productId = 1;
-        Product updatedProduct = new Product("Updated Product", "Updated Description", 15.0, BigDecimal.valueOf(150.0));
-        when(productService.updateProduct(productId, updatedProduct)).thenReturn(
+        when(productService.updateProduct(anyInt(), any())).thenReturn(
                 new ProductRequest(1, "Updated Product", "Updated Description", 15.0, BigDecimal.valueOf(150.0), 1));
 
         // Act & Assert
         mockMvc.perform(put("/api/v1/products/update/{id}", productId)
                         .header("X-Tenant-ID", "test-tenant-123")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(asJsonString(updatedProduct)))
-                .andExpect(status().isOk()) // Assert: Expect HTTP status 200 (OK)
-                .andExpect(jsonPath("$.name").value("Updated Product")); // Assert: Verify updated product's name
+                        .content("{\"name\":\"Updated Product\",\"description\":\"Updated Description\",\"availableQuantity\":15.0,\"price\":150.0,\"categoryId\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Product"));
 
-        // Verify: Ensure productService.updateProduct(productId, updatedProduct) was called
-        verify(productService).updateProduct(productId, updatedProduct);
+        verify(productService).updateProduct(anyInt(), any());
     }
 
     @Test

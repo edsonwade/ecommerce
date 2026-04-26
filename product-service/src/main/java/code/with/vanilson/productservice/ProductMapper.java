@@ -151,16 +151,18 @@ public class ProductMapper {
                 product.getAvailableQuantity(),
                 product.getPrice(),
                 product.getCategory().getId(),
-                product.getName(),
-                product.getDescription(),
+                product.getCategory().getName(),
+                product.getCategory().getDescription(),
                 product.getCreatedBy());
-
     }
 
     protected ProductResponse fromProduct(Product product) {
         if (product == null) {
             log.error("is null{}", product);
             throw new ProductBadRequestException(resolve("product.null"));
+        }
+        if (product.getCategory() == null) {
+            throw new ProductNullException(resolve("product.category.null"), "product.category.null");
         }
         return new ProductResponse(
                 product.getId(),
@@ -169,10 +171,9 @@ public class ProductMapper {
                 product.getAvailableQuantity(),
                 product.getPrice(),
                 product.getCategory().getId(),
-                product.getName(),
-                product.getDescription(),
+                product.getCategory().getName(),
+                product.getCategory().getDescription(),
                 product.getCreatedBy());
-
     }
 
     public ProductPurchaseResponse toproductPurchaseResponse(Product product, double quantity) {
@@ -193,9 +194,9 @@ public class ProductMapper {
                 .availableQuantity(request.availableQuantity())
                 .price(request.price())
                 .category(
-                        Category.builder()
-                                .id(request.categoryId())
-                                .build()
+                        request.categoryId() != null
+                                ? Category.builder().id(request.categoryId()).build()
+                                : null
                 )
                 .build();
     }

@@ -140,6 +140,19 @@ public class AuthService {
         String refreshJwt = jwtService.generateRefreshToken(user);
         refreshTokenService.persistTokenPair(user, accessJwt, refreshJwt);
 
+        // Idempotent backfill — ensures a customer profile exists for users registered
+        // before the customer-registration call was reliable.
+        try {
+            customerRegistrationClient.createCustomer(
+                    new CustomerRegistrationClient.CustomerRegistrationRequest(
+                            String.valueOf(user.getId()),
+                            user.getFirstname(),
+                            user.getLastname(),
+                            user.getEmail()));
+        } catch (Exception ex) {
+            log.warn("Customer profile backfill failed for userId=[{}]: {}", user.getId(), ex.getMessage());
+        }
+
         log.info(msg("auth.log.login.success", user.getId(), user.getEmail()));
         return AuthResponse.of(accessJwt, refreshJwt,
                 String.valueOf(user.getId()), user.getEmail(),

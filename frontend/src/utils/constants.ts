@@ -26,6 +26,7 @@ export const ROUTES = {
 export const QUERY_KEYS = {
   PRODUCTS: 'products',
   PRODUCT: 'product',
+  CATEGORIES: 'categories',
   CART: 'cart',
   ORDERS: 'orders',
   ORDER: 'order',

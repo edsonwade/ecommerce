@@ -44,6 +44,7 @@ class ProductControllerSecurityTest {
     @Autowired WebApplicationContext      context;
 
     @MockBean ProductService                 productService;
+    @MockBean ProductMapper                  productMapper;
     @MockBean JwtAuthenticationFilter        jwtAuthenticationFilter;
     @MockBean TenantHibernateFilterActivator tenantHibernateFilterActivator;
 
@@ -110,7 +111,7 @@ class ProductControllerSecurityTest {
 
         private static final String BODY =
                 "{\"name\":\"Widget\",\"description\":\"A widget\",\"availableQuantity\":10.0,\"price\":9.99," +
-                "\"category\":{\"id\":1},\"createdBy\":null}";
+                "\"categoryId\":1}";
 
         @Test
         @DisplayName("401 Unauthorized when no authentication")
