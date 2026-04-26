@@ -1,5 +1,6 @@
 import apiClient from './client';
 import type {
+  CategoryResponse,
   PageResponse,
   ProductRequest,
   ProductResponse,
@@ -29,4 +30,7 @@ export const productsApi = {
 
   purchase: (items: ProductPurchaseRequest[]) =>
     apiClient.post<ProductPurchaseResponse[]>('/products/purchase', items).then((r) => r.data),
+
+  getCategories: () =>
+    apiClient.get<CategoryResponse[]>('/products/categories').then((r) => r.data),
 };

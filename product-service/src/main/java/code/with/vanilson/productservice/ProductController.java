@@ -1,5 +1,6 @@
 package code.with.vanilson.productservice;
 
+import code.with.vanilson.productservice.category.CategoryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -50,6 +51,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductMapper productMapper;
 
     @Operation(summary = "List all products (paginated)",
                description = "Returns a paginated list of all products. Use ?page=0&size=20&sort=name,asc")
@@ -80,17 +82,17 @@ public class ProductController {
     })
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
-    public ResponseEntity<ProductRequest> createProduct(@RequestBody @Valid Product product) {
+    public ResponseEntity<ProductRequest> createProduct(@RequestBody @Valid ProductRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(productService.createProduct(product));
+                .body(productService.createProduct(productMapper.toProduct(request)));
     }
 
     @Operation(summary = "Create multiple products in batch")
     @PostMapping("/batch")
     @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
-    public ResponseEntity<ProductRequest> createProducts(@RequestBody @Valid Product products) {
+    public ResponseEntity<ProductRequest> createProducts(@RequestBody @Valid ProductRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(productService.createProduct(products));
+                .body(productService.createProduct(productMapper.toProduct(request)));
     }
 
     @Operation(summary = "Update a product by ID")
@@ -102,8 +104,8 @@ public class ProductController {
     @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
     public ResponseEntity<ProductRequest> updateProduct(
             @PathVariable int id,
-            @RequestBody @Valid Product product) {
-        return ResponseEntity.ok(productService.updateProduct(id, product));
+            @RequestBody @Valid ProductRequest request) {
+        return ResponseEntity.ok(productService.updateProduct(id, productMapper.toProduct(request)));
     }
 
     @Operation(summary = "Delete a product by ID")
@@ -116,6 +118,12 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(@PathVariable int id) {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "List all categories")
+    @GetMapping("/categories")
+    public ResponseEntity<List<CategoryResponse>> getCategories() {
+        return ResponseEntity.ok(productService.getCategories());
     }
 
     @Operation(summary = "Purchase (reserve stock for) a list of products",

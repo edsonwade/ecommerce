@@ -24,6 +24,13 @@ export interface AuthResponse {
   tenantId: string;
 }
 
+// ── Category ──
+export interface CategoryResponse {
+  id: number;
+  name: string;
+  description: string;
+}
+
 // ── Product ──
 export interface ProductRequest {
   id?: number;

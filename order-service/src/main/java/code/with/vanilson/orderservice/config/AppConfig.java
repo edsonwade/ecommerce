@@ -2,15 +2,19 @@ package code.with.vanilson.orderservice.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import feign.RequestInterceptor;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
@@ -80,5 +84,29 @@ public class AppConfig {
     @Bean
     public WebClient webClient(WebClient.Builder builder) {
         return builder.build();
+    }
+
+    /**
+     * Feign interceptor that forwards the Authorization and X-Tenant-Id headers
+     * from the inbound HTTP request to all outbound Feign calls (customer-service,
+     * payment-service). Without this, those services receive unauthenticated requests
+     * and return 401, causing the order placement to fail with 500.
+     */
+    @Bean
+    public RequestInterceptor jwtFeignInterceptor() {
+        return template -> {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return;
+            HttpServletRequest request = attrs.getRequest();
+            String auth = request.getHeader("Authorization");
+            if (auth != null && !auth.isBlank()) {
+                template.header("Authorization", auth);
+            }
+            String tenantId = request.getHeader("X-Tenant-Id");
+            if (tenantId != null && !tenantId.isBlank()) {
+                template.header("X-Tenant-Id", tenantId);
+            }
+        };
     }
 }

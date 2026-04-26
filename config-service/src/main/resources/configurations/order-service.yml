@@ -113,6 +113,11 @@ feign:
       default:
         connect-timeout: 3000
         read-timeout: 5000
+      customer-service:
+        # 404 on customer lookup must NOT throw FeignException — return empty Optional
+        # so OrderService's orElseThrow(...) raises a typed CustomerServiceUnavailableException
+        # that maps to a clean 503 + meaningful errorCode.
+        decode404: true
 
 management:
   endpoints:

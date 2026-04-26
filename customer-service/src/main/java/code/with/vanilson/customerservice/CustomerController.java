@@ -124,6 +124,21 @@ public class CustomerController {
                 .body(customerService.createCustomer(request));
     }
 
+    /**
+     * Internal idempotent registration used by auth-service after register/login.
+     * No auth required — only reachable inside the docker services-net (not routed by gateway).
+     * Idempotent: returns the existing customerId if the record already exists.
+     */
+    @Operation(summary = "Internal: idempotent customer registration (service-to-service)")
+    @PostMapping("/internal")
+    public ResponseEntity<String> registerInternal(@RequestBody @Valid CustomerRequest request) {
+        log.info("POST /api/v1/customers/internal — ensure customer id=[{}] email=[{}]",
+                request.customerId(), request.email());
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(customerService.ensureCustomer(request));
+    }
+
     // -------------------------------------------------------
     // PUT — full update
     // -------------------------------------------------------
