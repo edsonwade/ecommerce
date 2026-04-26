@@ -247,7 +247,7 @@ export default function CheckoutPage() {
                     </Typography>
                   </Box>
 
-                  {orderError && (
+                  {Boolean(orderError) && (
                     <Alert severity="error">Failed to place order. Please try again.</Alert>
                   )}
 
