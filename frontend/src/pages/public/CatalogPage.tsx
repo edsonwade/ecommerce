@@ -44,7 +44,7 @@ export default function CatalogPage() {
                 color="text.secondary"
                 sx={{ fontFamily: 'var(--font-mono)' }}
               >
-                {data.totalElements ?? (data as any).page?.totalElements ?? '—'} products
+                {data.totalElements ?? (data as { page?: { totalElements?: number } }).page?.totalElements ?? '—'} products
               </Typography>
             )}
           </Box>
