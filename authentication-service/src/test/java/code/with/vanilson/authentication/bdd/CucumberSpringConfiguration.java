@@ -22,7 +22,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @CucumberContextConfiguration
 @SpringBootTest(
         classes = AuthenticationApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "spring.cloud.config.enabled=false",
+                "spring.cloud.config.import-check.enabled=false",
+                "spring.config.import=optional:configserver:"
+        }
 )
 @ActiveProfiles("test")
 public class CucumberSpringConfiguration {

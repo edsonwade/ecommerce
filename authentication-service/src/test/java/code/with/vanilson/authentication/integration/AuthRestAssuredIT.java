@@ -30,7 +30,14 @@ import static org.hamcrest.Matchers.notNullValue;
  * These tests validate the full HTTP contract from client perspective:
  * status codes, JSON body structure, security headers, and response field values.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "spring.cloud.config.enabled=false",
+                "spring.cloud.config.import-check.enabled=false",
+                "spring.config.import=optional:configserver:"
+        }
+)
 @Testcontainers
 @ActiveProfiles("test")
 @DisplayName("Authentication REST Assured Integration Tests")

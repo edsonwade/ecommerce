@@ -38,7 +38,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * These tests cover end-to-end authentication flows with real DB persistence.
  * No mocking of services — exercises the full filter chain and security enforcement.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.cloud.config.enabled=false",
+        "spring.cloud.config.import-check.enabled=false",
+        "spring.config.import=optional:configserver:"
+})
 @AutoConfigureMockMvc
 @Testcontainers
 @ActiveProfiles("test")
