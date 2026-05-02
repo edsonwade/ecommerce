@@ -38,6 +38,9 @@ async function mockApi(page: import('@playwright/test').Page) {
     if (url.includes('/api/v1/orders')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     }
+    if (url.includes('/api/v1/products/categories')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
     if (url.includes('/api/v1/products')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [], totalElements: 0, totalPages: 0, size: 20, number: 0, first: true, last: true }) });
     }
