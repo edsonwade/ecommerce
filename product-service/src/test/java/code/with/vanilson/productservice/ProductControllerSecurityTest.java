@@ -93,8 +93,8 @@ class ProductControllerSecurityTest {
         @DisplayName("GET /products/{id} is public — no auth required")
         void get_by_id_is_public() throws Exception {
             when(productService.getProductById(anyInt()))
-                    .thenReturn(java.util.Optional.of(new ProductResponse(
-                            1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "system")));
+                    .thenReturn(new ProductResponse(
+                            1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "system"));
 
             mockMvc.perform(get(BASE + "/1").header(TENANT_HDR, TENANT_VAL))
                     .andExpect(status().isOk());

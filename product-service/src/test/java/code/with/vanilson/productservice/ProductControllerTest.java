@@ -28,7 +28,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.any;
@@ -124,7 +123,7 @@ public class ProductControllerTest {
     @Test
     @DisplayName("Test getProductById method - Product found Success")
     public void testGetProductById() throws Exception {
-        when(productService.getProductById(1)).thenReturn(Optional.of(productResponse));
+        when(productService.getProductById(1)).thenReturn(productResponse);
 
         mockMvc.perform(get("/api/v1/products/1")
                         .header("X-Tenant-ID", "test-tenant-123")
@@ -141,7 +140,7 @@ public class ProductControllerTest {
     public void testGetProductById_NotFound() throws Exception {
         // Arrange
         int productId = 1;
-        when(productService.getProductById(productId)).thenReturn(Optional.empty());
+        when(productService.getProductById(productId)).thenThrow(new ProductNotFoundException("Product not found", "product.not.found"));
 
         // Act & Assert
         mockMvc.perform(get("/api/v1/products/{id}", productId)

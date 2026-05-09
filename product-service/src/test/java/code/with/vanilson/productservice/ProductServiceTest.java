@@ -139,15 +139,11 @@ class ProductServiceTest {
             when(productRepository.findById(1)).thenReturn(Optional.of(product1));
             when(productMapper.fromProduct(product1)).thenReturn(response1);
 
-            Optional<ProductResponse> result = productService.getProductById(1);
+            ProductResponse result = productService.getProductById(1);
 
-            assertThat(result)
-                    .isPresent()
-                    .hasValueSatisfying(r -> {
-                        assertThat(r.id()).isEqualTo(1);
-                        assertThat(r.name()).isEqualTo("Laptop");
-                        assertThat(r.price()).isEqualByComparingTo(BigDecimal.valueOf(1200.00));
-                    });
+            assertThat(result.id()).isEqualTo(1);
+            assertThat(result.name()).isEqualTo("Laptop");
+            assertThat(result.price()).isEqualByComparingTo(BigDecimal.valueOf(1200.00));
         }
 
         @Test

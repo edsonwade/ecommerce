@@ -51,8 +51,13 @@ Skill.md
 **/*.jar
 **/*.war
 notes/
+.playwright-mcp
+.qodo
+
 
 diagramas/
+
+screenshots/
 
 qa-admin-dashboard.png
 qa-product-service.png
