@@ -30,6 +30,7 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 
@@ -70,14 +71,29 @@ public class ProductServiceConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory factory) {
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
+        // ProductResponse is a record (final). GenericJackson2JsonRedisSerializer with NON_FINAL
+        // typing never writes @class for final types, so deserialization via readValue(bytes, Object.class)
+        // fails with "missing type id property '@class'". Use a statically-typed serializer instead.
+        var productSerializer = new Jackson2JsonRedisSerializer<>(buildBaseObjectMapper(),
+                code.with.vanilson.productservice.ProductResponse.class);
+        RedisCacheConfiguration singleConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(5))
+                .disableCachingNullValues()
+                .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(productSerializer));
+
+        // PageImpl is non-final — the generic serializer (with activateDefaultTyping) works correctly
+        // here, aided by the custom PageImplDeserializer registered below.
+        RedisCacheConfiguration listConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5))
                 .disableCachingNullValues()
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
                                 buildRedisSerializer()));
+
         return RedisCacheManager.builder(factory)
-                .cacheDefaults(config)
+                .withCacheConfiguration(CACHE_PRODUCTS, singleConfig)
+                .withCacheConfiguration(CACHE_PRODUCT_LIST, listConfig)
                 .build();
     }
 
@@ -89,6 +105,17 @@ public class ProductServiceConfig {
                 redisTemplate.delete(keys);
             }
         };
+    }
+
+    static final String CACHE_PRODUCTS = "products";
+    static final String CACHE_PRODUCT_LIST = "product-list";
+
+    private ObjectMapper buildBaseObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return mapper;
     }
 
     private GenericJackson2JsonRedisSerializer buildRedisSerializer() {

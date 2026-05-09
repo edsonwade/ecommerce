@@ -11,7 +11,6 @@ import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.MessageSource;
@@ -25,7 +24,6 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * ProductService — Application Layer
@@ -95,16 +93,14 @@ public class ProductService {
      * @return ProductResponse DTO
      */
     @Cacheable(value = CACHE_PRODUCTS, key = "#id")
-    public Optional<ProductResponse> getProductById(int id) {
+    public ProductResponse getProductById(int id) {
         return productRepository.findById(id)
                 .map(product -> {
                     log.info(resolve("product.log.found.by.id", id, product.getName()));
                     return productMapper.fromProduct(product);
                 })
-                .or(() -> {
-                    throw new ProductNotFoundException(
-                            resolve("product.not.found", id), "product.not.found");
-                });
+                .orElseThrow(() -> new ProductNotFoundException(
+                        resolve("product.not.found", id), "product.not.found"));
     }
 
     /** Returns all product categories (id + name + description). */
@@ -147,10 +143,10 @@ public class ProductService {
      * Updates the cache entry for this product and evicts the list cache.
      */
     @Transactional
-    @Caching(
-        evict = {@CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)},
-        put   = {@CachePut(value = CACHE_PRODUCTS, key = "#id")}
-    )
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true),
+        @CacheEvict(value = CACHE_PRODUCTS, key = "#id")
+    })
     public ProductRequest updateProduct(int id, Product product) {
         Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(

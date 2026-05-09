@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderDuplicateReferenceException;
 import code.with.vanilson.orderservice.exception.OrderForbiddenException;
@@ -100,14 +101,18 @@ public class OrderService {
      */
     @Transactional
     public String createOrder(OrderRequest request) {
-        log.info(msg("order.log.creating", request.customerId(), request.products().size()));
+        // Derive customerId from the authenticated JWT principal, not the request body.
+        // The principal's userId (Long) is the string key used as the MongoDB customer _id.
+        // This prevents spoofing where user A sends user B's customerId.
+        String customerId = resolveCustomerId(request);
+        log.info(msg("order.log.creating", customerId, request.products().size()));
 
         // Step 1 — Validate customer (sync, cached — typically < 5ms)
-        CustomerInfo customer = customerClient.findCustomerById(request.customerId())
+        CustomerInfo customer = customerClient.findCustomerById(customerId)
                 .orElseThrow(() -> {
-                    log.warn("[OrderService] Customer not found: customerId=[{}]", request.customerId());
-                    return new CustomerServiceUnavailableException(
-                            msg("order.customer.not.found", request.customerId()),
+                    log.warn("[OrderService] Customer not found: customerId=[{}]", customerId);
+                    return new CustomerNotFoundException(
+                            msg("order.customer.not.found", customerId),
                             "order.customer.not.found");
                 });
 
@@ -210,6 +215,15 @@ public class OrderService {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof SecurityPrincipal sp)) return null;
         return sp;
+    }
+
+    private String resolveCustomerId(OrderRequest request) {
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal != null) {
+            return String.valueOf(principal.userId());
+        }
+        // Fallback: use the request body value (should not happen on authenticated endpoints)
+        return request.customerId();
     }
 
     // -------------------------------------------------------

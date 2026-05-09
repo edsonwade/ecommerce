@@ -79,6 +79,14 @@ public class OrderGlobalExceptionHandler {
         return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
     }
 
+    @ExceptionHandler(CustomerNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleCustomerNotFound(
+            CustomerNotFoundException ex, WebRequest request) {
+        log.warn("[OrderExceptionHandler] Customer not found: key=[{}] message=[{}]",
+                ex.getMessageKey(), ex.getMessage());
+        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
     @ExceptionHandler(CustomerServiceUnavailableException.class)
     public ResponseEntity<Map<String, Object>> handleCustomerServiceUnavailable(
             CustomerServiceUnavailableException ex, WebRequest request) {

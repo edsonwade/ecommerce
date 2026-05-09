@@ -34,6 +34,13 @@ public class CustomerClientFallbackFactory implements FallbackFactory<CustomerCl
     @Override
     public CustomerClient create(Throwable cause) {
         return customerId -> {
+            // 404 = customer doesn't exist (business error): let OrderService.orElseThrow() handle it.
+            // feign.circuitbreaker.enabled=true intercepts before decode404 applies, so we must
+            // distinguish 404 from infrastructure failures here in the fallback.
+            if (cause instanceof feign.FeignException fe && fe.status() == 404) {
+                log.warn("[CustomerClientFallback] Customer not found in customer-service: customerId=[{}]", customerId);
+                return java.util.Optional.empty();
+            }
             String message = messageSource.getMessage(
                     "order.customer.service.unavailable",
                     null,

@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
 import code.with.vanilson.orderservice.orderLine.OrderLineService;
@@ -217,12 +218,12 @@ class OrderServiceAsyncTest {
         }
 
         @Test
-        @DisplayName("should throw CustomerServiceUnavailableException when customer not found — no DB writes")
+        @DisplayName("should throw CustomerNotFoundException when customer not found — no DB writes")
         void shouldThrowAndNotWriteWhenCustomerMissing() {
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.createOrder(validRequest))
-                    .isInstanceOf(CustomerServiceUnavailableException.class)
+                    .isInstanceOf(CustomerNotFoundException.class)
                     .hasMessageContaining("order.customer.not.found");
 
             verify(orderRepository, never()).save(any());
