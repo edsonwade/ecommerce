@@ -4,6 +4,7 @@ import code.with.vanilson.customerservice.exception.CustomerBaseException;
 import code.with.vanilson.customerservice.exception.CustomerForbiddenException;
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
+import code.with.vanilson.tenantcontext.exception.MissingTenantException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -104,12 +105,26 @@ public class CustomerGlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), "customer.validation.missing_param", request);
     }
 
+    @ExceptionHandler(MissingTenantException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingTenant(
+            MissingTenantException ex, WebRequest request) {
+        log.warn("[CustomerExceptionHandler] Missing tenant: {}", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), "customer.tenant.missing", request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
-        String msg = messageSource.getMessage("customer.error.internal",
-                new Object[]{ref}, LocaleContextHolder.getLocale());
-        log.error("[CustomerExceptionHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage(), ex);
+
+        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+            log.error("[CustomerExceptionHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage());
+        } else {
+            log.error("[CustomerExceptionHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage(), ex);
+        }
+
+        // User-facing message WITHOUT the reference
+        String msg = messageSource.getMessage("customer.error.internal.user",
+                null, LocaleContextHolder.getLocale());
         return build(HttpStatus.INTERNAL_SERVER_ERROR, msg, "customer.error.internal", request);
     }
 

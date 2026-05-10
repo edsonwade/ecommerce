@@ -91,9 +91,16 @@ public class TenantGlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest req) {
         String ref = UUID.randomUUID().toString();
-        String msg = messageSource.getMessage("tenant.error.internal",
-                new Object[]{ref}, LocaleContextHolder.getLocale());
-        log.error("[TenantHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage(), ex);
+
+        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+            log.error("[TenantHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage());
+        } else {
+            log.error("[TenantHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage(), ex);
+        }
+
+        // User-facing message WITHOUT the reference
+        String msg = messageSource.getMessage("tenant.error.internal.user",
+                null, LocaleContextHolder.getLocale());
         return build(HttpStatus.INTERNAL_SERVER_ERROR, msg, "tenant.error.internal", req);
     }
 

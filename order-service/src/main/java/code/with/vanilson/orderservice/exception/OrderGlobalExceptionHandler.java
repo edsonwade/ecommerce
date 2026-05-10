@@ -137,11 +137,18 @@ public class OrderGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGenericException(
             Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
+
+        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+            log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        } else {
+            log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
+        }
+
+        // User-facing message WITHOUT the reference
         String message = messageSource.getMessage(
-                "order.error.internal",
-                new Object[]{ref},
+                "order.error.internal.user",
+                null,
                 LocaleContextHolder.getLocale());
-        log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, "order.error.internal", request);
     }
 

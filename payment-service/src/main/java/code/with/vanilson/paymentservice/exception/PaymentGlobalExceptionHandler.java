@@ -120,11 +120,18 @@ public class PaymentGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGenericException(
             Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
+
+        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+            log.error("[PaymentExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        } else {
+            log.error("[PaymentExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
+        }
+
+        // User-facing message WITHOUT the reference
         String message = messageSource.getMessage(
-                "payment.error.internal",
-                new Object[]{ref},
+                "payment.error.internal.user",
+                null,
                 LocaleContextHolder.getLocale());
-        log.error("[PaymentExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, "payment.error.internal", request);
     }
 
