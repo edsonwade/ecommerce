@@ -85,7 +85,7 @@ class CartControllerSecurityTest {
 
     private CartResponse sampleCart(String customerId) {
         CartResponse.CartItemResponse item = new CartResponse.CartItemResponse(
-                1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200), 1.0, BigDecimal.valueOf(1200));
+                1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200), 1.0, BigDecimal.valueOf(1200), 10);
         return new CartResponse("cart:" + customerId, customerId, List.of(item),
                 BigDecimal.valueOf(1200), 1, LocalDateTime.now(), LocalDateTime.now());
     }

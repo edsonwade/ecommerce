@@ -57,6 +57,7 @@ const CART: CartResponse = {
       unitPrice: 29.99,
       quantity: 2,
       lineTotal: 59.98,
+      availableQuantity: 10,
     },
   ],
   total: 59.98,

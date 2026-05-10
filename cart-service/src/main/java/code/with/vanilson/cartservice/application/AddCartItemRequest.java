@@ -27,5 +27,8 @@ public record AddCartItemRequest(
         BigDecimal unitPrice,
 
         @Positive(message = "{cart.item.quantity.invalid}")
-        double quantity
+        double quantity,
+
+        @Positive(message = "{cart.item.stock.invalid}")
+        Integer availableQuantity
 ) {}

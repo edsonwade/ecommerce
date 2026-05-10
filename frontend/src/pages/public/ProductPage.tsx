@@ -43,6 +43,7 @@ export default function ProductPage() {
         productDescription: product!.description,
         unitPrice: product!.price,
         quantity,
+        availableQuantity: product!.availableQuantity,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
