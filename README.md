@@ -368,6 +368,26 @@ Launch the entire platform (infrastructure + all services):
 docker-compose up -d
 ```
 
+### Admin Account
+
+`AdminBootstrapRunner` seeds a platform administrator on first startup (idempotent — skipped if the email already exists):
+
+| Field | Value |
+|:---|:---|
+| **Email** | `admin@obsidian.com` |
+| **Password** | `Admin@123!` |
+| **Role** | `ADMIN` |
+| **Tenant** | `system` |
+
+> **Security note:** Change the password immediately in production by setting the `APP_ADMIN_PASSWORD` environment variable before first boot.
+
+The credentials are configurable via environment variables in `docker-compose.yml`:
+```
+APP_ADMIN_EMAIL=admin@obsidian.com
+APP_ADMIN_PASSWORD=Admin@123!
+APP_ADMIN_TENANT_ID=system
+```
+
 ### Build from Source
 
 The project uses a multi-module Maven reactor. To build all 12 modules in the correct dependency order:

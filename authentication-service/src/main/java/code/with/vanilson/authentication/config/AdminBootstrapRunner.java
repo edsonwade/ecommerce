@@ -25,7 +25,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     public AdminBootstrapRunner(
             UserRepository repo,
             PasswordEncoder encoder,
-            @Value("${app.admin.email:admin@platform.com}") String adminEmail,
+            @Value("${app.admin.email:admin@obsidian.com}") String adminEmail,
             @Value("${app.admin.password:Admin@123!}") String adminPassword,
             @Value("${app.admin.tenant-id:system}") String systemTenant) {
         this.repo          = repo;
@@ -37,8 +37,8 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (repo.countByRole(Role.ADMIN) > 0) {
-            log.info("[AdminBootstrap] ADMIN user already exists — skipping seed");
+        if (repo.existsByEmail(adminEmail)) {
+            log.info("[AdminBootstrap] Admin {} already exists — skipping", adminEmail);
             return;
         }
 

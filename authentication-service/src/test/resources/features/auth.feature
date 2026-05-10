@@ -173,6 +173,25 @@ Feature: Authentication Service
     And the error response contains field "path"
 
   # =========================================================
+  # Admin Account Bootstrap
+  # =========================================================
+
+  @admin @happy-path
+  Scenario: Seeded admin account can log in with canonical credentials
+    Given the admin account "admin@obsidian.com" has been seeded by AdminBootstrapRunner
+    When I log in with email "admin@obsidian.com" and password "Admin@123!"
+    Then the response status is 200
+    And the response contains a valid access token
+    And the response role is "ADMIN"
+
+  @admin @negative
+  Scenario: Admin login with wrong password returns 401 Unauthorized
+    Given the admin account "admin@obsidian.com" has been seeded by AdminBootstrapRunner
+    When I log in with email "admin@obsidian.com" and password "WrongPass"
+    Then the response status is 401
+    And the error code is "auth.login.invalid.credentials"
+
+  # =========================================================
   # Full Authentication Lifecycle
   # =========================================================
 
