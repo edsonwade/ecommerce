@@ -25,6 +25,7 @@ export default function ProductGrid({ products }: ProductGridProps) {
         productDescription: product.description,
         unitPrice: product.price,
         quantity: 1,
+        availableQuantity: product.availableQuantity,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });

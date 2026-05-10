@@ -77,6 +77,7 @@ class CartServiceTest {
                 .productDescription("Gaming Laptop")
                 .unitPrice(BigDecimal.valueOf(1200.00))
                 .quantity(2.0)
+                .availableQuantity(10)
                 .build();
 
         emptyCart = Cart.builder()
@@ -93,7 +94,7 @@ class CartServiceTest {
 
         addLaptopRequest = new AddCartItemRequest(
                 1, "Laptop", "Gaming Laptop",
-                BigDecimal.valueOf(1200.00), 2.0);
+                BigDecimal.valueOf(1200.00), 2.0, 10);
     }
 
     // -------------------------------------------------------
@@ -169,7 +170,7 @@ class CartServiceTest {
 
             // Add same product again with qty=1
             AddCartItemRequest duplicateRequest = new AddCartItemRequest(
-                    1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200.00), 1.0);
+                    1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200.00), 1.0, 10);
             cartService.addItem(CUSTOMER_ID, duplicateRequest);
 
             ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
@@ -183,7 +184,7 @@ class CartServiceTest {
         @Test @DisplayName("should throw CartValidationException when quantity is zero")
         void shouldThrowWhenQuantityZero() {
             AddCartItemRequest zeroQtyRequest = new AddCartItemRequest(
-                    1, "Laptop", "desc", BigDecimal.valueOf(100), 0.0);
+                    1, "Laptop", "desc", BigDecimal.valueOf(100), 0.0, 10);
 
             assertThatThrownBy(() -> cartService.addItem(CUSTOMER_ID, zeroQtyRequest))
                     .isInstanceOf(CartValidationException.class)
@@ -194,7 +195,7 @@ class CartServiceTest {
         @Test @DisplayName("should throw CartValidationException when quantity is negative")
         void shouldThrowWhenQuantityNegative() {
             AddCartItemRequest negQtyRequest = new AddCartItemRequest(
-                    1, "Laptop", "desc", BigDecimal.valueOf(100), -1.0);
+                    1, "Laptop", "desc", BigDecimal.valueOf(100), -1.0, 10);
 
             assertThatThrownBy(() -> cartService.addItem(CUSTOMER_ID, negQtyRequest))
                     .isInstanceOf(CartValidationException.class);
@@ -234,6 +235,31 @@ class CartServiceTest {
         void shouldThrowWhenNewQuantityZero() {
             assertThatThrownBy(() -> cartService.updateItemQuantity(CUSTOMER_ID, 1, 0.0))
                     .isInstanceOf(CartValidationException.class);
+        }
+
+        @Test @DisplayName("should throw CartValidationException when new quantity exceeds stock")
+        void shouldThrowWhenNewQuantityExceedsStock() {
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            // laptopItem has availableQuantity=10, requesting qty=11
+            assertThatThrownBy(() -> cartService.updateItemQuantity(CUSTOMER_ID, 1, 11.0))
+                    .isInstanceOf(CartValidationException.class)
+                    .hasMessageContaining("cart.item.exceeds.stock");
+            verify(cartRepository, never()).save(any());
+        }
+
+        @Test @DisplayName("should allow update when new quantity equals stock limit")
+        void shouldAllowUpdateAtStockLimit() {
+            CartResponse expectedResponse = buildResponse(CART_ID, CUSTOMER_ID, 1);
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            when(cartRepository.save(any(Cart.class))).thenReturn(cartWithOneItem);
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(expectedResponse);
+
+            // Exactly at the limit (10) should succeed
+            cartService.updateItemQuantity(CUSTOMER_ID, 1, 10.0);
+
+            ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
+            verify(cartRepository).save(captor.capture());
+            assertThat(captor.getValue().getItems().get(0).getQuantity()).isEqualTo(10.0);
         }
     }
 

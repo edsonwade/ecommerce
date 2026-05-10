@@ -38,7 +38,8 @@ public class CartMapper {
                 item.getProductDescription(),
                 item.getUnitPrice(),
                 item.getQuantity(),
-                item.getLineTotal()
+                item.getLineTotal(),
+                item.getAvailableQuantity()
         );
     }
 }

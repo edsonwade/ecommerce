@@ -30,6 +30,7 @@ public record CartResponse(
             String     productDescription,
             BigDecimal unitPrice,
             double     quantity,
-            BigDecimal lineTotal
+            BigDecimal lineTotal,
+            Integer    availableQuantity
     ) {}
 }

@@ -88,6 +88,7 @@ public class CartService {
                         .productDescription(request.productDescription())
                         .unitPrice(request.unitPrice())
                         .quantity(request.quantity())
+                        .availableQuantity(request.availableQuantity())
                         .build())
         );
 
@@ -115,6 +116,12 @@ public class CartService {
                 new CartNotFoundException(
                         msg("cart.item.not.found", productId, cartId),
                         "cart.item.not.found"));
+
+        if (item.getAvailableQuantity() != null && newQuantity > item.getAvailableQuantity()) {
+            throw new CartValidationException(
+                    msg("cart.item.exceeds.stock", productId, item.getAvailableQuantity()),
+                    "cart.item.exceeds.stock");
+        }
 
         item.setQuantity(newQuantity);
         cart.touch();

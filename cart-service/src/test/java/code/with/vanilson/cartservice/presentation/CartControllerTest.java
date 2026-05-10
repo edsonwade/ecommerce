@@ -59,9 +59,9 @@ class CartControllerTest {
 
     @BeforeEach
     void setUp() {
-        validRequest = new AddCartItemRequest(1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200), 2.0);
+        validRequest = new AddCartItemRequest(1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200), 2.0, 10);
         CartResponse.CartItemResponse item = new CartResponse.CartItemResponse(
-                1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200), 2.0, BigDecimal.valueOf(2400));
+                1, "Laptop", "Gaming Laptop", BigDecimal.valueOf(1200), 2.0, BigDecimal.valueOf(2400), 10);
         cartResponse = new CartResponse("cart:c-01", "c-01", List.of(item),
                 BigDecimal.valueOf(2400), 1, LocalDateTime.now(), LocalDateTime.now());
     }
@@ -112,7 +112,7 @@ class CartControllerTest {
         @Test
         @DisplayName("should return 400 when request is invalid")
         void shouldReturn400() throws Exception {
-            AddCartItemRequest invalid = new AddCartItemRequest(null, "", "", null, -1.0);
+            AddCartItemRequest invalid = new AddCartItemRequest(null, "", "", null, -1.0, null);
 
             mockMvc.perform(post("/api/v1/carts/{customerId}/items", "c-01")
                             .header(TENANT_HEADER, TENANT_ID)

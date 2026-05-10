@@ -1,4 +1,4 @@
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Add, Remove, DeleteOutlined } from '@mui/icons-material';
 import type { CartItemResponse } from '@api/types';
 import { formatCurrency } from '@utils/format';
@@ -78,14 +78,27 @@ export default function CartItem({ item, onRemove, onQuantityChange }: CartItemP
           >
             {item.quantity}
           </Typography>
-          <IconButton
-            size="small"
-            onClick={() => onQuantityChange(item.quantity + 1)}
-            sx={{ p: 0.25 }}
+          <Tooltip
+            title={item.quantity >= item.availableQuantity ? 'Max stock reached' : ''}
+            placement="top"
           >
-            <Add sx={{ fontSize: 16 }} />
-          </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => onQuantityChange(item.quantity + 1)}
+                disabled={item.quantity >= item.availableQuantity}
+                sx={{ p: 0.25 }}
+              >
+                <Add sx={{ fontSize: 16 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
         </Box>
+        {item.quantity >= item.availableQuantity && (
+          <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
+            Max stock reached
+          </Typography>
+        )}
       </Box>
 
       {/* Line total + remove */}

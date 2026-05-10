@@ -71,6 +71,7 @@ export interface AddCartItemRequest {
   productDescription?: string;
   unitPrice: number;
   quantity: number;
+  availableQuantity: number;
 }
 
 export interface CartItemResponse {
@@ -80,6 +81,7 @@ export interface CartItemResponse {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  availableQuantity: number;
 }
 
 export interface CartResponse {

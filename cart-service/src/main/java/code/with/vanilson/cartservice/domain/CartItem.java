@@ -39,6 +39,9 @@ public class CartItem implements Serializable {
 
     private double     quantity;
 
+    /** Stock snapshotted at add-to-cart time — used by frontend to cap + button. */
+    private Integer    availableQuantity;
+
     /** Computed field — not stored, recalculated on read. */
     public BigDecimal getLineTotal() {
         if (unitPrice == null) return BigDecimal.ZERO;
