@@ -48,13 +48,13 @@ export default function ProductPage() {
         quantity,
         availableQuantity: product!.availableQuantity,
       }),
-    retry: (count, error) => count <= 1 && (error as AppError).status === 503,
+    retry: (count, error) => count <= 1 && (error as unknown as AppError).status === 503,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
       addToast({ message: `${product?.name} added to cart`, variant: 'success' });
     },
     onError: (error) => {
-      const is503 = (error as AppError).status === 503;
+      const is503 = (error as unknown as AppError).status === 503;
       addToast({
         message: is503
           ? 'Cart service is temporarily unavailable. Please try again.'
