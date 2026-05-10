@@ -5,6 +5,7 @@ import code.with.vanilson.productservice.exception.ProductForbiddenException;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.tenantcontext.exception.MissingTenantException;
 import org.springframework.security.access.AccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -105,13 +106,27 @@ public class ProductGlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(MissingTenantException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingTenant(
+            MissingTenantException ex, WebRequest request) {
+        log.warn("[ProductExceptionHandler] Missing tenant: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), "product.tenant.missing", request);
+    }
+
     /** Final safety net — never expose internal details. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
+
+        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+            log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        } else {
+            log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
+        }
+
+        // User-facing message WITHOUT the reference
         String message = messageSource.getMessage(
-                "product.error.internal", new Object[]{ref}, LocaleContextHolder.getLocale());
-        log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
+                "product.error.internal.user", null, LocaleContextHolder.getLocale());
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, "product.error.internal", request);
     }
 

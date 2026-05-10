@@ -107,9 +107,15 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Strip internal reference IDs from error messages
+function sanitizeMessage(msg: string): string {
+  return msg.replace(/\s*Reference:\s*\[?[\w-]+\]?/gi, '').trim();
+}
+
 export function normalizeError(error: unknown): AppError {
   if (error && typeof error === 'object' && 'status' in error && 'message' in error) {
-    return error as AppError;
+    const appErr = error as AppError;
+    return { ...appErr, message: sanitizeMessage(appErr.message) };
   }
   if (axios.isAxiosError(error)) {
     const status = error.response?.status ?? 0;
@@ -125,9 +131,11 @@ export function normalizeError(error: unknown): AppError {
     if (status === 429) return { status, message: 'Rate limited — please try again shortly' };
     if (status === 503) return { status, message: 'Service unavailable — please try again later' };
 
+    const rawMessage =
+      (error.response?.data as { message?: string })?.message ?? error.message ?? 'An unexpected error occurred';
     return {
       status,
-      message: (error.response?.data as { message?: string })?.message ?? error.message ?? 'An unexpected error occurred',
+      message: sanitizeMessage(rawMessage),
     };
   }
   return { status: 0, message: 'Network error — check your connection' };

@@ -96,13 +96,21 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
             String ref = UUID.randomUUID().toString();
+
+            if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+                log.error("[GatewayExceptionHandler] Unhandled exception ref=[{}]: {}",
+                        ref, ex.getMessage());
+            } else {
+                log.error("[GatewayExceptionHandler] Unhandled exception ref=[{}]: {}",
+                        ref, ex.getMessage(), ex);
+            }
+
+            // User-facing message WITHOUT the reference
             message = messageSource.getMessage(
-                    "gateway.error.internal",
-                    new Object[]{ref},
+                    "gateway.error.internal.user",
+                    null,
                     LocaleContextHolder.getLocale());
             errorCode = "gateway.error.internal";
-            log.error("[GatewayExceptionHandler] Unhandled exception ref=[{}]: {}",
-                    ref, ex.getMessage(), ex);
         }
 
         exchange.getResponse().setStatusCode(status);
@@ -112,13 +120,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             exchange.getResponse().getHeaders().set("Retry-After", retryAfter);
         }
 
-        String requestId = exchange.getRequest().getHeaders()
-                .getFirst("X-Request-ID");
-        if (requestId == null) {
-            requestId = UUID.randomUUID().toString();
-        }
-
-        String body = buildErrorBody(status, message, errorCode, requestId,
+        String body = buildErrorBody(status, message, errorCode,
                 exchange.getRequest().getPath().value());
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
@@ -126,7 +128,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
     }
 
     private String buildErrorBody(HttpStatus status, String message,
-                                   String errorCode, String requestId, String path) {
+                                   String errorCode, String path) {
         return String.format("""
                 {
                   "timestamp": "%s",
@@ -134,15 +136,13 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
                   "error": "%s",
                   "errorCode": "%s",
                   "message": "%s",
-                  "path": "%s",
-                  "requestId": "%s"
+                  "path": "%s"
                 }""",
                 Instant.now(),
                 status.value(),
                 status.getReasonPhrase(),
                 errorCode,
                 message.replace("\"", "'"),
-                path,
-                requestId);
+                path);
     }
 }
