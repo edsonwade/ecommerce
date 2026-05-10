@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
-import type { ProductResponse } from '@api/types';
+import type { ProductResponse, AppError } from '@api/types';
 import ProductCard from './ProductCard';
 import EmptyState from '@components/feedback/EmptyState';
 import { useAuthStore } from '@stores/auth.store';
@@ -17,7 +18,9 @@ export default function ProductGrid({ products }: ProductGridProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
-  const { mutate: addToCart } = useMutation({
+  const prevFailureCount = useRef(0);
+
+  const { mutate: addToCart, isPending: isAddingToCart, failureCount } = useMutation({
     mutationFn: (product: ProductResponse) =>
       cartApi.addItem(userId!, {
         productId: product.id,
@@ -27,14 +30,28 @@ export default function ProductGrid({ products }: ProductGridProps) {
         quantity: 1,
         availableQuantity: product.availableQuantity,
       }),
+    retry: (count, error) => count <= 1 && (error as unknown as AppError).status === 503,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
       addToast({ message: 'Item added to cart', variant: 'success' });
     },
-    onError: () => {
-      addToast({ message: 'Failed to add item to cart', variant: 'error' });
+    onError: (error) => {
+      const is503 = (error as unknown as AppError).status === 503;
+      addToast({
+        message: is503
+          ? 'Cart service is temporarily unavailable. Please try again.'
+          : 'Failed to add item to cart',
+        variant: 'error',
+      });
     },
   });
+
+  useEffect(() => {
+    if (failureCount === 1 && isAddingToCart && prevFailureCount.current === 0) {
+      addToast({ message: 'Cart service is busy — retrying…', variant: 'warning' });
+    }
+    prevFailureCount.current = failureCount;
+  }, [failureCount, isAddingToCart, addToast]);
 
   const handleAddToCart = (product: ProductResponse) => {
     if (!isAuthenticated || !userId) return;
