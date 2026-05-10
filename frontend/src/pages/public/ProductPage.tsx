@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Box,
@@ -20,6 +20,7 @@ import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { formatCurrency } from '@utils/format';
+import type { AppError } from '@api/types';
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +36,9 @@ export default function ProductPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { mutate: addToCart, isPending } = useMutation({
+  const prevFailureCount = useRef(0);
+
+  const { mutate: addToCart, isPending, failureCount } = useMutation({
     mutationFn: () =>
       cartApi.addItem(userId!, {
         productId: product!.id,
@@ -45,14 +48,28 @@ export default function ProductPage() {
         quantity,
         availableQuantity: product!.availableQuantity,
       }),
+    retry: (count, error) => count <= 1 && (error as AppError).status === 503,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
       addToast({ message: `${product?.name} added to cart`, variant: 'success' });
     },
-    onError: () => {
-      addToast({ message: 'Failed to add to cart', variant: 'error' });
+    onError: (error) => {
+      const is503 = (error as AppError).status === 503;
+      addToast({
+        message: is503
+          ? 'Cart service is temporarily unavailable. Please try again.'
+          : 'Failed to add to cart',
+        variant: 'error',
+      });
     },
   });
+
+  useEffect(() => {
+    if (failureCount === 1 && isPending && prevFailureCount.current === 0) {
+      addToast({ message: 'Cart service is busy — retrying…', variant: 'warning' });
+    }
+    prevFailureCount.current = failureCount;
+  }, [failureCount, isPending, addToast]);
 
   if (isLoading) {
     return (
@@ -184,7 +201,11 @@ export default function ProductPage() {
                   onClick={() => addToCart()}
                   sx={{ flex: 1 }}
                 >
-                  {!isAuthenticated ? 'Sign in to purchase' : 'Add to cart'}
+                  {!isAuthenticated
+                    ? 'Sign in to purchase'
+                    : isPending && failureCount > 0
+                    ? 'Retrying…'
+                    : 'Add to cart'}
                 </Button>
               </Box>
             )}

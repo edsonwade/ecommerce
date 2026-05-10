@@ -103,12 +103,12 @@ spring:
                 key-resolver: "#{@tenantKeyResolver}"
             - name: Retry
               args:
-                retries: 1
+                retries: 2
                 statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
-                methods: GET
+                methods: GET,POST,PATCH
                 backoff:
-                  firstBackoff: 50ms
-                  maxBackoff: 200ms
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
                   factor: 2
 
         # -------------------------------------------------------
@@ -244,8 +244,8 @@ resilience4j:
         failure-rate-threshold: 60
         wait-duration-in-open-state: 15s
         permitted-number-of-calls-in-half-open-state: 5
-        slow-call-rate-threshold: 90
-        slow-call-duration-threshold: 1s   # Redis should be < 1ms; 1s = Redis down
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
       order-cb:
         sliding-window-size: 10
         failure-rate-threshold: 50
