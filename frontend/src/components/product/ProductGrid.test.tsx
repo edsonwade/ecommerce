@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@test/test-utils';
+import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor } from '@test/test-utils';
 import { server } from '@test/mocks/server';
 import { http, HttpResponse } from 'msw';
 import { useUIStore } from '@stores/ui.store';
@@ -47,8 +48,9 @@ describe('ProductGrid — add to cart retry', () => {
   });
 
   it('shows success toast after successful add', async () => {
+    const user = userEvent.setup();
     render(<ProductGrid products={[PRODUCT]} />);
-    fireEvent.click(screen.getByText('Add to cart'));
+    await user.click(screen.getByText('Add to cart'));
     await waitFor(
       () => {
         const toasts = useUIStore.getState().toastQueue;
@@ -73,8 +75,9 @@ describe('ProductGrid — add to cart retry', () => {
       })
     );
 
+    const user = userEvent.setup();
     render(<ProductGrid products={[PRODUCT]} />);
-    fireEvent.click(screen.getByText('Add to cart'));
+    await user.click(screen.getByText('Add to cart'));
 
     await waitFor(
       () => {
@@ -103,8 +106,9 @@ describe('ProductGrid — add to cart retry', () => {
       )
     );
 
+    const user = userEvent.setup();
     render(<ProductGrid products={[PRODUCT]} />);
-    fireEvent.click(screen.getByText('Add to cart'));
+    await user.click(screen.getByText('Add to cart'));
 
     await waitFor(
       () => {
@@ -128,8 +132,9 @@ describe('ProductGrid — add to cart retry', () => {
       )
     );
 
+    const user = userEvent.setup();
     render(<ProductGrid products={[PRODUCT]} />);
-    fireEvent.click(screen.getByText('Add to cart'));
+    await user.click(screen.getByText('Add to cart'));
 
     await waitFor(
       () => {

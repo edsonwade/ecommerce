@@ -1,5 +1,6 @@
 package code.with.vanilson.authentication.bdd.steps;
 
+import code.with.vanilson.authentication.config.AdminBootstrapRunner;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.And;
@@ -45,6 +46,9 @@ public class AuthStepDefinitions {
     /** Injected by cucumber-spring via autowireBean() — safe to use from @Before onward. */
     @Autowired
     private Environment environment;
+
+    @Autowired
+    private AdminBootstrapRunner adminBootstrapRunner;
 
     // ------------------------------------------------------------------
     // Per-scenario state — reset in @Before (new instance = clean state,
@@ -145,6 +149,14 @@ public class AuthStepDefinitions {
                 .as("Pre-registration must succeed (201). Got: %s", r.asString())
                 .isEqualTo(201);
         captureTokens(r);
+    }
+
+    @Given("the admin account {string} has been seeded by AdminBootstrapRunner")
+    public void theAdminAccountHasBeenSeeded(String adminEmail) throws Exception {
+        // Pin the literal admin email in the cache so the login step does not uniquify it
+        emailCache.put(adminEmail, adminEmail);
+        // Idempotent: existsByEmail check prevents duplicate creation
+        adminBootstrapRunner.run(null);
     }
 
     @Given("a user is registered and logged in with email {string}")

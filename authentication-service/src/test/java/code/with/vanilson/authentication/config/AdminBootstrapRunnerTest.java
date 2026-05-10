@@ -23,22 +23,22 @@ class AdminBootstrapRunnerTest {
     }
 
     @Nested
-    @DisplayName("when no ADMIN exists")
+    @DisplayName("when no ADMIN exists for the configured email")
     class WhenNoAdminExists {
 
         @Test
-        @DisplayName("creates ADMIN user with provided credentials and tenant")
+        @DisplayName("creates ADMIN user with the canonical admin@obsidian.com email")
         void creates_admin_when_none_exists() throws Exception {
-            when(repo.countByRole(Role.ADMIN)).thenReturn(0L);
+            when(repo.existsByEmail("admin@obsidian.com")).thenReturn(false);
             when(encoder.encode("Admin@123!")).thenReturn("hashed-password");
 
-            runner("admin@platform.com", "Admin@123!", "system").run(null);
+            runner("admin@obsidian.com", "Admin@123!", "system").run(null);
 
             ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
             verify(repo).save(captor.capture());
             User saved = captor.getValue();
 
-            assertThat(saved.getEmail()).isEqualTo("admin@platform.com");
+            assertThat(saved.getEmail()).isEqualTo("admin@obsidian.com");
             assertThat(saved.getPassword()).isEqualTo("hashed-password");
             assertThat(saved.getRole()).isEqualTo(Role.ADMIN);
             assertThat(saved.getTenantId()).isEqualTo("system");
@@ -49,7 +49,7 @@ class AdminBootstrapRunnerTest {
         @Test
         @DisplayName("encodes the password before saving")
         void encodes_password_before_saving() throws Exception {
-            when(repo.countByRole(Role.ADMIN)).thenReturn(0L);
+            when(repo.existsByEmail("a@b.com")).thenReturn(false);
             when(encoder.encode("secret")).thenReturn("encoded-secret");
 
             runner("a@b.com", "secret", "t1").run(null);
@@ -59,28 +59,40 @@ class AdminBootstrapRunnerTest {
             verify(repo).save(captor.capture());
             assertThat(captor.getValue().getPassword()).isEqualTo("encoded-secret");
         }
+
+        @Test
+        @DisplayName("creates admin even when other admins exist under a different email")
+        void creates_admin_when_different_admin_email_exists() throws Exception {
+            // A stale admin with a different email must not block seeding the configured one
+            when(repo.existsByEmail("admin@obsidian.com")).thenReturn(false);
+            when(encoder.encode("Admin@123!")).thenReturn("hashed");
+
+            runner("admin@obsidian.com", "Admin@123!", "system").run(null);
+
+            verify(repo).save(any(User.class));
+        }
     }
 
     @Nested
-    @DisplayName("when ADMIN already exists")
+    @DisplayName("when ADMIN already exists for the configured email")
     class WhenAdminAlreadyExists {
 
         @Test
         @DisplayName("does NOT create another admin user")
         void noop_when_admin_exists() throws Exception {
-            when(repo.countByRole(Role.ADMIN)).thenReturn(1L);
+            when(repo.existsByEmail("admin@obsidian.com")).thenReturn(true);
 
-            runner("admin@platform.com", "Admin@123!", "system").run(null);
+            runner("admin@obsidian.com", "Admin@123!", "system").run(null);
 
             verify(repo, never()).save(any());
         }
 
         @Test
-        @DisplayName("does NOT encode any password")
+        @DisplayName("does NOT encode any password when skipping")
         void does_not_encode_password_when_skipping() throws Exception {
-            when(repo.countByRole(Role.ADMIN)).thenReturn(2L);
+            when(repo.existsByEmail("admin@obsidian.com")).thenReturn(true);
 
-            runner("admin@platform.com", "Admin@123!", "system").run(null);
+            runner("admin@obsidian.com", "Admin@123!", "system").run(null);
 
             verify(encoder, never()).encode(anyString());
         }

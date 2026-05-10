@@ -86,6 +86,16 @@ test.describe('Admin — access control', () => {
   });
 });
 
+test.describe('Admin — navigation badge', () => {
+  test('ADMIN role badge is visible in the navbar', async ({ page }) => {
+    await injectAuth(page, 'ADMIN');
+    await page.goto('/admin');
+    await expect(page).not.toHaveURL(/\/login/);
+    // RoleBadge renders a Chip with label "ADMIN"
+    await expect(page.getByText('ADMIN').first()).toBeVisible();
+  });
+});
+
 test.describe('Admin dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await injectAuth(page, 'ADMIN');
