@@ -67,6 +67,9 @@ public class Product {
     @Column(name = "updated_by")
     private String updatedBy;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price) {
         this.id = id;
         this.name = name;

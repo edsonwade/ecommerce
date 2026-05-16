@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Add, Remove, DeleteOutlined } from '@mui/icons-material';
 import type { CartItemResponse } from '@api/types';
@@ -10,6 +11,8 @@ interface CartItemProps {
 }
 
 export default function CartItem({ item, onRemove, onQuantityChange }: CartItemProps) {
+  const [imgError, setImgError] = useState(false);
+
   return (
     <Box
       sx={{
@@ -31,14 +34,25 @@ export default function CartItem({ item, onRemove, onQuantityChange }: CartItemP
           bgcolor: 'var(--surface-sunken)',
           border: '1px solid',
           borderColor: 'divider',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Typography sx={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', opacity: 0.2 }}>
-          {item.productName.slice(0, 2).toUpperCase()}
-        </Typography>
+        {item.imageUrl && !imgError ? (
+          <Box
+            component="img"
+            src={item.imageUrl}
+            alt={item.productName}
+            onError={() => setImgError(true)}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <Typography sx={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', opacity: 0.2 }}>
+            {item.productName.slice(0, 2).toUpperCase()}
+          </Typography>
+        )}
       </Box>
 
       {/* Details */}

@@ -20,6 +20,7 @@ import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { formatCurrency } from '@utils/format';
+import { getCategoryFallbackImage } from '@utils/productImages';
 import type { AppError } from '@api/types';
 
 export default function ProductPage() {
@@ -28,6 +29,8 @@ export default function ProductPage() {
   const { isAuthenticated, userId } = useAuthStore();
   const addToast = useUIStore((s) => s.addToast);
   const [quantity, setQuantity] = useState(1);
+  const [imgError, setImgError] = useState(false);
+  const [fallbackError, setFallbackError] = useState(false);
 
   const { data: product, isLoading, isError } = useQuery({
     queryKey: [QUERY_KEYS.PRODUCT, id],
@@ -88,6 +91,7 @@ export default function ProductPage() {
   }
 
   const outOfStock = product.availableQuantity === 0;
+  const fallbackUrl = getCategoryFallbackImage(product.categoryName);
 
   return (
     <Container maxWidth="lg" sx={{ py: 6, px: { xs: 2, md: 4 } }}>
@@ -120,22 +124,40 @@ export default function ProductPage() {
               borderRadius: 2,
               border: '1px solid',
               borderColor: 'divider',
+              overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              overflow: 'hidden',
             }}
           >
-            <Typography
-              sx={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '5rem',
-                opacity: 0.1,
-                color: 'text.primary',
-              }}
-            >
-              {product.name.slice(0, 2).toUpperCase()}
-            </Typography>
+            {(product.imageUrl && !imgError) || (!product.imageUrl && !fallbackError) ? (
+              <Box
+                component="img"
+                src={product.imageUrl && !imgError ? product.imageUrl : fallbackUrl}
+                alt={product.name}
+                onError={() => {
+                  if (product.imageUrl && !imgError) setImgError(true);
+                  else setFallbackError(true);
+                }}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                }}
+              />
+            ) : (
+              <Typography
+                sx={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '5rem',
+                  opacity: 0.1,
+                  color: 'text.primary',
+                }}
+              >
+                {product.name.slice(0, 2).toUpperCase()}
+              </Typography>
+            )}
           </Box>
         </motion.div>
 

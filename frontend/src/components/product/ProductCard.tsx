@@ -8,6 +8,7 @@ import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import { formatCurrency } from '@utils/format';
+import { getCategoryFallbackImage } from '@utils/productImages';
 
 interface ProductCardProps {
   product: ProductResponse;
@@ -16,6 +17,9 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const [hovered, setHovered] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [fallbackError, setFallbackError] = useState(false);
+  const fallbackUrl = getCategoryFallbackImage(product.categoryName);
   const { isAuthenticated } = useAuthStore();
   const addToast = useUIStore((s) => s.addToast);
   const outOfStock = product.availableQuantity === 0;
@@ -57,33 +61,54 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             overflow: 'hidden',
           }}
         >
-          {/* Placeholder gradient image */}
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              background: `linear-gradient(135deg, var(--surface-raised) 0%, var(--border-emphasis) 100%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: hovered ? 'scale(1.03)' : 'scale(1)',
-              transition: 'transform 200ms ease-out',
-              filter: outOfStock ? 'grayscale(1)' : 'none',
-            }}
-          >
-            <Typography
+          {/* Product image → category fallback → gradient placeholder */}
+          {(product.imageUrl && !imgError) || (!product.imageUrl && !fallbackError) ? (
+            <Box
+              component="img"
+              src={product.imageUrl && !imgError ? product.imageUrl : fallbackUrl}
+              alt={product.name}
+              onError={() => {
+                if (product.imageUrl && !imgError) setImgError(true);
+                else setFallbackError(true);
+              }}
               sx={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '2rem',
-                opacity: 0.15,
-                color: 'text.primary',
-                textAlign: 'center',
-                px: 2,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transform: hovered ? 'scale(1.03)' : 'scale(1)',
+                transition: 'transform 200ms ease-out',
+                filter: outOfStock ? 'grayscale(1)' : 'none',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                background: `linear-gradient(135deg, var(--surface-raised) 0%, var(--border-emphasis) 100%)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: hovered ? 'scale(1.03)' : 'scale(1)',
+                transition: 'transform 200ms ease-out',
+                filter: outOfStock ? 'grayscale(1)' : 'none',
               }}
             >
-              {product.name.slice(0, 2).toUpperCase()}
-            </Typography>
-          </Box>
+              <Typography
+                sx={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '2rem',
+                  opacity: 0.15,
+                  color: 'text.primary',
+                  textAlign: 'center',
+                  px: 2,
+                }}
+              >
+                {product.name.slice(0, 2).toUpperCase()}
+              </Typography>
+            </Box>
+          )}
 
           {/* Quick-view overlay */}
           {hovered && !outOfStock && (

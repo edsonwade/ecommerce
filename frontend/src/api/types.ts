@@ -51,6 +51,8 @@ export interface ProductResponse {
   categoryId: number;
   categoryName: string;
   categoryDescription: string;
+  createdBy?: string;
+  imageUrl?: string;
 }
 
 export interface ProductPurchaseRequest {
@@ -83,6 +85,7 @@ export interface CartItemResponse {
   quantity: number;
   lineTotal: number;
   availableQuantity: number;
+  imageUrl?: string;
 }
 
 export interface CartResponse {

@@ -11,6 +11,7 @@ public record ProductResponse(
         Integer categoryId,
         String categoryName,
         String categoryDescription,
-        String createdBy) {
+        String createdBy,
+        String imageUrl) {
 
 }

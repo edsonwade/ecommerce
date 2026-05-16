@@ -325,6 +325,9 @@ public class ProductService {
         existing.setDescription(updated.getDescription());
         existing.setAvailableQuantity(updated.getAvailableQuantity());
         existing.setPrice(updated.getPrice());
+        if (updated.getImageUrl() != null) {
+            existing.setImageUrl(updated.getImageUrl());
+        }
     }
 
     /** Resolves a message key from messages.properties with optional arguments. */
