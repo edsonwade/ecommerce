@@ -17,7 +17,7 @@ export default function UserManagement() {
 
   const { data, isLoading } = useQuery({
     queryKey: USERS_KEY,
-    queryFn: () => usersApi.list(0, 50),
+    queryFn: ({ signal }) => usersApi.list(0, 50, signal),
     staleTime: 60_000,
   });
 

@@ -16,11 +16,12 @@ export const ordersApi = {
       .get<OrderStatusResponse>(`/orders/status/${correlationId}`)
       .then((r) => r.data),
 
-  getAll: () => apiClient.get<OrderResponse[]>('/orders').then((r) => r.data),
+  getAll: (signal?: AbortSignal) =>
+    apiClient.get<OrderResponse[]>('/orders', { signal }).then((r) => r.data),
 
-  getById: (orderId: number) =>
-    apiClient.get<OrderResponse>(`/orders/${orderId}`).then((r) => r.data),
+  getById: (orderId: number, signal?: AbortSignal) =>
+    apiClient.get<OrderResponse>(`/orders/${orderId}`, { signal }).then((r) => r.data),
 
-  getLines: (orderId: number) =>
-    apiClient.get<OrderLineResponse[]>(`/order-lines/${orderId}`).then((r) => r.data),
+  getLines: (orderId: number, signal?: AbortSignal) =>
+    apiClient.get<OrderLineResponse[]>(`/order-lines/${orderId}`, { signal }).then((r) => r.data),
 };

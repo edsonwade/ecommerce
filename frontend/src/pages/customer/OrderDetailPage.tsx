@@ -17,13 +17,13 @@ export default function OrderDetailPage() {
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: [QUERY_KEYS.ORDER, id],
-    queryFn: () => ordersApi.getById(Number(id)),
+    queryFn: ({ signal }) => ordersApi.getById(Number(id), signal),
     enabled: !!id,
   });
 
   const { data: lines } = useQuery({
     queryKey: [QUERY_KEYS.ORDER_LINES, id],
-    queryFn: () => ordersApi.getLines(Number(id)),
+    queryFn: ({ signal }) => ordersApi.getLines(Number(id), signal),
     enabled: !!id,
   });
 

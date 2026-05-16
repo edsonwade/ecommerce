@@ -20,7 +20,7 @@ interface UIState {
   toggleTheme: () => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
-  addToast: (toast: Omit<Toast, 'id'>) => string;
+  addToast: (toast: Omit<Toast, 'id'> & { id?: string }) => string;
   removeToast: (id: string) => void;
 }
 
@@ -39,8 +39,13 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
       addToast: (toast) => {
-        const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        set((s) => ({ toastQueue: [...s.toastQueue, { ...toast, id }] }));
+        const id = toast.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        set((s) => ({
+          // Replace existing toast with the same ID; otherwise append
+          toastQueue: s.toastQueue.some((t) => t.id === id)
+            ? s.toastQueue.map((t) => (t.id === id ? { ...toast, id } : t))
+            : [...s.toastQueue, { ...toast, id }],
+        }));
         return id;
       },
 
