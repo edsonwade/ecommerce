@@ -267,6 +267,68 @@ public class ProductControllerTest {
         verify(productService).deleteProduct(productId);
     }
 
+    @Test
+    @DisplayName("Search products - returns matching results")
+    public void testSearchProducts_returnsResults() throws Exception {
+        List<ProductResponse> productList = List.of(productResponse);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<ProductResponse> expectedPage = new PageImpl<>(productList, pageable, 1);
+
+        when(productService.searchProducts(any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(expectedPage);
+
+        mockMvc.perform(get("/api/v1/products/search")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .param("query", "Product")
+                        .param("sortBy", "name")
+                        .param("sortDir", "asc")
+                        .param("page", "0")
+                        .param("size", "20")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Product 1"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(productService).searchProducts(any(), any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Search products - returns empty page when no match")
+    public void testSearchProducts_noResults() throws Exception {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<ProductResponse> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        when(productService.searchProducts(any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(emptyPage);
+
+        mockMvc.perform(get("/api/v1/products/search")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .param("query", "nonexistent")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    @DisplayName("Search products - filter by categoryId")
+    public void testSearchProducts_byCategoryId() throws Exception {
+        List<ProductResponse> productList = List.of(productResponse);
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<ProductResponse> expectedPage = new PageImpl<>(productList, pageable, 1);
+
+        when(productService.searchProducts(any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(expectedPage);
+
+        mockMvc.perform(get("/api/v1/products/search")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .param("categoryId", "1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1));
+    }
+
     /**
      * This method takes an object obj, uses Jackson's ObjectMapper to convert it into a JSON string, and returns the JSON string
      *

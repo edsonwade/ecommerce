@@ -13,11 +13,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -51,9 +54,10 @@ import static org.mockito.Mockito.when;
 @DisplayName("ProductService — Unit Tests")
 class ProductServiceTest {
 
-    @Mock private ProductRepository productRepository;
-    @Mock private ProductMapper     productMapper;
-    @Mock private MessageSource     messageSource;
+    @Mock private ProductRepository  productRepository;
+    @Mock private ProductMapper      productMapper;
+    @Mock private MessageSource      messageSource;
+    @Mock private code.with.vanilson.productservice.category.CategoryRepository categoryRepository;
 
     @InjectMocks
     private ProductService productService;
@@ -122,6 +126,90 @@ class ProductServiceTest {
             Page<ProductResponse> result = productService.getAllProducts(pageable);
 
             assertThat(result.getContent()).isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------
+    // searchProducts
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("searchProducts")
+    @MockitoSettings(strictness = Strictness.LENIENT)
+    class Search {
+
+        @Test
+        @DisplayName("should return matching products when query matches name")
+        void shouldReturnProductsMatchingQuery() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(product1), pageable, 1);
+
+            when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+
+            Page<ProductResponse> result = productService.searchProducts("Laptop", null, "name", "asc", 0, 20);
+
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent().get(0).name()).isEqualTo("Laptop");
+        }
+
+        @Test
+        @DisplayName("should return all products when query and categoryId are both null")
+        void shouldReturnAllProductsWhenNoFilter() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(product1, product2), pageable, 2);
+
+            when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+            when(productMapper.fromProduct(product2)).thenReturn(response2);
+
+            Page<ProductResponse> result = productService.searchProducts(null, null, "name", "asc", 0, 20);
+
+            assertThat(result.getTotalElements()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should return empty page when no products match query")
+        void shouldReturnEmptyPageWhenNoMatch() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(), pageable, 0);
+
+            when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+
+            Page<ProductResponse> result = productService.searchProducts("nonexistent", null, "name", "asc", 0, 20);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("should filter by categoryId when provided")
+        void shouldFilterByCategoryId() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(product1), pageable, 1);
+
+            when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+
+            Page<ProductResponse> result = productService.searchProducts(null, 1, "name", "asc", 0, 20);
+
+            assertThat(result.getTotalElements()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should apply descending sort when sortDir is desc")
+        void shouldSortDescending() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<Product> page = new PageImpl<>(List.of(product2, product1), pageable, 2);
+
+            when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+            when(productMapper.fromProduct(product2)).thenReturn(response2);
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+
+            Page<ProductResponse> result = productService.searchProducts(null, null, "name", "desc", 0, 20);
+
+            assertThat(result.getContent()).extracting(ProductResponse::name)
+                    .containsExactly("Headphones", "Laptop");
         }
     }
 
