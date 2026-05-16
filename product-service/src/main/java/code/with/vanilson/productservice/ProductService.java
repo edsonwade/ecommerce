@@ -16,7 +16,10 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -108,6 +111,39 @@ public class ProductService {
         return categoryRepository.findAll().stream()
                 .map(c -> new CategoryResponse(c.getId(), c.getName(), c.getDescription()))
                 .toList();
+    }
+
+    /**
+     * Searches and filters products by name/description and/or category, with sorting and pagination.
+     *
+     * @param query      optional text to match against name or description (case-insensitive)
+     * @param categoryId optional category ID to filter by
+     * @param sortBy     field to sort by (default: "name")
+     * @param sortDir    sort direction: "asc" or "desc" (default: "asc")
+     * @param page       zero-based page number
+     * @param size       page size
+     * @return Page of ProductResponse matching the criteria
+     */
+    public Page<ProductResponse> searchProducts(String query, Integer categoryId,
+                                                String sortBy, String sortDir,
+                                                int page, int size) {
+        Sort.Direction direction = Sort.Direction.fromString(sortDir);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+        Specification<Product> spec = Specification.where(null);
+
+        if (query != null && !query.isBlank()) {
+            String pattern = "%" + query.toLowerCase() + "%";
+            spec = spec.and((root, cq, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("name")), pattern),
+                    cb.like(cb.lower(root.get("description")), pattern)
+            ));
+        }
+        if (categoryId != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("category").get("id"), categoryId));
+        }
+
+        return productRepository.findAll(spec, pageable).map(productMapper::fromProduct);
     }
 
     // -------------------------------------------------------

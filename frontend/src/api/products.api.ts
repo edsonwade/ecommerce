@@ -8,6 +8,15 @@ import type {
   ProductPurchaseResponse,
 } from './types';
 
+export interface SearchParams {
+  query?: string;
+  categoryId?: number;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 export const productsApi = {
   getAll: (page = 0, size = 20) =>
     apiClient
@@ -33,4 +42,9 @@ export const productsApi = {
 
   getCategories: () =>
     apiClient.get<CategoryResponse[]>('/products/categories').then((r) => r.data),
+
+  search: (params: SearchParams) =>
+    apiClient
+      .get<PageResponse<ProductResponse>>('/products/search', { params })
+      .then((r) => r.data),
 };
