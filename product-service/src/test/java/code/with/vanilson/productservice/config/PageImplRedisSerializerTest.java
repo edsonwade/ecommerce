@@ -54,8 +54,8 @@ class PageImplRedisSerializerTest {
     @Test
     void pageImpl_roundTrip_preservesContentAndPagination() throws Exception {
         List<ProductResponse> products = List.of(
-                new ProductResponse(1, "Laptop", "A laptop", 10.0, new BigDecimal("999.99"), 1, "Electronics", "Devices", "admin"),
-                new ProductResponse(2, "Phone", "A phone", 5.0, new BigDecimal("499.99"), 1, "Electronics", "Devices", "admin")
+                new ProductResponse(1, "Laptop", "A laptop", 10.0, new BigDecimal("999.99"), 1, "Electronics", "Devices", "admin", null),
+                new ProductResponse(2, "Phone", "A phone", 5.0, new BigDecimal("499.99"), 1, "Electronics", "Devices", "admin", null)
         );
         PageImpl<ProductResponse> original = new PageImpl<>(products, PageRequest.of(0, 20), 106);
 
@@ -79,7 +79,7 @@ class PageImplRedisSerializerTest {
     @Test
     void pageImpl_secondPage_preservesPaginationMetadata() throws Exception {
         List<ProductResponse> products = List.of(
-                new ProductResponse(21, "Tablet", "A tablet", 3.0, new BigDecimal("299.99"), 2, "Tech", "Gadgets", "seller")
+                new ProductResponse(21, "Tablet", "A tablet", 3.0, new BigDecimal("299.99"), 2, "Tech", "Gadgets", "seller", null)
         );
         PageImpl<ProductResponse> page2 = new PageImpl<>(products, PageRequest.of(1, 20), 106);
 

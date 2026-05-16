@@ -79,7 +79,7 @@ public class ProductControllerTest {
         // Set up test data
         product = new Product(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0));
         productResponse = new ProductResponse(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1,
-                "Category Name", "Category Description", "1");
+                "Category Name", "Category Description", "1", null);
         productRequest = new ProductRequest(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1);
 
         // Mapper always returns the test product so service mocks receive a non-null Product
