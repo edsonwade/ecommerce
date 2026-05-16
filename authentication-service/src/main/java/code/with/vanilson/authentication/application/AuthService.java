@@ -4,6 +4,7 @@ import code.with.vanilson.authentication.domain.Role;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
+import code.with.vanilson.authentication.exception.RegistrationException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.CustomerRegistrationClient;
 import code.with.vanilson.authentication.infrastructure.JwtService;
@@ -78,12 +79,26 @@ public class AuthService {
                     "auth.user.already.exists");
         }
 
+        Role userRole = Role.USER;
+        if (StringUtils.hasText(request.role())) {
+            try {
+                userRole = Role.valueOf(request.role().toUpperCase());
+                if (userRole == Role.ADMIN) {
+                    throw new RegistrationException(
+                            msg("auth.register.admin.denied"), "auth.register.admin.denied");
+                }
+            } catch (IllegalArgumentException e) {
+                throw new RegistrationException(
+                        msg("auth.register.invalid.role", request.role()), "auth.register.invalid.role");
+            }
+        }
+
         User user = User.builder()
                 .firstname(request.firstname())
                 .lastname(request.lastname())
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.USER)
+                .role(userRole)
                 .tenantId(StringUtils.hasText(request.tenantId()) ? request.tenantId() : "default")
                 .accountEnabled(true)
                 .accountLocked(false)
