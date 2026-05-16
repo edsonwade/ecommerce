@@ -173,7 +173,7 @@ export default function CatalogPage() {
             value={inputValue}
             onChange={(e) => handleSearchChange(e.target.value)}
             sx={{ minWidth: 260, flexGrow: 1 }}
-            inputProps={{ 'aria-label': 'Search products' }}
+            slotProps={{ htmlInput: { 'aria-label': 'Search products' } }}
           />
 
           <FormControl size="small" sx={{ minWidth: 180 }}>
