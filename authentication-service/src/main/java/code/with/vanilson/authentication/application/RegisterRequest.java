@@ -31,5 +31,12 @@ public record RegisterRequest(
          * Tenant identifier — optional; defaults to "default" for single-tenant mode.
          * In SaaS mode, the tenant is derived from the subdomain or API key.
          */
-        String tenantId
+        String tenantId,
+
+        /**
+         * Requested role — optional; defaults to USER.
+         * Only USER and SELLER are accepted for public self-registration.
+         * ADMIN cannot be self-registered.
+         */
+        String role
 ) {}

@@ -39,6 +39,13 @@ public class AuthGlobalExceptionHandler {
         this.messageSource = messageSource;
     }
 
+    @ExceptionHandler(RegistrationException.class)
+    public ResponseEntity<Map<String, Object>> handleRegistration(
+            RegistrationException ex, WebRequest req) {
+        log.warn("[AuthHandler] Registration error: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
+    }
+
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<Map<String, Object>> handleUserExists(
             UserAlreadyExistsException ex, WebRequest req) {

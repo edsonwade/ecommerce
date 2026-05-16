@@ -5,6 +5,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   tenantId?: string;
+  role?: 'USER' | 'SELLER';
 }
 
 export interface LoginRequest {

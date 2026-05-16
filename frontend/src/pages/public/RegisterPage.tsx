@@ -13,10 +13,13 @@ import {
   IconButton,
   InputAdornment,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '@api/auth.api';
+import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import { normalizeError } from '@api/client';
@@ -26,12 +29,14 @@ const schema = z.object({
   lastname: z.string().min(1, 'Last name is required'),
   email: z.string().email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.enum(['USER', 'SELLER']),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const setAuth = useAuthStore((s) => s.setAuth);
   const addToast = useUIStore((s) => s.addToast);
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -39,19 +44,39 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { role: 'USER' } });
+
+  const role = watch('role');
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
     try {
-      await authApi.register(values);
-      addToast({
-        message: 'Account created — please sign in to continue',
-        variant: 'success',
-      });
-      navigate(ROUTES.LOGIN, { replace: true, state: { email: values.email } });
+      const response = await authApi.register(values);
+      if (values.role === 'SELLER') {
+        setAuth({
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken,
+          userId: response.userId,
+          email: response.email,
+          role: response.role,
+          tenantId: response.tenantId,
+        });
+        addToast({
+          message: 'Welcome! Set up your store to start selling.',
+          variant: 'success',
+        });
+        navigate(ROUTES.SELLER, { replace: true });
+      } else {
+        addToast({
+          message: 'Account created — please sign in to continue',
+          variant: 'success',
+        });
+        navigate(ROUTES.LOGIN, { replace: true, state: { email: values.email } });
+      }
     } catch (err) {
       const normalized = normalizeError(err);
       if (normalized.fieldErrors) {
@@ -113,6 +138,20 @@ export default function RegisterPage() {
               {serverError}
             </Alert>
           )}
+
+          <ToggleButtonGroup
+            value={role}
+            exclusive
+            onChange={(_, val) => val && setValue('role', val)}
+            sx={{ mb: 2, width: '100%' }}
+          >
+            <ToggleButton value="USER" sx={{ flex: 1 }}>
+              I want to buy
+            </ToggleButton>
+            <ToggleButton value="SELLER" sx={{ flex: 1 }}>
+              I want to sell
+            </ToggleButton>
+          </ToggleButtonGroup>
 
           <Grid container spacing={2}>
             <Grid size={6}>

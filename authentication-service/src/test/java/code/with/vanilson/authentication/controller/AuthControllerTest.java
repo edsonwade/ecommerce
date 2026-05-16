@@ -6,6 +6,7 @@ import code.with.vanilson.authentication.config.JwtAuthFilter;
 import code.with.vanilson.authentication.config.SecurityConfig;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
+import code.with.vanilson.authentication.exception.RegistrationException;
 import code.with.vanilson.authentication.exception.TokenRevokedException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.JwtService;
@@ -208,6 +209,62 @@ class AuthControllerTest {
                     .content("{}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.fieldErrors", notNullValue()));
+        }
+
+        @Test
+        @DisplayName("201 Created with SELLER role when registering as seller")
+        void sellerRegistrationReturns201WithSellerRole() throws Exception {
+            AuthResponse sellerResponse = AuthResponse.of(
+                    "seller.access.token", "seller.refresh.token",
+                    "2", "seller@example.com", "SELLER", "default");
+            when(authService.register(any())).thenReturn(sellerResponse);
+
+            mockMvc.perform(post(BASE + "/register")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("firstname", "Alice", "lastname", "Trader",
+                            "email", "seller@example.com", "password", "password123",
+                            "role", "SELLER")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.role", is("SELLER")))
+                    .andExpect(jsonPath("$.accessToken", is("seller.access.token")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when self-registering as ADMIN")
+        void adminSelfRegistrationReturns400() throws Exception {
+            doThrow(new RegistrationException(
+                    "Self-registration as ADMIN is not permitted.",
+                    "auth.register.admin.denied"))
+                    .when(authService).register(any());
+
+            mockMvc.perform(post(BASE + "/register")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("firstname", "Evil", "lastname", "Hacker",
+                            "email", "evil@example.com", "password", "password123",
+                            "role", "ADMIN")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status", is(400)))
+                    .andExpect(jsonPath("$.errorCode", is("auth.register.admin.denied")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when role value is invalid")
+        void invalidRoleReturns400() throws Exception {
+            doThrow(new RegistrationException(
+                    "Registration failed: [SUPERADMIN] is not a valid role.",
+                    "auth.register.invalid.role"))
+                    .when(authService).register(any());
+
+            mockMvc.perform(post(BASE + "/register")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("firstname", "Dave", "lastname", "Jones",
+                            "email", "dave@example.com", "password", "password123",
+                            "role", "SUPERADMIN")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.register.invalid.role")));
         }
     }
 

@@ -190,6 +190,7 @@ public class AuthStepDefinitions {
         appendField(json, "lastname",  data.get("lastname"));
         if (resolvedEmail != null) appendField(json, "email", resolvedEmail);
         appendField(json, "password",  data.get("password"));
+        appendField(json, "role",      data.get("role"));
         if (json.charAt(json.length() - 1) == ',') json.deleteCharAt(json.length() - 1);
         json.append("}");
 

@@ -9,6 +9,7 @@ import code.with.vanilson.authentication.domain.Role;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
+import code.with.vanilson.authentication.exception.RegistrationException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.JwtService;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
@@ -100,7 +101,7 @@ class AuthServiceTest {
         @DisplayName("success: new user persisted and tokens returned")
         void successfulRegistration() {
             RegisterRequest req = new RegisterRequest("John", "Doe",
-                    "john.doe@example.com", "password123", "default");
+                    "john.doe@example.com", "password123", "default", null);
 
             when(userRepository.existsByEmail("john.doe@example.com")).thenReturn(false);
             when(passwordEncoder.encode("password123")).thenReturn("$2a$12$encoded");
@@ -125,7 +126,7 @@ class AuthServiceTest {
         @DisplayName("duplicate email throws UserAlreadyExistsException (HTTP 409)")
         void duplicateEmailThrows() {
             RegisterRequest req = new RegisterRequest("John", "Doe",
-                    "john.doe@example.com", "password123", "default");
+                    "john.doe@example.com", "password123", "default", null);
 
             when(userRepository.existsByEmail("john.doe@example.com")).thenReturn(true);
 
@@ -144,7 +145,7 @@ class AuthServiceTest {
         @DisplayName("register with null tenantId defaults to 'default'")
         void nullTenantIdDefaultsToDefault() {
             RegisterRequest req = new RegisterRequest("Jane", "Doe",
-                    "jane@example.com", "password123", null);
+                    "jane@example.com", "password123", null, null);
 
             when(userRepository.existsByEmail("jane@example.com")).thenReturn(false);
             when(passwordEncoder.encode(anyString())).thenReturn("encoded");
@@ -155,6 +156,109 @@ class AuthServiceTest {
 
             AuthResponse resp = authService.register(req);
             assertThat(resp).isNotNull();
+        }
+
+        @Test
+        @DisplayName("register as SELLER returns SELLER role in response")
+        void sellerRegistrationSucceeds() {
+            User sellerUser = User.builder()
+                    .id(2L).firstname("Alice").lastname("Seller")
+                    .email("seller@example.com").password("$2a$12$encoded")
+                    .role(Role.SELLER).tenantId("default")
+                    .accountEnabled(true).accountLocked(false).build();
+
+            RegisterRequest req = new RegisterRequest("Alice", "Seller",
+                    "seller@example.com", "password123", "default", "SELLER");
+
+            when(userRepository.existsByEmail("seller@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("$2a$12$encoded");
+            when(userRepository.save(any(User.class))).thenReturn(sellerUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("seller.access.jwt");
+            when(jwtService.generateRefreshToken(any())).thenReturn("seller.refresh.jwt");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            AuthResponse resp = authService.register(req);
+
+            assertThat(resp.role()).isEqualTo("SELLER");
+            assertThat(resp.accessToken()).isEqualTo("seller.access.jwt");
+        }
+
+        @Test
+        @DisplayName("register as SELLER with lowercase role name succeeds")
+        void sellerRegistrationLowercaseRoleSucceeds() {
+            User sellerUser = User.builder()
+                    .id(3L).firstname("Bob").lastname("Trader")
+                    .email("trader@example.com").password("$2a$12$encoded")
+                    .role(Role.SELLER).tenantId("default")
+                    .accountEnabled(true).accountLocked(false).build();
+
+            RegisterRequest req = new RegisterRequest("Bob", "Trader",
+                    "trader@example.com", "password123", "default", "seller");
+
+            when(userRepository.existsByEmail("trader@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+            when(userRepository.save(any(User.class))).thenReturn(sellerUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("access");
+            when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            AuthResponse resp = authService.register(req);
+            assertThat(resp.role()).isEqualTo("SELLER");
+        }
+
+        @Test
+        @DisplayName("self-registration as ADMIN throws RegistrationException (HTTP 400)")
+        void adminSelfRegistrationThrows() {
+            RegisterRequest req = new RegisterRequest("Evil", "Hacker",
+                    "evil@example.com", "password123", "default", "ADMIN");
+
+            when(userRepository.existsByEmail("evil@example.com")).thenReturn(false);
+
+            assertThatThrownBy(() -> authService.register(req))
+                    .isInstanceOf(RegistrationException.class)
+                    .satisfies(ex -> {
+                        RegistrationException e = (RegistrationException) ex;
+                        assertThat(e.getHttpStatus().value()).isEqualTo(400);
+                        assertThat(e.getMessageKey()).isEqualTo("auth.register.admin.denied");
+                    });
+
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("invalid role value throws RegistrationException (HTTP 400)")
+        void invalidRoleThrows() {
+            RegisterRequest req = new RegisterRequest("Dave", "Jones",
+                    "dave@example.com", "password123", "default", "SUPERADMIN");
+
+            when(userRepository.existsByEmail("dave@example.com")).thenReturn(false);
+
+            assertThatThrownBy(() -> authService.register(req))
+                    .isInstanceOf(RegistrationException.class)
+                    .satisfies(ex -> {
+                        RegistrationException e = (RegistrationException) ex;
+                        assertThat(e.getHttpStatus().value()).isEqualTo(400);
+                        assertThat(e.getMessageKey()).isEqualTo("auth.register.invalid.role");
+                    });
+
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("null role defaults to USER role")
+        void nullRoleDefaultsToUser() {
+            RegisterRequest req = new RegisterRequest("Tom", "Default",
+                    "tom@example.com", "password123", "default", null);
+
+            when(userRepository.existsByEmail("tom@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+            when(userRepository.save(any(User.class))).thenReturn(savedUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("access");
+            when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            AuthResponse resp = authService.register(req);
+            assertThat(resp.role()).isEqualTo("USER");
         }
     }
 

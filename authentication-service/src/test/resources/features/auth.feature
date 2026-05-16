@@ -59,6 +59,34 @@ Feature: Authentication Service
     Then the response status is 400
     And the field error "password" is present
 
+  @registration @happy-path @seller
+  Scenario: Seller registration returns SELLER role in token response
+    Given no user exists with email "bdd.seller.register@example.com"
+    When I register with the following details:
+      | firstname | lastname | email                           | password   | role   |
+      | Charlie   | Trader   | bdd.seller.register@example.com | Secure123! | SELLER |
+    Then the response status is 201
+    And the response contains a valid access token
+    And the response contains a valid refresh token
+    And the response role is "SELLER"
+
+  @registration @negative @security
+  Scenario: Self-registration as ADMIN is rejected with 400 Bad Request
+    Given no user exists with email "bdd.admin.self.register@example.com"
+    When I register with the following details:
+      | firstname | lastname | email                              | password   | role  |
+      | Evil      | Hacker   | bdd.admin.self.register@example.com | Secure123! | ADMIN |
+    Then the response status is 400
+    And the error code is "auth.register.admin.denied"
+
+  @registration @negative
+  Scenario: Registration with an invalid role value returns 400 Bad Request
+    When I register with the following details:
+      | firstname | lastname | email                        | password   | role       |
+      | Dave      | Jones    | bdd.invalidrole@example.com  | Secure123! | SUPERADMIN |
+    Then the response status is 400
+    And the error code is "auth.register.invalid.role"
+
   # =========================================================
   # User Login
   # =========================================================
