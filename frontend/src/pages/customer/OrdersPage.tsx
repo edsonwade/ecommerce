@@ -16,7 +16,7 @@ import {
 export default function OrdersPage() {
   const { data: orders, isLoading } = useQuery({
     queryKey: [QUERY_KEYS.ORDERS],
-    queryFn: ordersApi.getAll,
+    queryFn: ({ signal }) => ordersApi.getAll(signal),
     staleTime: 30 * 1000,
   });
 

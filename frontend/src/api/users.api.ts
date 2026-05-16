@@ -12,9 +12,9 @@ export interface AdminUser {
 }
 
 export const usersApi = {
-  list: (page = 0, size = 25) =>
+  list: (page = 0, size = 25, signal?: AbortSignal) =>
     apiClient
-      .get<PageResponse<AdminUser>>(`/auth/users`, { params: { page, size } })
+      .get<PageResponse<AdminUser>>(`/auth/users`, { params: { page, size }, signal })
       .then((r) => r.data),
 
   updateRole: (userId: number, role: Role) =>

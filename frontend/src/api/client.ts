@@ -3,6 +3,8 @@ import type { AppError, ApiError } from './types';
 
 const PUBLIC_PATHS = ['/auth/login', '/auth/register', '/auth/refresh'];
 
+export const PERMISSION_TOAST_ID = 'permission-denied';
+
 // Singleton mutex to prevent concurrent refresh attempts
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -18,14 +20,25 @@ function processQueue(error: unknown, token: string | null) {
   failedQueue = [];
 }
 
-// Lazy store accessor — avoids circular import at module init time
-function getAuthStore() {
-  // Import is deferred until call time; by then all modules are initialized
-  return import('../stores/auth.store').then((m) => m.useAuthStore);
+// Lazy store accessors — avoid circular import at module init time.
+// Cached after first import so concurrent requests share the same reference.
+let cachedAuthStore: typeof import('../stores/auth.store').useAuthStore | null = null;
+let cachedUIStore: typeof import('../stores/ui.store').useUIStore | null = null;
+
+async function getAuthStore() {
+  if (!cachedAuthStore) {
+    const m = await import('../stores/auth.store');
+    cachedAuthStore = m.useAuthStore;
+  }
+  return cachedAuthStore;
 }
 
-function getUIStore() {
-  return import('../stores/ui.store').then((m) => m.useUIStore);
+async function getUIStore() {
+  if (!cachedUIStore) {
+    const m = await import('../stores/ui.store');
+    cachedUIStore = m.useUIStore;
+  }
+  return cachedUIStore;
 }
 
 const apiClient = axios.create({
@@ -96,8 +109,24 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
+      console.log('[403]', originalRequest.url, originalRequest.headers?.['Authorization']);
+      const url = originalRequest.url ?? '';
+
+      // Don't toast for requests fired before auth was ready (timing issue, no real permission error)
+      const hasToken = originalRequest.headers?.['Authorization'];
+      if (!hasToken) {
+        return Promise.reject(normalizeError(error));
+      }
+
+      // Don't toast for navigation-triggered 403s — role route guards handle these
+      const isNavigationCheck = url.includes('/admin') || url.includes('/seller');
+      if (isNavigationCheck) {
+        return Promise.reject(normalizeError(error));
+      }
+
       const useUIStore = await getUIStore();
       useUIStore.getState().addToast({
+        id: PERMISSION_TOAST_ID,
         message: "You don't have permission to perform this action",
         variant: 'error',
       });

@@ -13,7 +13,7 @@ export default function OrderManagement() {
   const navigate = useNavigate();
   const { data: orders, isLoading } = useQuery({
     queryKey: [QUERY_KEYS.ORDERS],
-    queryFn: ordersApi.getAll,
+    queryFn: ({ signal }) => ordersApi.getAll(signal),
     staleTime: 30 * 1000,
   });
 

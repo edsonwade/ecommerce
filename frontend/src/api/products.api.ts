@@ -18,9 +18,9 @@ export interface SearchParams {
 }
 
 export const productsApi = {
-  getAll: (page = 0, size = 20) =>
+  getAll: (page = 0, size = 20, signal?: AbortSignal) =>
     apiClient
-      .get<PageResponse<ProductResponse>>('/products', { params: { page, size } })
+      .get<PageResponse<ProductResponse>>('/products', { params: { page, size }, signal })
       .then((r) => r.data),
 
   getById: (id: number) =>
