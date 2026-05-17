@@ -232,6 +232,40 @@ class CustomerControllerTest {
     }
 
     // =============================================================
+    // POST /api/v1/customers/internal (ensureCustomer)
+    // =============================================================
+    @Nested
+    @DisplayName("POST /api/v1/customers/internal")
+    class EnsureCustomer {
+
+        @Test
+        @DisplayName("given_new_customer_when_ensure_then_return_200_with_id")
+        void given_new_customer_when_ensure_then_return_200() throws Exception {
+            when(customerService.ensureCustomer(any(CustomerRequest.class))).thenReturn("cust-001");
+
+            mockMvc.perform(post("/api/v1/customers/internal")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("cust-001"));
+
+            verify(customerService).ensureCustomer(any(CustomerRequest.class));
+        }
+
+        @Test
+        @DisplayName("given_existing_customer_when_ensure_then_return_200_idempotent")
+        void given_existing_customer_when_ensure_then_return_200_idempotent() throws Exception {
+            when(customerService.ensureCustomer(any(CustomerRequest.class))).thenReturn("cust-001");
+
+            mockMvc.perform(post("/api/v1/customers/internal")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("cust-001"));
+        }
+    }
+
+    // =============================================================
     // PUT /api/v1/customers/{id}
     // =============================================================
     @Nested

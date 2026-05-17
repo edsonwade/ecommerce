@@ -10,8 +10,12 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.servers.Server;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,9 +48,10 @@ import java.util.List;
  * @author vamuhong
  * @version 2.0
  */
+@Slf4j
 @Configuration
 @EnableCaching
-public class CustomerServiceConfig {
+public class CustomerServiceConfig implements CachingConfigurer {
 
     @Bean
     public MessageSource messageSource() {
@@ -77,10 +82,39 @@ public class CustomerServiceConfig {
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.activateDefaultTyping(
                 BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
-                ObjectMapper.DefaultTyping.NON_FINAL,
+                ObjectMapper.DefaultTyping.EVERYTHING,
                 JsonTypeInfo.As.PROPERTY
         );
         return new GenericJackson2JsonRedisSerializer(mapper);
+    }
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CacheErrorHandler() {
+            @Override
+            public void handleCacheGetError(RuntimeException ex, Cache cache, Object key) {
+                log.warn("[CacheErrorHandler] GET failed cache=[{}] key=[{}]: {}",
+                        cache.getName(), key, ex.getMessage());
+            }
+
+            @Override
+            public void handleCachePutError(RuntimeException ex, Cache cache, Object key, Object value) {
+                log.warn("[CacheErrorHandler] PUT failed cache=[{}] key=[{}]: {}",
+                        cache.getName(), key, ex.getMessage());
+            }
+
+            @Override
+            public void handleCacheEvictError(RuntimeException ex, Cache cache, Object key) {
+                log.warn("[CacheErrorHandler] EVICT failed cache=[{}] key=[{}]: {}",
+                        cache.getName(), key, ex.getMessage());
+            }
+
+            @Override
+            public void handleCacheClearError(RuntimeException ex, Cache cache) {
+                log.warn("[CacheErrorHandler] CLEAR failed cache=[{}]: {}",
+                        cache.getName(), ex.getMessage());
+            }
+        };
     }
 
     @Bean

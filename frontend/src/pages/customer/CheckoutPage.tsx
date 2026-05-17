@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -57,9 +57,13 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { userId } = useAuthStore();
   const addToast = useUIStore((s) => s.addToast);
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeStep, setActiveStep] = useState(() => {
+    const saved = sessionStorage.getItem('checkout_step');
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CREDIT_CARD');
   const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const { data: cart, isLoading: cartLoading } = useQuery({
     queryKey: [QUERY_KEYS.CART, userId],
@@ -67,12 +71,21 @@ export default function CheckoutPage() {
     enabled: !!userId,
   });
 
+  const savedAddress = (() => {
+    try { return JSON.parse(sessionStorage.getItem('checkout_address') ?? 'null'); } catch { return null; }
+  })();
+
   const {
     register,
     handleSubmit,
     getValues,
     formState: { errors },
-  } = useForm<AddressForm>({ resolver: zodResolver(addressSchema) });
+  } = useForm<AddressForm>({ resolver: zodResolver(addressSchema), defaultValues: savedAddress ?? undefined });
+
+  const goToStep = (step: number) => {
+    sessionStorage.setItem('checkout_step', String(step));
+    setActiveStep(step);
+  };
 
   const { mutate: placeOrder, isPending: placingOrder, error: orderError } = useMutation({
     mutationFn: () =>
@@ -86,10 +99,14 @@ export default function CheckoutPage() {
         })),
       }),
     onSuccess: (res) => {
+      submittingRef.current = false;
+      sessionStorage.removeItem('checkout_step');
+      sessionStorage.removeItem('checkout_address');
       setCorrelationId(res.correlationId);
       setActiveStep(3);
     },
     onError: (err: unknown) => {
+      submittingRef.current = false;
       const e = err as { response?: { data?: { message?: string; errorCode?: string } } };
       const serverMessage = e?.response?.data?.message;
       addToast({
@@ -158,7 +175,10 @@ export default function CheckoutPage() {
               >
                 <Box
                   component="form"
-                  onSubmit={handleSubmit(() => setActiveStep(1))}
+                  onSubmit={handleSubmit((values) => {
+                    sessionStorage.setItem('checkout_address', JSON.stringify(values));
+                    goToStep(1);
+                  })}
                   sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
                 >
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -206,10 +226,10 @@ export default function CheckoutPage() {
                     </Select>
                   </FormControl>
                   <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button variant="outlined" onClick={() => setActiveStep(0)}>
+                    <Button variant="outlined" onClick={() => goToStep(0)}>
                       Back
                     </Button>
-                    <Button variant="contained" size="large" onClick={() => setActiveStep(2)}>
+                    <Button variant="contained" size="large" onClick={() => goToStep(2)}>
                       Review order
                     </Button>
                   </Box>
@@ -252,13 +272,17 @@ export default function CheckoutPage() {
                   )}
 
                   <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button variant="outlined" onClick={() => setActiveStep(1)} disabled={placingOrder}>
+                    <Button variant="outlined" onClick={() => goToStep(1)} disabled={placingOrder}>
                       Back
                     </Button>
                     <Button
                       variant="contained"
                       size="large"
-                      onClick={() => placeOrder()}
+                      onClick={() => {
+                        if (submittingRef.current || placingOrder) return;
+                        submittingRef.current = true;
+                        placeOrder();
+                      }}
                       disabled={placingOrder}
                       startIcon={placingOrder ? <CircularProgress size={16} color="inherit" /> : null}
                     >

@@ -138,7 +138,7 @@ public class OrderGlobalExceptionHandler {
             Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+        if (ex.getMessage() != null && (ex.getMessage().contains("test") || ex.getMessage().contains("Simulated"))) {
             log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
         } else {
             log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);

@@ -231,11 +231,9 @@ services:
     container_name: zipkin
     ports:
       - "9411:9411"
-    volumes:
-      - zipkin-data:/zipkin
     networks: [ monitoring-net, services-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9411/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:9411/health > /dev/null || exit 1" ]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -381,6 +379,8 @@ services:
     depends_on:
       config-service:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -423,6 +423,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -485,6 +487,8 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -530,6 +534,8 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -574,6 +580,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -622,6 +630,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -673,6 +683,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -723,6 +735,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -768,6 +782,8 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -820,6 +836,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -891,4 +909,3 @@ volumes:
   alertmanager-data:
   loki-data:
   grafana-data:
-  zipkin-data:

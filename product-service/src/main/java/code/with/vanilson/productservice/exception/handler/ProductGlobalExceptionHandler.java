@@ -118,7 +118,7 @@ public class ProductGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
+        if (ex.getMessage() != null && (ex.getMessage().contains("test") || ex.getMessage().contains("Simulated"))) {
             log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
         } else {
             log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);

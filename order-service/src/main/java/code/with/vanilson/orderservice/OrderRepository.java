@@ -31,4 +31,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
      * the query level — defense-in-depth alongside the Hibernate filter.
      */
     Optional<Order> findByCorrelationIdAndTenantId(String correlationId, String tenantId);
+
+    /** Returns all orders belonging to a specific customer. Hibernate tenant filter is active at call site. */
+    java.util.List<Order> findByCustomerId(String customerId);
 }

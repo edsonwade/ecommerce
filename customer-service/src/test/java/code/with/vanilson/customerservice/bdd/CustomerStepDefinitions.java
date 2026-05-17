@@ -33,6 +33,7 @@ public class CustomerStepDefinitions {
 
     private CustomerRequest customerRequest;
     private String savedCustomerId;
+    private String ensuredCustomerId;
     private Exception caughtException;
     private Customer mockedCustomer;
     private boolean duplicateScenario;
@@ -50,6 +51,7 @@ public class CustomerStepDefinitions {
 
         caughtException = null;
         savedCustomerId = null;
+        ensuredCustomerId = null;
     }
 
     @Given("a valid customer request for {string}")
@@ -115,6 +117,33 @@ public class CustomerStepDefinitions {
         when(customerRepository.existsById(id)).thenReturn(true);
         when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         this.savedCustomerId = id;
+    }
+
+    @Given("no customer with ID {string} exists")
+    public void no_customer_with_ID_exists(String id) {
+        when(customerRepository.existsById(id)).thenReturn(false);
+    }
+
+    @When("the customer is ensured with ID {string} and email {string}")
+    public void the_customer_is_ensured(String id, String email) {
+        CustomerRequest ensureRequest = new CustomerRequest(id, "Test", "User", email, null);
+
+        Customer entity = Customer.builder()
+                .customerId(id).firstname("Test").lastname("User").email(email).build();
+        lenient().when(customerMapper.toEntity(any())).thenReturn(entity);
+        lenient().when(customerRepository.save(any())).thenReturn(entity);
+
+        try {
+            ensuredCustomerId = customerService.ensureCustomer(ensureRequest);
+        } catch (Exception e) {
+            caughtException = e;
+        }
+    }
+
+    @Then("the returned customer ID is {string}")
+    public void the_returned_customer_ID_is(String expectedId) {
+        assertThat(caughtException).isNull();
+        assertThat(ensuredCustomerId).isEqualTo(expectedId);
     }
 
     @When("the customer is deleted")

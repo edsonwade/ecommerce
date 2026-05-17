@@ -49,6 +49,10 @@ public class TenantValidationFilter implements GlobalFilter, Ordered {
     private static final String HEADER_TENANT_ID        = "X-Tenant-ID";
     private static final String HEADER_TENANT_RATE_LIMIT = "X-Tenant-Rate-Limit";
     private static final String ANONYMOUS               = "anonymous";
+    /** System tenant used by ADMIN JWTs — not stored in tenant DB, always trusted. */
+    private static final String SYSTEM_TENANT           = "system";
+    /** Default tenant used by standard user JWTs when no explicit tenant is assigned — always trusted. */
+    private static final String DEFAULT_TENANT          = "default";
 
     private final TenantServiceClient tenantServiceClient;
     private final MessageSource       messageSource;
@@ -74,7 +78,8 @@ public class TenantValidationFilter implements GlobalFilter, Ordered {
         }
 
         // Skip: anonymous requests (no tenant claim in JWT — handled by JWT filter)
-        if (tenantId == null || tenantId.isBlank() || ANONYMOUS.equals(tenantId)) {
+        // Skip: system tenant (admin JWTs) — not stored in tenant DB, always trusted
+        if (tenantId == null || tenantId.isBlank() || ANONYMOUS.equals(tenantId) || SYSTEM_TENANT.equals(tenantId) || DEFAULT_TENANT.equals(tenantId)) {
             return chain.filter(exchange);
         }
 

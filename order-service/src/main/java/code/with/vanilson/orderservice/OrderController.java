@@ -87,11 +87,18 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderStatus(correlationId));
     }
 
-    @Operation(summary = "List all orders")
+    @Operation(summary = "List all orders (admin only)")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<OrderResponse>> findAll() {
         return ResponseEntity.ok(orderService.findAllOrders());
+    }
+
+    @Operation(summary = "List orders for the authenticated user")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/my")
+    public ResponseEntity<List<OrderResponse>> findMyOrders() {
+        return ResponseEntity.ok(orderService.findMyOrders());
     }
 
     @Operation(summary = "Get order by ID")

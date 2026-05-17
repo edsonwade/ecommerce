@@ -111,6 +111,32 @@ public class OrderStepDefinitions {
         when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
     }
 
+    @Given("a valid order request without a reference")
+    public void a_valid_order_request_without_reference() {
+        orderRequest = new OrderRequest(null, null, BigDecimal.valueOf(199.99),
+                PaymentMethod.CREDIT_CARD, "cust-001",
+                List.of(new ProductPurchaseRequest(1, 1.0)));
+
+        // Mapper returns Order with null reference — service must auto-generate it
+        Order orderWithNullRef = Order.builder()
+                .orderId(2).correlationId(null)
+                .reference(null)
+                .totalAmount(BigDecimal.valueOf(199.99))
+                .status(OrderStatus.REQUESTED)
+                .tenantId("test-tenant").build();
+
+        Order savedOrder = Order.builder()
+                .orderId(2).correlationId("auto-gen-corr-id")
+                .reference("ORD-AUTOGEN01")
+                .totalAmount(BigDecimal.valueOf(199.99))
+                .status(OrderStatus.REQUESTED)
+                .tenantId("test-tenant").build();
+
+        when(orderMapper.toOrder(any())).thenReturn(orderWithNullRef);
+        when(orderRepository.save(any())).thenReturn(savedOrder);
+        when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+    }
+
     @Given("no customer with ID {string} exists")
     public void no_customer_exists(String customerId) {
         when(customerClient.findCustomerById(customerId)).thenReturn(Optional.empty());

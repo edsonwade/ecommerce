@@ -1,10 +1,9 @@
 package code.with.vanilson.customerservice;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Id;
 import jakarta.validation.constraints.Email;
 import lombok.*;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -26,7 +25,6 @@ public class Customer {
     @Email(message = "Email is not valid", regexp = "^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$")
     @Indexed(unique = true)
     private String email;
-    @Embedded
     private Address address;
 
     public Customer(String customerId, String firstname, String lastname, String email) {
