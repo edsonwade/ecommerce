@@ -115,6 +115,28 @@ class OrderControllerTest {
         }
 
         @Test
+        @DisplayName("should return 202 when reference field is absent — service auto-generates it")
+        void shouldReturn202WhenReferenceIsAbsent() throws Exception {
+            OrderRequest noRefRequest = new OrderRequest(
+                    null,
+                    null, // no reference — service must generate one
+                    BigDecimal.valueOf(199.99),
+                    PaymentMethod.CREDIT_CARD,
+                    "cust-001",
+                    List.of(new ProductPurchaseRequest(1, 1.0))
+            );
+            when(orderService.createOrder(any(OrderRequest.class))).thenReturn("corr-id-auto");
+
+            mockMvc.perform(post("/api/v1/orders")
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(noRefRequest)))
+                    .andExpect(status().isAccepted())
+                    .andExpect(jsonPath("$.correlationId", is("corr-id-auto")))
+                    .andExpect(jsonPath("$.status", is("REQUESTED")));
+        }
+
+        @Test
         @DisplayName("should return 503 when customer service is unavailable")
         void shouldReturn503WhenCustomerUnavailable() throws Exception {
             when(orderService.createOrder(any(OrderRequest.class)))

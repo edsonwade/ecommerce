@@ -125,7 +125,7 @@ export default function LoginPage() {
           )}
 
           <TextField
-            {...register('email')}
+            {...register('email', { onChange: () => setServerError(null) })}
             label="Email"
             type="email"
             autoComplete="email"
@@ -136,7 +136,7 @@ export default function LoginPage() {
           />
 
           <TextField
-            {...register('password')}
+            {...register('password', { onChange: () => setServerError(null) })}
             label="Password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"

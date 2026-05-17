@@ -2,7 +2,10 @@ package code.with.vanilson.tenantcontext;
 
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * TenantFeignInterceptor — Feign RequestInterceptor
@@ -33,6 +36,17 @@ public class TenantFeignInterceptor implements RequestInterceptor {
         } else {
             log.trace("No tenant context — Feign call without X-Tenant-ID: {}",
                     template.url());
+        }
+        // Forward JWT from the current incoming request to downstream Feign calls
+        ServletRequestAttributes attrs =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            HttpServletRequest request = attrs.getRequest();
+            String auth = request.getHeader("Authorization");
+            if (auth != null && !auth.isBlank()) {
+                template.header("Authorization", auth);
+                log.debug("Feign propagation: Authorization forwarded → {}", template.url());
+            }
         }
     }
 }

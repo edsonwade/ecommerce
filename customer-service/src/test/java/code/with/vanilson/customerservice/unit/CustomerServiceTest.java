@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -68,8 +69,8 @@ class CustomerServiceTest {
 
     @BeforeEach
     void setUp() {
-        // MessageSource: return key itself — no dependency on .properties files
-        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+        // MessageSource: return key itself — not all code paths call messageSource
+        lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         address   = new Address("Main St", "42", "10001", "Porto Alegre", "RS");
@@ -232,6 +233,46 @@ class CustomerServiceTest {
                     .hasMessageContaining("customer.email.already.exists");
 
             verify(customerRepository, never()).save(any());
+        }
+    }
+
+    // -------------------------------------------------------
+    // ensureCustomer
+    // -------------------------------------------------------
+
+    @Nested @DisplayName("ensureCustomer")
+    class EnsureCustomer {
+
+        @Test
+        @DisplayName("should return existing customerId when customer already exists")
+        void shouldReturnExistingIdWhenCustomerExists() {
+            CustomerRequest requestWithId = new CustomerRequest(
+                    "cust-001", "Ana", "Silva", "ana@example.com", address);
+            when(customerRepository.existsById("cust-001")).thenReturn(true);
+
+            String result = customerService.ensureCustomer(requestWithId);
+
+            assertThat(result).isEqualTo("cust-001");
+            verify(customerRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("should create and return new customerId when customer does not exist")
+        void shouldCreateWhenCustomerDoesNotExist() {
+            CustomerRequest newRequest = new CustomerRequest(
+                    "cust-new", "Maria", "Santos", "maria@example.com", null);
+            Customer newCustomer = Customer.builder()
+                    .customerId("cust-new").firstname("Maria").lastname("Santos")
+                    .email("maria@example.com").build();
+
+            when(customerRepository.existsById("cust-new")).thenReturn(false);
+            when(customerMapper.toEntity(any())).thenReturn(newCustomer);
+            when(customerRepository.save(any())).thenReturn(newCustomer);
+
+            String result = customerService.ensureCustomer(newRequest);
+
+            assertThat(result).isEqualTo("cust-new");
+            verify(customerRepository).save(any());
         }
     }
 

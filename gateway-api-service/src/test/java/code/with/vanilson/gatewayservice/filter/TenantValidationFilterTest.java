@@ -120,6 +120,26 @@ class TenantValidationFilterTest {
     }
 
     // -------------------------------------------------------
+    @Nested @DisplayName("Default tenant — bypass validation (standard user JWTs)")
+    class DefaultTenant {
+
+        @Test @DisplayName("should skip validation and proceed when X-Tenant-ID is 'default'")
+        void shouldSkipValidationForDefaultTenant() {
+            MockServerHttpRequest request = MockServerHttpRequest
+                    .method(HttpMethod.GET, PROTECTED_PATH)
+                    .header("X-Tenant-ID", "default")
+                    .build();
+            MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+            StepVerifier.create(filter.filter(exchange, chain))
+                    .verifyComplete();
+
+            verify(tenantServiceClient, never()).validate(anyString());
+            verify(chain).filter(any());
+        }
+    }
+
+    // -------------------------------------------------------
     @Nested @DisplayName("ACTIVE tenant — proceed")
     class ActiveTenant {
 

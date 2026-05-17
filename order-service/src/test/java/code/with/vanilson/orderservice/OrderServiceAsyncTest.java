@@ -218,6 +218,51 @@ class OrderServiceAsyncTest {
         }
 
         @Test
+        @DisplayName("should auto-generate reference with ORD- prefix when request has no reference")
+        void shouldAutoGenerateReferenceWhenNull() {
+            OrderRequest noRefRequest = new OrderRequest(
+                    null,
+                    null, // no reference sent by client
+                    BigDecimal.valueOf(199.99),
+                    PaymentMethod.CREDIT_CARD,
+                    "cust-001",
+                    List.of(new ProductPurchaseRequest(1, 1.0))
+            );
+
+            // Mapper returns an Order with null reference (mirrors what toOrder does with null input)
+            Order orderWithNullRef = Order.builder()
+                    .orderId(43)
+                    .reference(null)
+                    .totalAmount(BigDecimal.valueOf(199.99))
+                    .paymentMethod(PaymentMethod.CREDIT_CARD)
+                    .customerId("cust-001")
+                    .status(OrderStatus.REQUESTED)
+                    .tenantId("test-tenant-123")
+                    .build();
+
+            when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
+            // existsByReference must NOT be called when request.reference() == null
+            when(orderMapper.toOrder(any())).thenReturn(orderWithNullRef);
+            when(orderRepository.save(any())).thenReturn(orderWithNullRef);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            orderService.createOrder(noRefRequest);
+
+            ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(captor.capture());
+            Order persisted = captor.getValue();
+
+            assertThat(persisted.getReference())
+                    .as("reference must be auto-generated when not provided — never null or blank")
+                    .isNotNull()
+                    .isNotBlank()
+                    .startsWith("ORD-");
+
+            // existsByReference must NOT be invoked when reference is null in request
+            verify(orderRepository, never()).existsByReference(any());
+        }
+
+        @Test
         @DisplayName("should throw CustomerNotFoundException when customer not found — no DB writes")
         void shouldThrowAndNotWriteWhenCustomerMissing() {
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.empty());

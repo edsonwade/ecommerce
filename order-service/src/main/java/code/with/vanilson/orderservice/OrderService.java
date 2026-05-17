@@ -194,6 +194,21 @@ public class OrderService {
         return orders;
     }
 
+    public List<OrderResponse> findMyOrders() {
+        filterActivator.activateFilter();
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal == null) {
+            return List.of();
+        }
+        String customerId = String.valueOf(principal.userId());
+        List<OrderResponse> orders = orderRepository.findByCustomerId(customerId)
+                .stream()
+                .map(orderMapper::fromOrder)
+                .collect(Collectors.toList());
+        log.info("[OrderService] My orders for customerId=[{}]: count=[{}]", customerId, orders.size());
+        return orders;
+    }
+
     public OrderResponse findById(Integer id) {
         filterActivator.activateFilter();
         Order order = orderRepository.findById(id)
@@ -242,6 +257,9 @@ public class OrderService {
         order.setCorrelationId(correlationId);
         order.setStatus(OrderStatus.REQUESTED);
         order.setTenantId(TenantContext.requireCurrentTenantId());
+        if (order.getReference() == null || order.getReference().isBlank()) {
+            order.setReference("ORD-" + correlationId.replace("-", "").substring(0, 10).toUpperCase());
+        }
         Order saved = orderRepository.save(order);
 
         request.products().forEach(p -> orderLineService.saveOrderLine(

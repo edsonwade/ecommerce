@@ -24,4 +24,7 @@ export const ordersApi = {
 
   getLines: (orderId: number, signal?: AbortSignal) =>
     apiClient.get<OrderLineResponse[]>(`/order-lines/${orderId}`, { signal }).then((r) => r.data),
+
+  getMyOrders: (signal?: AbortSignal) =>
+    apiClient.get<OrderResponse[]>('/orders/my', { signal }).then((r) => r.data),
 };

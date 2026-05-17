@@ -16,6 +16,16 @@ Feature: Customer Management
     When the customer is created
     Then the system rejects the request with a duplicate email error
 
+  Scenario: Ensure customer is idempotent — returns existing ID
+    Given a customer with ID "cust-ENSURE-1" exists
+    When the customer is ensured with ID "cust-ENSURE-1" and email "ensure@example.com"
+    Then the returned customer ID is "cust-ENSURE-1"
+
+  Scenario: Ensure customer creates new record when not found
+    Given no customer with ID "cust-NEW-1" exists
+    When the customer is ensured with ID "cust-NEW-1" and email "new@example.com"
+    Then the returned customer ID is "cust-NEW-1"
+
   Scenario: Delete an existing customer
     Given a customer with ID "cust-DEL-1" exists
     When the customer is deleted

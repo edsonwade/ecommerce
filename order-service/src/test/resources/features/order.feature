@@ -10,6 +10,12 @@ Feature: Async Order Creation and Status Polling
     Then the system returns a correlationId
     And the order status is "REQUESTED"
 
+  Scenario: Create order without reference and receive auto-generated reference
+    Given a valid customer with ID "cust-001" exists
+    And a valid order request without a reference
+    When the order is submitted
+    Then the system returns a correlationId
+
   Scenario: Fail to create order when customer does not exist
     Given no customer with ID "ghost-cust" exists
     And a valid order request for customer "ghost-cust"
