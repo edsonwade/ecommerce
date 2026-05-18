@@ -14,6 +14,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -76,7 +77,7 @@ public class ErrorSanitizationStepDefinitions {
     @Then("the error message should not contain {string} or a UUID pattern")
     public void the_error_message_should_not_contain_reference_or_uuid(String referenceText) {
         Map<String, Object> body = response.getBody();
-        String msg = (String) body.get("message");
+        String msg = (String) Objects.requireNonNull(body).get("message");
         assertThat(msg).doesNotContain(referenceText);
         assertThat(msg).doesNotContainPattern("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     }
