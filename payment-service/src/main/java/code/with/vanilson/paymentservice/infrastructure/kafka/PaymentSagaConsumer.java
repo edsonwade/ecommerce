@@ -15,6 +15,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -95,13 +96,25 @@ public class PaymentSagaConsumer {
     // -------------------------------------------------------
 
     private void publishPaymentAuthorized(InventoryReservedEvent event, Integer paymentId) {
+        List<PaymentAuthorizedEvent.ReservedItem> items = event.reservedItems().stream()
+                .map(ri -> new PaymentAuthorizedEvent.ReservedItem(
+                        ri.productId(), ri.productName(), ri.quantity(), ri.unitPrice()))
+                .toList();
+
         PaymentAuthorizedEvent authorized = new PaymentAuthorizedEvent(
                 UUID.randomUUID().toString(),
                 event.correlationId(),
                 event.orderReference(),
                 paymentId,
+                event.customerId(),
+                event.customerEmail(),
+                event.customerFirstname(),
+                event.customerLastname(),
+                items,
+                event.totalAmount(),
+                event.paymentMethod(),
                 Instant.now(),
-                1
+                2
         );
         kafkaTemplate.send(TOPIC_AUTHORIZED, event.correlationId(), authorized);
     }

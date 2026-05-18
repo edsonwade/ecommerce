@@ -2,6 +2,9 @@ package code.with.vanilson.orderservice.kafka;
 
 import code.with.vanilson.orderservice.OrderService;
 import code.with.vanilson.orderservice.OrderStatus;
+import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.payment.PaymentMethod;
+import code.with.vanilson.orderservice.product.ProductPurchaseResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -12,6 +15,8 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * OrderSagaConsumer — Infrastructure Layer (Kafka Consumer)
@@ -40,6 +45,7 @@ import org.springframework.stereotype.Service;
 public class OrderSagaConsumer {
 
     private final OrderService  orderService;
+    private final OrderProducer orderProducer;
     private final MessageSource messageSource;
 
     // -------------------------------------------------------
@@ -60,6 +66,8 @@ public class OrderSagaConsumer {
                 event.correlationId(), partition, offset);
 
         orderService.updateStatus(event.correlationId(), OrderStatus.CONFIRMED);
+
+        sendOrderConfirmationNotification(event);
 
         log.info("[OrderSagaConsumer] Order CONFIRMED: correlationId=[{}]", event.correlationId());
         ack.acknowledge();
@@ -113,5 +121,43 @@ public class OrderSagaConsumer {
         log.warn("[OrderSagaConsumer] Order CANCELLED (insufficient stock): correlationId=[{}]",
                 event.correlationId());
         ack.acknowledge();
+    }
+
+    // -------------------------------------------------------
+    // NOTIFICATION — builds OrderConfirmation from enriched event
+    // -------------------------------------------------------
+
+    private void sendOrderConfirmationNotification(PaymentAuthorizedEvent event) {
+        try {
+            CustomerInfo customer = new CustomerInfo(
+                    event.customerId(), event.customerFirstname(),
+                    event.customerLastname(), event.customerEmail(), null);
+
+            List<ProductPurchaseResponse> products = event.reservedItems() != null
+                    ? event.reservedItems().stream()
+                    .map(ri -> new ProductPurchaseResponse(
+                            ri.productId(), ri.productName(), null,
+                            ri.unitPrice(), ri.quantity()))
+                    .toList()
+                    : List.of();
+
+            PaymentMethod method;
+            try {
+                method = PaymentMethod.valueOf(event.paymentMethod().toUpperCase());
+            } catch (Exception ex) {
+                method = PaymentMethod.CREDIT_CARD;
+            }
+
+            OrderConfirmation confirmation = new OrderConfirmation(
+                    event.orderReference(), event.totalAmount(),
+                    method, customer, products);
+
+            orderProducer.sendOrderConfirmation(confirmation);
+            log.info("[OrderSagaConsumer] OrderConfirmation sent to order-topic: correlationId=[{}]",
+                    event.correlationId());
+        } catch (Exception ex) {
+            log.warn("[OrderSagaConsumer] Non-blocking failure: Failed to send OrderConfirmation for correlationId=[{}]. Error: {}",
+                    event.correlationId(), ex.getMessage());
+        }
     }
 }
