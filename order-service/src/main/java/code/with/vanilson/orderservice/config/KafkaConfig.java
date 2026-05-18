@@ -1,6 +1,7 @@
 package code.with.vanilson.orderservice.config;
 
 import jakarta.annotation.PreDestroy;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -18,6 +19,8 @@ import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.converter.StringJsonMessageConverter;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
@@ -94,11 +97,11 @@ public class KafkaConfig {
 
     @Bean
     public ConsumerFactory<String, Object> sagaConsumerFactory() {
-        // buildConsumerProperties includes bootstrap-servers, group-id, SASL config,
-        // deserializers, and offset settings from YAML
         Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
@@ -114,6 +117,7 @@ public class KafkaConfig {
 
         var factory = new ConcurrentKafkaListenerContainerFactory<String, Object>();
         factory.setConsumerFactory(sagaConsumerFactory());
+        factory.setRecordMessageConverter(new StringJsonMessageConverter());
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.getContainerProperties().setStopImmediate(false);
 
