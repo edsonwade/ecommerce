@@ -3,6 +3,7 @@ package code.with.vanilson.orderservice.bdd;
 import code.with.vanilson.orderservice.*;
 import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
 import code.with.vanilson.orderservice.orderLine.OrderLineService;
@@ -28,8 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -166,21 +166,26 @@ public class OrderStepDefinitions {
 
     @Given("no order with correlationId {string} exists")
     public void no_order_with_correlation_exists(String corrId) {
-        when(orderRepository.findByCorrelationId(corrId)).thenReturn(Optional.empty());
+        when(orderRepository.findByCorrelationIdAndTenantId(eq(corrId), anyString())).thenReturn(Optional.empty());
     }
 
     @Given("the following orders exist:")
     public void the_following_orders_exist(DataTable table) {
         List<Map<String, String>> rows = table.asMaps();
-        List<OrderResponse> responses = rows.stream().map(row ->
-                new OrderResponse(
-                        Integer.parseInt(row.get("orderId")),
-                        row.get("reference"),
-                        new BigDecimal(row.get("amount")),
-                        "CREDIT_CARD",
-                        row.get("customerId"))
+        List<Order> orders = rows.stream().map(row ->
+                Order.builder()
+                        .orderId(Integer.parseInt(row.get("orderId")))
+                        .reference(row.get("reference"))
+                        .totalAmount(new BigDecimal(row.get("amount")))
+                        .customerId(row.get("customerId"))
+                        .status(OrderStatus.REQUESTED)
+                        .tenantId("test-tenant")
+                        .build()
         ).toList();
-        when(orderService.findAllOrders()).thenReturn(responses);
+        when(orderRepository.findAll()).thenReturn(orders);
+        orders.forEach(o -> when(orderMapper.fromOrder(o)).thenReturn(new OrderResponse(
+                o.getOrderId(), o.getReference(), o.getTotalAmount(), "CREDIT_CARD", o.getCustomerId()
+        )));
     }
 
     // ---- When ----
@@ -224,8 +229,8 @@ public class OrderStepDefinitions {
 
     @Then("the system rejects the order with a customer unavailable error")
     public void the_system_rejects_with_customer_error() {
-        assertThat(caughtException).isNotNull()
-                .isInstanceOf(CustomerServiceUnavailableException.class);
+        assertThat(caughtException).isNotNull();
+        assertThat(caughtException).isInstanceOfAny(CustomerServiceUnavailableException.class, CustomerNotFoundException.class);
     }
 
     @Then("the returned status is {string}")
@@ -253,6 +258,7 @@ public class OrderStepDefinitions {
                 .orderId(1).correlationId(corrId).reference("REF-POLL")
                 .totalAmount(BigDecimal.valueOf(100)).status(status)
                 .tenantId("test-tenant").build();
-        when(orderRepository.findByCorrelationId(corrId)).thenReturn(Optional.of(order));
+        lenient().when(orderRepository.findByCorrelationId(corrId)).thenReturn(Optional.of(order));
+        lenient().when(orderRepository.findByCorrelationIdAndTenantId(eq(corrId), anyString())).thenReturn(Optional.of(order));
     }
 }

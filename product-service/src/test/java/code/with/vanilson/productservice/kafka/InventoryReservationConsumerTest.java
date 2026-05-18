@@ -53,6 +53,8 @@ class InventoryReservationConsumerTest {
     @Mock
     private ProductRepository productRepository;
     @Mock
+    private InventoryReservationRepository reservationRepository;
+    @Mock
     private KafkaTemplate<String, Object> kafkaTemplate;
     @Mock
     private MessageSource messageSource;
@@ -127,6 +129,23 @@ class InventoryReservationConsumerTest {
             assertThat(captor.getValue().getAvailableQuantity())
                     .as("Stock must be decremented from 10 to 7")
                     .isEqualTo(7.0);
+        }
+
+        @Test
+        @DisplayName("should save InventoryReservation record on successful reservation")
+        void shouldSaveReservationRecordOnSuccess() {
+            when(productRepository.findAllByIdInOrderById(List.of(1)))
+                    .thenReturn(List.of(laptop));
+
+            consumer.onOrderRequested(validEvent, 0, 0L, acknowledgment);
+
+            ArgumentCaptor<InventoryReservation> captor = ArgumentCaptor.forClass(InventoryReservation.class);
+            verify(reservationRepository).save(captor.capture());
+            InventoryReservation saved = captor.getValue();
+            assertThat(saved.getCorrelationId()).isEqualTo(CORRELATION_ID);
+            assertThat(saved.getProductId()).isEqualTo(1);
+            assertThat(saved.getReservedQuantity()).isEqualTo(3);
+            assertThat(saved.getStatus()).isEqualTo(InventoryReservation.ReservationStatus.RESERVED);
         }
 
         @Test

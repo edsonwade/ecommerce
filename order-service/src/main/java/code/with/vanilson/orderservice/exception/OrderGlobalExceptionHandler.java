@@ -111,6 +111,14 @@ public class OrderGlobalExceptionHandler {
         return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
     }
 
+    @ExceptionHandler(OrderInternalServiceException.class)
+    public ResponseEntity<Map<String, Object>> handleOrderInternalService(
+            OrderInternalServiceException ex, WebRequest request) {
+        log.warn("[OrderExceptionHandler] Internal service error (expected/test): key=[{}] message=[{}]",
+                ex.getMessageKey(), ex.getMessage());
+        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
     /**
      * Handles Bean Validation errors (@Valid on request bodies).
      * Returns field-level error details without exposing internal class names.

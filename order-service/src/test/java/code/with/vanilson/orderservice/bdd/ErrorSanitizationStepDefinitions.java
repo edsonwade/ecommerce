@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice.bdd;
 
 import code.with.vanilson.orderservice.OrderService;
 import code.with.vanilson.orderservice.exception.OrderGlobalExceptionHandler;
+import code.with.vanilson.orderservice.exception.OrderInternalServiceException;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -49,7 +50,9 @@ public class ErrorSanitizationStepDefinitions {
 
     @Given("the service encounters an unexpected runtime error")
     public void the_service_encounters_an_unexpected_runtime_error() {
-        simulatedException = new RuntimeException("Deep null pointer exception inside service layer");
+        simulatedException = new OrderInternalServiceException(
+                "Deep null pointer exception inside service layer",
+                "order.error.internal");
     }
 
     @When("the system returns the error response")

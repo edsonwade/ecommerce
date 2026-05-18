@@ -50,6 +50,7 @@ import java.util.UUID;
 public class InventoryReservationConsumer {
 
     private final ProductRepository                  productRepository;
+    private final InventoryReservationRepository     reservationRepository;
     private final KafkaTemplate<String, Object>      kafkaTemplate;
     private final MessageSource                      messageSource;
 
@@ -131,8 +132,16 @@ public class InventoryReservationConsumer {
             product.setAvailableQuantity(newQty);
             productRepository.save(product);
 
-            log.debug("[InventoryConsumer] Stock updated: productId=[{}] newQty=[{}] correlationId=[{}]",
-                    product.getId(), newQty, correlationId);
+            reservationRepository.save(InventoryReservation.builder()
+                    .correlationId(correlationId)
+                    .productId(product.getId())
+                    .reservedQuantity((int) item.quantity())
+                    .status(InventoryReservation.ReservationStatus.RESERVED)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build());
+
+            log.debug("[InventoryConsumer] Stock reserved: productId=[{}] qty=[{}] newAvailable=[{}] correlationId=[{}]",
+                    product.getId(), item.quantity(), newQty, correlationId);
 
             reserved.add(new InventoryReservedEvent.ReservedItem(
                     product.getId(), product.getName(),

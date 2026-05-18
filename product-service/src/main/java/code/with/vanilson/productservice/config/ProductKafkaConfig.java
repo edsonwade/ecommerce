@@ -105,4 +105,42 @@ public class ProductKafkaConfig {
         factory.setConcurrency(3);
         return factory;
     }
+
+    // -------------------------------------------------------
+    // Compensation Consumer — listens to payment.failed
+    // -------------------------------------------------------
+
+    @Bean
+    public ConsumerFactory<String, Object> compensationConsumerFactory() {
+        Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "inventory-compensation-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE,
+                "code.with.vanilson.productservice.kafka.PaymentFailedEvent");
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, Object> compensationKafkaListenerContainerFactory(
+            KafkaTemplate<String, Object> inventoryKafkaTemplate) {
+
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, Object>();
+        factory.setConsumerFactory(compensationConsumerFactory());
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                inventoryKafkaTemplate,
+                (record, ex) -> new org.apache.kafka.common.TopicPartition(
+                        record.topic() + ".DLQ", record.partition()));
+
+        factory.setCommonErrorHandler(new DefaultErrorHandler(
+                recoverer, new FixedBackOff(1000L, 3L)));
+        factory.setConcurrency(2);
+        return factory;
+    }
 }
