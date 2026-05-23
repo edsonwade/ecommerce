@@ -1,5 +1,7 @@
 package code.with.vanilson.productservice.kafka;
 
+import code.with.vanilson.productservice.domain.InventoryReservation;
+import code.with.vanilson.productservice.domain.InventoryReservationRepository;
 import code.with.vanilson.productservice.Product;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
