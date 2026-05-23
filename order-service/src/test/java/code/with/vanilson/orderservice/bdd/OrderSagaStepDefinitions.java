@@ -46,8 +46,13 @@ public class OrderSagaStepDefinitions {
         orderProducer  = Mockito.mock(OrderProducer.class);
         messageSource  = Mockito.mock(MessageSource.class);
         acknowledgment = Mockito.mock(Acknowledgment.class);
+        var meterRegistry  = Mockito.mock(io.micrometer.core.instrument.MeterRegistry.class);
 
-        consumer = new OrderSagaConsumer(orderService, orderProducer, messageSource);
+        // Mock counter to avoid NullPointerException if metrics are called
+        when(meterRegistry.counter(anyString(), any(String[].class)))
+                .thenReturn(Mockito.mock(io.micrometer.core.instrument.Counter.class));
+
+        consumer = new OrderSagaConsumer(orderService, orderProducer, messageSource, meterRegistry);
 
         lenient().when(messageSource.getMessage(any(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0, String.class));

@@ -33,9 +33,17 @@ class OrderSagaConsumerTest {
     private MessageSource messageSource;
     @Mock
     private Acknowledgment acknowledgment;
+    @Mock
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     @InjectMocks
     private OrderSagaConsumer consumer;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class)))
+                .thenReturn(mock(io.micrometer.core.instrument.Counter.class));
+    }
 
     private static final String CORRELATION_ID = "corr-saga-001";
 

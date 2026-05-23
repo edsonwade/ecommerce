@@ -13,6 +13,8 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+import org.slf4j.MDC;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.Instant;
 import java.util.List;
@@ -45,6 +47,7 @@ public class PaymentSagaConsumer {
 
     private final PaymentService                paymentService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final MeterRegistry                  meterRegistry;
 
     private static final String TOPIC_AUTHORIZED = "payment.authorized";
     private static final String TOPIC_FAILED     = "payment.failed";
@@ -59,38 +62,48 @@ public class PaymentSagaConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
-        log.info("[PaymentSagaConsumer] inventory.reserved received: correlationId=[{}] amount=[{}] partition=[{}] offset=[{}]",
-                event.correlationId(), event.totalAmount(), partition, offset);
-
         try {
-            // Map to PaymentRequest — uses local domain types
-            PaymentMethod method = mapPaymentMethod(event.paymentMethod());
-            CustomerData  customer = new CustomerData(
-                    event.customerId(), event.customerFirstname(),
-                    event.customerLastname(), event.customerEmail());
+            MDC.put("correlationId", event.correlationId());
+            MDC.put("sagaStep", "payment");
 
-            PaymentRequest paymentRequest = new PaymentRequest(
-                    null,
-                    event.totalAmount(),
-                    method,
-                    null,            // orderId not available here — set null, saga uses correlationId
-                    event.orderReference(),
-                    customer
-            );
+            log.info("[PaymentSagaConsumer] inventory.reserved received: correlationId=[{}] amount=[{}] partition=[{}] offset=[{}]",
+                    event.correlationId(), event.totalAmount(), partition, offset);
 
-            Integer paymentId = paymentService.createPayment(paymentRequest);
+            try {
+                // Map to PaymentRequest — uses local domain types
+                PaymentMethod method = mapPaymentMethod(event.paymentMethod());
+                CustomerData customer = new CustomerData(
+                        event.customerId(), event.customerFirstname(),
+                        event.customerLastname(), event.customerEmail());
 
-            publishPaymentAuthorized(event, paymentId);
-            log.info("[PaymentSagaConsumer] Payment authorized: correlationId=[{}] paymentId=[{}]",
-                    event.correlationId(), paymentId);
+                PaymentRequest paymentRequest = new PaymentRequest(
+                        null,
+                        event.totalAmount(),
+                        method,
+                        null,            // orderId not available here — set null, saga uses correlationId
+                        event.orderReference(),
+                        customer
+                );
 
-        } catch (Exception ex) {
-            log.error("[PaymentSagaConsumer] Payment failed: correlationId=[{}] reason=[{}]",
-                    event.correlationId(), ex.getMessage());
-            publishPaymentFailed(event, ex.getMessage());
+                Integer paymentId = paymentService.createPayment(paymentRequest);
+
+                publishPaymentAuthorized(event, paymentId);
+                log.info("[PaymentSagaConsumer] Payment authorized: correlationId=[{}] paymentId=[{}]",
+                        event.correlationId(), paymentId);
+
+                meterRegistry.counter("saga.step.completed", "step", "payment", "outcome", "success").increment();
+
+            } catch (Exception ex) {
+                log.error("[PaymentSagaConsumer] Payment failed: correlationId=[{}] reason=[{}]",
+                        event.correlationId(), ex.getMessage());
+                publishPaymentFailed(event, ex.getMessage());
+                meterRegistry.counter("saga.step.completed", "step", "payment", "outcome", "failure").increment();
+            }
+
+            ack.acknowledge();
+        } finally {
+            MDC.clear();
         }
-
-        ack.acknowledge();
     }
 
     // -------------------------------------------------------

@@ -7,6 +7,9 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Gauge;
+import jakarta.annotation.PostConstruct;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,6 +39,14 @@ public class OutboxEventPublisher {
 
     private final OutboxRepository  outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final MeterRegistry meterRegistry;
+
+    @PostConstruct
+    public void registerMetrics() {
+        Gauge.builder("outbox.queue.depth", outboxRepository, OutboxRepository::countPendingEvents)
+                .description("Number of events awaiting Kafka publication in outbox")
+                .register(meterRegistry);
+    }
 
     /**
      * Polls for pending outbox events every 5 seconds.
@@ -81,6 +92,7 @@ public class OutboxEventPublisher {
                 event.getEventId(), event.getTopic(),
                 result.getRecordMetadata().partition(),
                 result.getRecordMetadata().offset());
+        meterRegistry.counter("outbox.publish.count", "outcome", "success").increment();
     }
 
     @Transactional
@@ -90,6 +102,7 @@ public class OutboxEventPublisher {
             event.setStatus(OutboxEvent.OutboxStatus.FAILED);
             log.error("[OutboxPublisher] Event permanently failed after 5 retries: eventId=[{}] error=[{}]",
                     event.getEventId(), ex.getMessage());
+            meterRegistry.counter("outbox.publish.count", "outcome", "failure").increment();
         } else {
             log.warn("[OutboxPublisher] Event publish failed (attempt {}/5): eventId=[{}] error=[{}]",
                     event.getRetryCount(), event.getEventId(), ex.getMessage());

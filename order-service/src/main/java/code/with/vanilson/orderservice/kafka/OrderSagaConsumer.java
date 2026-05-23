@@ -15,6 +15,8 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+import org.slf4j.MDC;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import java.util.List;
 
@@ -47,6 +49,7 @@ public class OrderSagaConsumer {
     private final OrderService  orderService;
     private final OrderProducer orderProducer;
     private final MessageSource messageSource;
+    private final MeterRegistry meterRegistry;
 
     // -------------------------------------------------------
     // HAPPY PATH — payment authorised → CONFIRMED
@@ -62,15 +65,23 @@ public class OrderSagaConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
-        log.info("[OrderSagaConsumer] payment.authorized received: correlationId=[{}] partition=[{}] offset=[{}]",
-                event.correlationId(), partition, offset);
+        try {
+            MDC.put("correlationId", event.correlationId());
+            MDC.put("sagaStep", "order-confirmation");
 
-        orderService.updateStatus(event.correlationId(), OrderStatus.CONFIRMED);
+            log.info("[OrderSagaConsumer] payment.authorized received: correlationId=[{}] partition=[{}] offset=[{}]",
+                    event.correlationId(), partition, offset);
 
-        sendOrderConfirmationNotification(event);
+            orderService.updateStatus(event.correlationId(), OrderStatus.CONFIRMED);
 
-        log.info("[OrderSagaConsumer] Order CONFIRMED: correlationId=[{}]", event.correlationId());
-        ack.acknowledge();
+            sendOrderConfirmationNotification(event);
+
+            log.info("[OrderSagaConsumer] Order CONFIRMED: correlationId=[{}]", event.correlationId());
+            meterRegistry.counter("saga.step.completed", "step", "order", "outcome", "success").increment();
+            ack.acknowledge();
+        } finally {
+            MDC.clear();
+        }
     }
 
     // -------------------------------------------------------
@@ -87,13 +98,21 @@ public class OrderSagaConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
-        log.warn("[OrderSagaConsumer] payment.failed received: correlationId=[{}] reason=[{}] partition=[{}] offset=[{}]",
-                event.correlationId(), event.reason(), partition, offset);
+        try {
+            MDC.put("correlationId", event.correlationId());
+            MDC.put("sagaStep", "order-cancellation");
 
-        orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
+            log.warn("[OrderSagaConsumer] payment.failed received: correlationId=[{}] reason=[{}] partition=[{}] offset=[{}]",
+                    event.correlationId(), event.reason(), partition, offset);
 
-        log.warn("[OrderSagaConsumer] Order CANCELLED (payment failed): correlationId=[{}]", event.correlationId());
-        ack.acknowledge();
+            orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
+
+            log.warn("[OrderSagaConsumer] Order CANCELLED (payment failed): correlationId=[{}]", event.correlationId());
+            meterRegistry.counter("saga.step.completed", "step", "order", "outcome", "failure").increment();
+            ack.acknowledge();
+        } finally {
+            MDC.clear();
+        }
     }
 
     // -------------------------------------------------------
@@ -110,17 +129,25 @@ public class OrderSagaConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
-        log.warn("[OrderSagaConsumer] inventory.insufficient received: correlationId=[{}] productId=[{}] " +
-                 "requested=[{}] available=[{}] partition=[{}] offset=[{}]",
-                event.correlationId(), event.productId(),
-                event.requestedQty(), event.availableQty(), partition, offset);
+        try {
+            MDC.put("correlationId", event.correlationId());
+            MDC.put("sagaStep", "order-cancellation");
 
-        orderService.updateStatus(event.correlationId(), OrderStatus.INVENTORY_INSUFFICIENT);
-        orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
+            log.warn("[OrderSagaConsumer] inventory.insufficient received: correlationId=[{}] productId=[{}] " +
+                     "requested=[{}] available=[{}] partition=[{}] offset=[{}]",
+                    event.correlationId(), event.productId(),
+                    event.requestedQty(), event.availableQty(), partition, offset);
 
-        log.warn("[OrderSagaConsumer] Order CANCELLED (insufficient stock): correlationId=[{}]",
-                event.correlationId());
-        ack.acknowledge();
+            orderService.updateStatus(event.correlationId(), OrderStatus.INVENTORY_INSUFFICIENT);
+            orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
+
+            log.warn("[OrderSagaConsumer] Order CANCELLED (insufficient stock): correlationId=[{}]",
+                    event.correlationId());
+            meterRegistry.counter("saga.step.completed", "step", "order", "outcome", "failure").increment();
+            ack.acknowledge();
+        } finally {
+            MDC.clear();
+        }
     }
 
     // -------------------------------------------------------

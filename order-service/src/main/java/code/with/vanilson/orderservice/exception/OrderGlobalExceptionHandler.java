@@ -95,21 +95,6 @@ public class OrderGlobalExceptionHandler {
         return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
     }
 
-    @ExceptionHandler(ProductServiceUnavailableException.class)
-    public ResponseEntity<Map<String, Object>> handleProductServiceUnavailable(
-            ProductServiceUnavailableException ex, WebRequest request) {
-        log.error("[OrderExceptionHandler] Product service unavailable: key=[{}] cause=[{}]",
-                ex.getMessageKey(), ex.getCause() != null ? ex.getCause().getMessage() : "none");
-        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
-    }
-
-    @ExceptionHandler(PaymentServiceUnavailableException.class)
-    public ResponseEntity<Map<String, Object>> handlePaymentServiceUnavailable(
-            PaymentServiceUnavailableException ex, WebRequest request) {
-        log.error("[OrderExceptionHandler] Payment service unavailable: key=[{}] cause=[{}]",
-                ex.getMessageKey(), ex.getCause() != null ? ex.getCause().getMessage() : "none");
-        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
-    }
 
     @ExceptionHandler(OrderInternalServiceException.class)
     public ResponseEntity<Map<String, Object>> handleOrderInternalService(

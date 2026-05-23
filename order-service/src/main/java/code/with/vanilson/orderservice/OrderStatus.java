@@ -41,5 +41,8 @@ public enum OrderStatus {
     CANCELLED,
 
     /** Payment-service was unreachable — retry pending from DLQ. */
-    PENDING_PAYMENT
+    PENDING_PAYMENT,
+
+    /** Saga took too long to complete — order cancelled. */
+    TIMEOUT
 }

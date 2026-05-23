@@ -28,6 +28,14 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, String> {
            """)
     List<OutboxEvent> findPendingEvents();
 
+    /** Returns the count of pending events for metrics. */
+    @Query("""
+           SELECT COUNT(o) FROM OutboxEvent o
+           WHERE o.status = 'PENDING'
+             AND o.retryCount < 5
+           """)
+    long countPendingEvents();
+
     /** Checks if an event with this eventId was already published (idempotency guard). */
     boolean existsByEventId(String eventId);
 }

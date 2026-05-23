@@ -38,9 +38,17 @@ class InventoryCompensationConsumerTest {
     private KafkaTemplate<String, Object> kafkaTemplate;
     @Mock
     private Acknowledgment acknowledgment;
+    @Mock
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     @InjectMocks
     private InventoryCompensationConsumer consumer;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class)))
+                .thenReturn(org.mockito.Mockito.mock(io.micrometer.core.instrument.Counter.class));
+    }
 
     private static final String CORRELATION_ID = "corr-comp-001";
 
