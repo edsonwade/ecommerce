@@ -34,4 +34,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     /** Returns all orders belonging to a specific customer. Hibernate tenant filter is active at call site. */
     java.util.List<Order> findByCustomerId(String customerId);
+
+    /** Finds orders stuck in a specific status before the cutoff time. */
+    java.util.List<Order> findByStatusAndCreatedDateBefore(OrderStatus status, java.time.LocalDateTime cutoff);
 }

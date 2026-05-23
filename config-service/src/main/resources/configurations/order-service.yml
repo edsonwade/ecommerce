@@ -96,10 +96,12 @@ resilience4j:
       customer-service:
         sliding-window-size: 10
         failure-rate-threshold: 50
-        wait-duration-in-open-state: 30s
+        wait-duration-in-open-state: 15s
         permitted-number-of-calls-in-half-open-state: 3
         slow-call-rate-threshold: 80
         slow-call-duration-threshold: 3s
+        record-exceptions:
+          - code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException
   timelimiter:
     instances:
       customer-service:
@@ -141,3 +143,7 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+saga:
+  timeout:
+    minutes: 15

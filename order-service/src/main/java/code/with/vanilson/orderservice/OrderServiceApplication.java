@@ -16,7 +16,7 @@ import code.with.vanilson.tenantcontext.EnableMultiTenancy;
  * @EnableMultiTenancy — activates tenant context extraction, Hibernate filtering,
  *   and Feign propagation from the tenant-context shared library.
  * @EnableScheduling activates the OutboxEventPublisher @Scheduled(fixedDelay=5000).
- * @EnableFeignClients  — CustomerClient, PaymentClient Feign interfaces
+ * @EnableFeignClients  — CustomerClient Feign interfaces
  * @EnableJpaAuditing   — @CreatedDate / @LastModifiedDate on Order + OutboxEvent
  * @EnableDiscoveryClient — registers with Eureka
  * </p>

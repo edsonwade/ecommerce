@@ -17,6 +17,8 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.MDC;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -55,6 +57,7 @@ public class InventoryReservationConsumer {
     private final InventoryReservationRepository     reservationRepository;
     private final KafkaTemplate<String, Object>      kafkaTemplate;
     private final MessageSource                      messageSource;
+    private final MeterRegistry                      meterRegistry;
 
     private static final String TOPIC_RESERVED     = "inventory.reserved";
     private static final String TOPIC_INSUFFICIENT = "inventory.insufficient";
@@ -70,25 +73,35 @@ public class InventoryReservationConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
 
-        log.info("[InventoryConsumer] order.requested received: correlationId=[{}] products=[{}] partition=[{}] offset=[{}]",
-                event.correlationId(), event.products().size(), partition, offset);
-
         try {
-            List<InventoryReservedEvent.ReservedItem> reservedItems =
-                    reserveStock(event.products(), event.correlationId());
+            MDC.put("correlationId", event.correlationId());
+            MDC.put("sagaStep", "inventory-reservation");
 
-            publishInventoryReserved(event, reservedItems);
-            log.info("[InventoryConsumer] Stock reserved. correlationId=[{}] items=[{}]",
-                    event.correlationId(), reservedItems.size());
+            log.info("[InventoryConsumer] order.requested received: correlationId=[{}] products=[{}] partition=[{}] offset=[{}]",
+                    event.correlationId(), event.products().size(), partition, offset);
 
-        } catch (ProductPurchaseException ex) {
-            // Stock insufficient — extract productId from exception context
-            log.warn("[InventoryConsumer] Insufficient stock for correlationId=[{}]: {}",
-                    event.correlationId(), ex.getMessage());
-            publishInventoryInsufficient(event, null, ex.getMessage());
+            try {
+                List<InventoryReservedEvent.ReservedItem> reservedItems =
+                        reserveStock(event.products(), event.correlationId());
+
+                publishInventoryReserved(event, reservedItems);
+                log.info("[InventoryConsumer] Stock reserved. correlationId=[{}] items=[{}]",
+                        event.correlationId(), reservedItems.size());
+
+                meterRegistry.counter("saga.step.completed", "step", "inventory", "outcome", "success").increment();
+
+            } catch (ProductPurchaseException ex) {
+                // Stock insufficient — extract productId from exception context
+                log.warn("[InventoryConsumer] Insufficient stock for correlationId=[{}]: {}",
+                        event.correlationId(), ex.getMessage());
+                publishInventoryInsufficient(event, null, ex.getMessage());
+                meterRegistry.counter("saga.step.completed", "step", "inventory", "outcome", "failure").increment();
+            }
+
+            ack.acknowledge();
+        } finally {
+            MDC.clear();
         }
-
-        ack.acknowledge();
     }
 
     // -------------------------------------------------------

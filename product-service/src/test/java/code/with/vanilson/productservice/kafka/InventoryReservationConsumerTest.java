@@ -62,6 +62,8 @@ class InventoryReservationConsumerTest {
     private MessageSource messageSource;
     @Mock
     private Acknowledgment acknowledgment;
+    @Mock
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     @InjectMocks
     private InventoryReservationConsumer consumer;
@@ -78,6 +80,9 @@ class InventoryReservationConsumerTest {
     void setUp() {
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class)))
+                .thenReturn(org.mockito.Mockito.mock(io.micrometer.core.instrument.Counter.class));
 
         Category category = Category.builder().id(1).name("Electronics").description("Electronic items").build();
         laptop = new Product(1, "Laptop", "Gaming Laptop", 10.0, BigDecimal.valueOf(1200.00), category);
