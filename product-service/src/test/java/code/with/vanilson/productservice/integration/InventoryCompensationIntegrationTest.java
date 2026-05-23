@@ -3,6 +3,8 @@ package code.with.vanilson.productservice.integration;
 import code.with.vanilson.productservice.Product;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.kafka.*;
+import code.with.vanilson.productservice.domain.InventoryReservation;
+import code.with.vanilson.productservice.domain.InventoryReservationRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,7 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.cloud.config.import-check.enabled=false",
                 "spring.config.import=optional:configserver:",
                 "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
-                "spring.kafka.consumer.group-id=test-inventory-compensation"
+                "spring.kafka.consumer.group-id=test-inventory-compensation",
+                "application.security.jwt.secret-key=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
         })
 @EmbeddedKafka(
         partitions = 1,

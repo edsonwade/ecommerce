@@ -26,12 +26,14 @@ import java.util.Map;
 /**
  * ProductKafkaConfig — Infrastructure Layer (Phase 3)
  * <p>
- * Configures Kafka consumer (order.requested) and producer (inventory.reserved / inventory.insufficient).
+ * Configures Kafka consumer (order.requested / payment.failed) and producer (inventory.reserved / inventory.insufficient).
  * Manual IMMEDIATE ack + DLQ after 3 retries with 1s delay.
+ * Both InventoryReservationConsumer and InventoryCompensationConsumer share inventoryKafkaListenerContainerFactory.
+ * ValueDefaultType is NOT set — deserialization target is resolved from the @Payload type annotation on each listener.
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 @Configuration
 public class ProductKafkaConfig {
@@ -74,6 +76,9 @@ public class ProductKafkaConfig {
     public ConsumerFactory<String, Object> inventoryConsumerFactory() {
         // Start from Spring Boot's fully-merged consumer properties (bootstrap-servers,
         // security.protocol, sasl.*, etc.) then override the inventory-specific settings.
+        // VALUE_DEFAULT_TYPE is NOT set — both InventoryReservationConsumer (OrderRequestedEvent)
+        // and InventoryCompensationConsumer (PaymentFailedEvent) share this factory.
+        // Spring resolves the target type from the @Payload parameter on each @KafkaListener method.
         Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "inventory-reservation-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -82,11 +87,16 @@ public class ProductKafkaConfig {
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE,
-                "code.with.vanilson.productservice.kafka.OrderRequestedEvent");
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
+    /**
+     * Shared container factory used by both:
+     *   - InventoryReservationConsumer  (order.requested  → OrderRequestedEvent)
+     *   - InventoryCompensationConsumer (payment.failed   → PaymentFailedEvent)
+     *
+     * DLQ error handler: 3 retries × 1 s, then publish to &lt;topic&gt;.DLQ.
+     */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, Object> inventoryKafkaListenerContainerFactory(
             KafkaTemplate<String, Object> inventoryKafkaTemplate) {
@@ -103,44 +113,6 @@ public class ProductKafkaConfig {
         factory.setCommonErrorHandler(new DefaultErrorHandler(
                 recoverer, new FixedBackOff(1000L, 3L)));
         factory.setConcurrency(3);
-        return factory;
-    }
-
-    // -------------------------------------------------------
-    // Compensation Consumer — listens to payment.failed
-    // -------------------------------------------------------
-
-    @Bean
-    public ConsumerFactory<String, Object> compensationConsumerFactory() {
-        Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "inventory-compensation-group");
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE,
-                "code.with.vanilson.productservice.kafka.PaymentFailedEvent");
-        return new DefaultKafkaConsumerFactory<>(props);
-    }
-
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> compensationKafkaListenerContainerFactory(
-            KafkaTemplate<String, Object> inventoryKafkaTemplate) {
-
-        var factory = new ConcurrentKafkaListenerContainerFactory<String, Object>();
-        factory.setConsumerFactory(compensationConsumerFactory());
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-                inventoryKafkaTemplate,
-                (record, ex) -> new org.apache.kafka.common.TopicPartition(
-                        record.topic() + ".DLQ", record.partition()));
-
-        factory.setCommonErrorHandler(new DefaultErrorHandler(
-                recoverer, new FixedBackOff(1000L, 3L)));
-        factory.setConcurrency(2);
         return factory;
     }
 }

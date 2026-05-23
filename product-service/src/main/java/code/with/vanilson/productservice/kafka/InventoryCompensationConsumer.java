@@ -1,5 +1,7 @@
 package code.with.vanilson.productservice.kafka;
 
+import code.with.vanilson.productservice.domain.InventoryReservation;
+import code.with.vanilson.productservice.domain.InventoryReservationRepository;
 import code.with.vanilson.productservice.Product;
 import code.with.vanilson.productservice.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +45,7 @@ public class InventoryCompensationConsumer {
     @KafkaListener(
             topics = "payment.failed",
             groupId = "inventory-compensation-group",
-            containerFactory = "compensationKafkaListenerContainerFactory")
+            containerFactory = "inventoryKafkaListenerContainerFactory")
     @Transactional
     public void onPaymentFailed(
             @Payload PaymentFailedEvent event,

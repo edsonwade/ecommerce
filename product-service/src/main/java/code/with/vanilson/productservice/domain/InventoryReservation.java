@@ -1,4 +1,4 @@
-package code.with.vanilson.productservice.kafka;
+package code.with.vanilson.productservice.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
