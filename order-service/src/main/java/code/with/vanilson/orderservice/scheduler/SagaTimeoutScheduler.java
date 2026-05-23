@@ -3,14 +3,17 @@ package code.with.vanilson.orderservice.scheduler;
 import code.with.vanilson.orderservice.Order;
 import code.with.vanilson.orderservice.OrderRepository;
 import code.with.vanilson.orderservice.OrderStatus;
+import code.with.vanilson.orderservice.event.OrderStatusChangedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import io.micrometer.core.instrument.MeterRegistry;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,8 +33,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SagaTimeoutScheduler {
 
-    private final OrderRepository orderRepository;
-    private final MeterRegistry   meterRegistry;
+    private final OrderRepository          orderRepository;
+    private final MeterRegistry            meterRegistry;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${saga.timeout.minutes:15}")
     private int timeoutMinutes;
@@ -53,6 +57,9 @@ public class SagaTimeoutScheduler {
             order.setStatus(OrderStatus.TIMEOUT);
             orderRepository.save(order);
             meterRegistry.counter("saga.timeout.count").increment();
+            eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                    order.getCorrelationId(), OrderStatus.TIMEOUT.name(),
+                    order.getReference(), Instant.now()));
         }
 
         if (!stuckOrders.isEmpty()) {

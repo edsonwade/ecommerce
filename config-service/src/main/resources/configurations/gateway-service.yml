@@ -112,6 +112,23 @@ spring:
                   factor: 2
 
         # -------------------------------------------------------
+        # ORDER SERVICE — SSE streaming (must be before generic order route)
+        # No circuit breaker or retry: both would break a long-lived SSE stream.
+        # response-timeout 300000ms = 5 min to match SseEmitter timeout.
+        # -------------------------------------------------------
+        - id: order-service-sse
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/v1/orders/*/events
+          metadata:
+            response-timeout: 300000
+            connect-timeout: 5000
+          filters:
+            - AddResponseHeader=API-Version, v1
+            - AddResponseHeader=Cache-Control, no-cache
+            - AddResponseHeader=X-Accel-Buffering, no
+
+        # -------------------------------------------------------
         # ORDER SERVICE
         # -------------------------------------------------------
         - id: order-service
