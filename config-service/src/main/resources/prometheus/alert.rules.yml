@@ -173,6 +173,42 @@ groups:
           description: "Consumer group {{ $labels.group }} has critical lag of {{ $value }}."
 
   # -------------------------------------------------------
+  # Saga Choreography Health
+  # -------------------------------------------------------
+  - name: saga
+    rules:
+      - alert: SagaHighFailureRate
+        expr: |
+          sum(rate(saga_step_completed_total{step="order",outcome="failure"}[5m]))
+          /
+          (sum(rate(saga_step_completed_total{step="order"}[5m])) > 0)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Saga failure rate > 5% on order step"
+          description: "More than 5% of saga order-steps are failing over a 5-minute window. Current rate: {{ $value | humanizePercentage }}."
+
+      - alert: SagaTimeoutSpike
+        expr: sum(increase(saga_timeout_count_total[5m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Saga timeout spike detected (> 10 timeouts in 5 min)"
+          description: "{{ $value }} saga timeouts occurred in the last 5 minutes — orders may be stuck in REQUESTED state."
+
+      - alert: OutboxQueueBacklog
+        expr: outbox_queue_depth > 100
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outbox queue depth > 100 for > 2 minutes"
+          description: "The outbox publisher is falling behind. {{ $value }} events are pending. Check order-service logs and Kafka connectivity."
+
+  # -------------------------------------------------------
   # Disk / Storage
   # -------------------------------------------------------
   - name: disk

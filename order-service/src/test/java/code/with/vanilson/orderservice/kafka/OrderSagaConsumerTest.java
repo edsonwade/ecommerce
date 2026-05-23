@@ -2,6 +2,7 @@ package code.with.vanilson.orderservice.kafka;
 
 import code.with.vanilson.orderservice.OrderService;
 import code.with.vanilson.orderservice.OrderStatus;
+import code.with.vanilson.orderservice.event.OrderStatusChangedEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.kafka.support.Acknowledgment;
 
@@ -35,6 +37,8 @@ class OrderSagaConsumerTest {
     private Acknowledgment acknowledgment;
     @Mock
     private io.micrometer.core.instrument.MeterRegistry meterRegistry;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderSagaConsumer consumer;
@@ -105,6 +109,22 @@ class OrderSagaConsumerTest {
             verify(orderService).updateStatus(CORRELATION_ID, OrderStatus.CONFIRMED);
             verify(acknowledgment).acknowledge();
         }
+
+        @Test
+        @DisplayName("should publish OrderStatusChangedEvent with CONFIRMED status")
+        void shouldPublishConfirmedEvent() {
+            consumer.onPaymentAuthorized(buildEvent(), 0, 0L, acknowledgment);
+
+            ArgumentCaptor<OrderStatusChangedEvent> captor =
+                    ArgumentCaptor.forClass(OrderStatusChangedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+
+            OrderStatusChangedEvent published = captor.getValue();
+            assertThat(published.correlationId()).isEqualTo(CORRELATION_ID);
+            assertThat(published.status()).isEqualTo("CONFIRMED");
+            assertThat(published.orderReference()).isEqualTo("ORD-001");
+            assertThat(published.occurredAt()).isNotNull();
+        }
     }
 
     @Nested
@@ -135,6 +155,25 @@ class OrderSagaConsumerTest {
 
             verify(orderProducer, never()).sendOrderConfirmation(any());
         }
+
+        @Test
+        @DisplayName("should publish OrderStatusChangedEvent with CANCELLED status")
+        void shouldPublishCancelledEvent() {
+            PaymentFailedEvent event = new PaymentFailedEvent(
+                    "evt-fail-002", CORRELATION_ID, "ORD-001",
+                    "Card declined", Instant.now(), 1);
+
+            consumer.onPaymentFailed(event, 0, 0L, acknowledgment);
+
+            ArgumentCaptor<OrderStatusChangedEvent> captor =
+                    ArgumentCaptor.forClass(OrderStatusChangedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+
+            OrderStatusChangedEvent published = captor.getValue();
+            assertThat(published.correlationId()).isEqualTo(CORRELATION_ID);
+            assertThat(published.status()).isEqualTo("CANCELLED");
+            assertThat(published.orderReference()).isEqualTo("ORD-001");
+        }
     }
 
     @Nested
@@ -153,6 +192,25 @@ class OrderSagaConsumerTest {
             verify(orderService).updateStatus(CORRELATION_ID, OrderStatus.INVENTORY_INSUFFICIENT);
             verify(orderService).updateStatus(CORRELATION_ID, OrderStatus.CANCELLED);
             verify(acknowledgment).acknowledge();
+        }
+
+        @Test
+        @DisplayName("should publish INVENTORY_INSUFFICIENT then CANCELLED events in order")
+        void shouldPublishIntermediateAndTerminalEvents() {
+            InventoryInsufficientEvent event = new InventoryInsufficientEvent(
+                    "evt-inv-002", CORRELATION_ID, "ORD-001",
+                    1, 5.0, 0.0, Instant.now(), 1);
+
+            consumer.onInventoryInsufficient(event, 0, 0L, acknowledgment);
+
+            ArgumentCaptor<OrderStatusChangedEvent> captor =
+                    ArgumentCaptor.forClass(OrderStatusChangedEvent.class);
+            verify(eventPublisher, times(2)).publishEvent(captor.capture());
+
+            List<OrderStatusChangedEvent> published = captor.getAllValues();
+            assertThat(published).hasSize(2)
+                    .extracting(OrderStatusChangedEvent::status)
+                    .containsExactly("INVENTORY_INSUFFICIENT", "CANCELLED");
         }
     }
 }

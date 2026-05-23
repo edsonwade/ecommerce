@@ -36,6 +36,7 @@ public class OrderSecurityConfig {
                     "/v3/api-docs/**",
                     "/api-docs/**"
                 ).permitAll()
+                .requestMatchers("/api/v1/orders/*/events").authenticated()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));

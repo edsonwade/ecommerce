@@ -52,7 +52,8 @@ public class OrderSagaStepDefinitions {
         when(meterRegistry.counter(anyString(), any(String[].class)))
                 .thenReturn(Mockito.mock(io.micrometer.core.instrument.Counter.class));
 
-        consumer = new OrderSagaConsumer(orderService, orderProducer, messageSource, meterRegistry);
+        var eventPublisher = Mockito.mock(org.springframework.context.ApplicationEventPublisher.class);
+        consumer = new OrderSagaConsumer(orderService, orderProducer, messageSource, meterRegistry, eventPublisher);
 
         lenient().when(messageSource.getMessage(any(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0, String.class));

@@ -3,10 +3,12 @@ package code.with.vanilson.orderservice.kafka;
 import code.with.vanilson.orderservice.OrderService;
 import code.with.vanilson.orderservice.OrderStatus;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.event.OrderStatusChangedEvent;
 import code.with.vanilson.orderservice.payment.PaymentMethod;
 import code.with.vanilson.orderservice.product.ProductPurchaseResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.slf4j.MDC;
 import io.micrometer.core.instrument.MeterRegistry;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -46,10 +49,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderSagaConsumer {
 
-    private final OrderService  orderService;
-    private final OrderProducer orderProducer;
-    private final MessageSource messageSource;
-    private final MeterRegistry meterRegistry;
+    private final OrderService             orderService;
+    private final OrderProducer            orderProducer;
+    private final MessageSource            messageSource;
+    private final MeterRegistry            meterRegistry;
+    private final ApplicationEventPublisher eventPublisher;
 
     // -------------------------------------------------------
     // HAPPY PATH — payment authorised → CONFIRMED
@@ -73,6 +77,9 @@ public class OrderSagaConsumer {
                     event.correlationId(), partition, offset);
 
             orderService.updateStatus(event.correlationId(), OrderStatus.CONFIRMED);
+            eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                    event.correlationId(), OrderStatus.CONFIRMED.name(),
+                    event.orderReference(), Instant.now()));
 
             sendOrderConfirmationNotification(event);
 
@@ -106,6 +113,9 @@ public class OrderSagaConsumer {
                     event.correlationId(), event.reason(), partition, offset);
 
             orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
+            eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                    event.correlationId(), OrderStatus.CANCELLED.name(),
+                    event.orderReference(), Instant.now()));
 
             log.warn("[OrderSagaConsumer] Order CANCELLED (payment failed): correlationId=[{}]", event.correlationId());
             meterRegistry.counter("saga.step.completed", "step", "order", "outcome", "failure").increment();
@@ -139,7 +149,14 @@ public class OrderSagaConsumer {
                     event.requestedQty(), event.availableQty(), partition, offset);
 
             orderService.updateStatus(event.correlationId(), OrderStatus.INVENTORY_INSUFFICIENT);
+            eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                    event.correlationId(), OrderStatus.INVENTORY_INSUFFICIENT.name(),
+                    event.orderReference(), Instant.now()));
+
             orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
+            eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                    event.correlationId(), OrderStatus.CANCELLED.name(),
+                    event.orderReference(), Instant.now()));
 
             log.warn("[OrderSagaConsumer] Order CANCELLED (insufficient stock): correlationId=[{}]",
                     event.correlationId());
