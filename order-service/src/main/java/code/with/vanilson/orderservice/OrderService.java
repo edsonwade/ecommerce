@@ -2,12 +2,15 @@ package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.customer.CustomerSnapshot;
+import code.with.vanilson.orderservice.customer.CustomerSnapshotRepository;
 import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderDuplicateReferenceException;
 import code.with.vanilson.orderservice.exception.OrderForbiddenException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
+import io.micrometer.core.instrument.MeterRegistry;
 import code.with.vanilson.orderservice.kafka.OrderRequestedEvent;
 import code.with.vanilson.orderservice.orderLine.OrderLineRequest;
 import code.with.vanilson.orderservice.orderLine.OrderLineService;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -51,30 +55,37 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private static final String TOPIC_ORDER_REQUESTED = "order.requested";
+    private static final String METRIC_CUSTOMER_RESOLVE = "customer.resolve.count";
 
     private final OrderRepository              orderRepository;
     private final OrderMapper                  orderMapper;
     private final CustomerClient               customerClient;
+    private final CustomerSnapshotRepository   snapshotRepository;
     private final OrderLineService             orderLineService;
     private final OutboxRepository             outboxRepository;
     private final MessageSource                messageSource;
     private final ObjectMapper                 objectMapper;
     private final TenantHibernateFilterActivator filterActivator;
+    private final MeterRegistry                meterRegistry;
 
     public OrderService(OrderRepository orderRepository,
                         OrderMapper orderMapper,
                         CustomerClient customerClient,
+                        CustomerSnapshotRepository snapshotRepository,
                         OrderLineService orderLineService,
                         OutboxRepository outboxRepository,
                         MessageSource messageSource,
-                        TenantHibernateFilterActivator filterActivator) {
-        this.orderRepository  = orderRepository;
-        this.orderMapper      = orderMapper;
-        this.customerClient   = customerClient;
-        this.orderLineService = orderLineService;
-        this.outboxRepository = outboxRepository;
-        this.messageSource    = messageSource;
-        this.filterActivator  = filterActivator;
+                        TenantHibernateFilterActivator filterActivator,
+                        MeterRegistry meterRegistry) {
+        this.orderRepository    = orderRepository;
+        this.orderMapper        = orderMapper;
+        this.customerClient     = customerClient;
+        this.snapshotRepository = snapshotRepository;
+        this.orderLineService   = orderLineService;
+        this.outboxRepository   = outboxRepository;
+        this.messageSource      = messageSource;
+        this.filterActivator    = filterActivator;
+        this.meterRegistry      = meterRegistry;
         // ObjectMapper with JSR310 for Instant serialisation
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
@@ -107,14 +118,8 @@ public class OrderService {
         String customerId = resolveCustomerId(request);
         log.info(msg("order.log.creating", customerId, request.products().size()));
 
-        // Step 1 — Validate customer (sync, cached — typically < 5ms)
-        CustomerInfo customer = customerClient.findCustomerById(customerId)
-                .orElseThrow(() -> {
-                    log.warn("[OrderService] Customer not found: customerId=[{}]", customerId);
-                    return new CustomerNotFoundException(
-                            msg("order.customer.not.found", customerId),
-                            "order.customer.not.found");
-                });
+        // Step 1 — Validate customer (snapshot-first, Feign fallback)
+        CustomerInfo customer = resolveCustomer(customerId);
 
         log.info(msg("order.log.customer.found", customer.customerId()));
 
@@ -244,6 +249,35 @@ public class OrderService {
     // -------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------
+
+    /**
+     * Resolves customer data using a two-tier lookup strategy:
+     * <ol>
+     *   <li>Check local {@link CustomerSnapshot} table (no network call).</li>
+     *   <li>Fall back to Feign call if snapshot not found (new customer, event not yet arrived).</li>
+     * </ol>
+     * Metric {@code customer.resolve.count} tracks snapshot hits vs Feign fallbacks.
+     * When snapshot coverage reaches 99%+, the Feign fallback can be removed.
+     */
+    private CustomerInfo resolveCustomer(String customerId) {
+        Optional<CustomerSnapshot> snapshot = snapshotRepository.findById(customerId);
+        if (snapshot.isPresent()) {
+            CustomerSnapshot s = snapshot.get();
+            log.info("[OrderService] Customer resolved from snapshot: customerId=[{}]", customerId);
+            meterRegistry.counter(METRIC_CUSTOMER_RESOLVE, "source", "snapshot").increment();
+            return new CustomerInfo(s.getCustomerId(), s.getFirstname(), s.getLastname(), s.getEmail(), null);
+        }
+
+        log.info("[OrderService] Customer not in snapshot, falling back to Feign: customerId=[{}]", customerId);
+        meterRegistry.counter(METRIC_CUSTOMER_RESOLVE, "source", "feign").increment();
+        return customerClient.findCustomerById(customerId)
+                .orElseThrow(() -> {
+                    log.warn("[OrderService] Customer not found via Feign: customerId=[{}]", customerId);
+                    return new CustomerNotFoundException(
+                            msg("order.customer.not.found", customerId),
+                            "order.customer.not.found");
+                });
+    }
 
     @Transactional
     protected Order persistOrderWithLines(OrderRequest request, String correlationId) {

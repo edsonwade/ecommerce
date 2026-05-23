@@ -84,4 +84,26 @@ public class KafkaOrderTopicConfig {
     @Bean public NewTopic inventoryReleasedTopic() {
         return TopicBuilder.name("inventory.released").partitions(10).replicas(1).build();
     }
+
+    // -------------------------------------------------------
+    // Phase 2 — Customer snapshot topics
+    // -------------------------------------------------------
+
+    /** Published by customer-service → consumed by order-service (snapshot) */
+    @Bean public NewTopic customerProfileTopic() {
+        return TopicBuilder.name("customer.profile").partitions(10).replicas(1).build();
+    }
+
+    @Bean public NewTopic customerProfileDlq() {
+        return TopicBuilder.name("customer.profile.DLQ").partitions(3).replicas(1).build();
+    }
+
+    /** Published by authentication-service → consumed by customer-service */
+    @Bean public NewTopic userRegisteredTopic() {
+        return TopicBuilder.name("user.registered").partitions(10).replicas(1).build();
+    }
+
+    @Bean public NewTopic userRegisteredDlq() {
+        return TopicBuilder.name("user.registered.DLQ").partitions(3).replicas(1).build();
+    }
 }

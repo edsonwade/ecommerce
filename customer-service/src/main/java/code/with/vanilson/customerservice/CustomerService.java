@@ -2,6 +2,7 @@ package code.with.vanilson.customerservice;
 
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
+import code.with.vanilson.customerservice.kafka.CustomerProfileProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -40,16 +41,19 @@ public class CustomerService {
     private static final String CACHE_CUSTOMERS    = "customers";
     private static final String CACHE_CUSTOMER_LIST = "customer-list";
 
-    private final CustomerRepository customerRepository;
-    private final CustomerMapper     customerMapper;
-    private final MessageSource      messageSource;
+    private final CustomerRepository    customerRepository;
+    private final CustomerMapper        customerMapper;
+    private final MessageSource         messageSource;
+    private final CustomerProfileProducer customerProfileProducer;
 
     public CustomerService(CustomerMapper customerMapper,
                            CustomerRepository customerRepository,
-                           MessageSource messageSource) {
-        this.customerMapper     = customerMapper;
-        this.customerRepository = customerRepository;
-        this.messageSource      = messageSource;
+                           MessageSource messageSource,
+                           CustomerProfileProducer customerProfileProducer) {
+        this.customerMapper           = customerMapper;
+        this.customerRepository       = customerRepository;
+        this.messageSource            = messageSource;
+        this.customerProfileProducer  = customerProfileProducer;
     }
 
     // -------------------------------------------------------
@@ -129,6 +133,7 @@ public class CustomerService {
             }
             Customer saved = customerRepository.save(customerMapper.toEntity(request));
             log.info(msg("customer.log.created", saved.getCustomerId(), saved.getEmail()));
+            customerProfileProducer.publishProfileEvent(saved, "CREATED");
             return saved.getCustomerId();
         } catch (EmailAlreadyExistsException ex) {
             throw ex; // re-throw typed exception
@@ -190,6 +195,7 @@ public class CustomerService {
         mergeFields(existing, request);
         Customer saved = customerRepository.save(existing);
         log.info(msg("customer.log.updated", saved.getCustomerId()));
+        customerProfileProducer.publishProfileEvent(saved, "UPDATED");
         return customerMapper.toResponse(saved);
     }
 

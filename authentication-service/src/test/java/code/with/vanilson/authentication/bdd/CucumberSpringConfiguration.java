@@ -1,8 +1,10 @@
 package code.with.vanilson.authentication.bdd;
 
 import code.with.vanilson.authentication.AuthenticationApplication;
+import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
 import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -31,6 +33,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 )
 @ActiveProfiles("test")
 public class CucumberSpringConfiguration {
+
+    // Mock Kafka producer — no broker available in BDD tests;
+    // Kafka event delivery is verified in unit tests (AuthServiceTest).
+    @MockBean
+    @SuppressWarnings("unused")
+    UserRegisteredProducer userRegisteredProducer;
 
     static final PostgreSQLContainer<?> POSTGRES;
 

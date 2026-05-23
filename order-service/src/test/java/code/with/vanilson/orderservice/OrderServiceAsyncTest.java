@@ -2,6 +2,8 @@ package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.customer.CustomerSnapshot;
+import code.with.vanilson.orderservice.customer.CustomerSnapshotRepository;
 import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
@@ -12,6 +14,8 @@ import code.with.vanilson.orderservice.payment.PaymentMethod;
 import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.MessageSource;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -34,13 +39,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * OrderServiceAsyncTest — Unit Tests (Phase 3)
+ * OrderServiceAsyncTest — Unit Tests (Phase 3 + Phase 2 snapshot-first)
  * <p>
  * Validates the async order creation flow:
  * - Returns correlationId (UUID string), not orderId
@@ -48,24 +54,27 @@ import static org.mockito.Mockito.when;
  * - Persists OutboxEvent with PENDING status targeting order.requested topic
  * - Never calls ProductClient or PaymentClient (moved to Kafka saga)
  * - Status polling endpoint works for all saga states
+ * - Phase 2: resolveCustomer() uses snapshot-first with Feign fallback
  * <p>
  * Framework: JUnit 5 + Mockito + AssertJ.
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("OrderService — Phase 3 Async Unit Tests")
+@DisplayName("OrderService — Phase 3/4 Async Unit Tests")
 class OrderServiceAsyncTest {
 
     @Mock private OrderRepository              orderRepository;
     @Mock private OrderMapper                  orderMapper;
     @Mock private CustomerClient               customerClient;
+    @Mock private CustomerSnapshotRepository   snapshotRepository;
     @Mock private OrderLineService             orderLineService;
     @Mock private OutboxRepository             outboxRepository;
     @Mock private MessageSource                messageSource;
     @Mock private TenantHibernateFilterActivator filterActivator;
+    @Mock private MeterRegistry                meterRegistry;
 
     @InjectMocks
     private OrderService orderService;
@@ -81,6 +90,11 @@ class OrderServiceAsyncTest {
 
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+
+        // Default: meterRegistry returns a no-op counter for all tag combinations
+        Counter mockCounter = mock(Counter.class);
+        lenient().when(meterRegistry.counter(anyString(), anyString(), anyString()))
+                .thenReturn(mockCounter);
 
         validCustomer = new CustomerInfo(
                 "cust-001", "Ana", "Silva", "ana@example.com", null);
@@ -123,6 +137,8 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("should return a UUID-format correlationId (not the DB orderId)")
         void shouldReturnCorrelationId() {
+            // Snapshot miss → Feign fallback path
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
             when(orderRepository.existsByReference("REF-PHASE3-001")).thenReturn(false);
             when(orderMapper.toOrder(any())).thenReturn(savedOrder);
@@ -141,6 +157,7 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("should save order in REQUESTED status")
         void shouldPersistOrderAsRequested() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
             when(orderRepository.existsByReference(anyString())).thenReturn(false);
             when(orderMapper.toOrder(any())).thenReturn(savedOrder);
@@ -159,6 +176,7 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("should persist OutboxEvent in the same call (atomic dual-write)")
         void shouldPersistOutboxEvent() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
             when(orderRepository.existsByReference(anyString())).thenReturn(false);
             when(orderMapper.toOrder(any())).thenReturn(savedOrder);
@@ -173,6 +191,7 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("OutboxEvent must target order.requested topic with PENDING status")
         void shouldPersistOutboxWithCorrectTopicAndStatus() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
             when(orderRepository.existsByReference(anyString())).thenReturn(false);
             when(orderMapper.toOrder(any())).thenReturn(savedOrder);
@@ -202,6 +221,7 @@ class OrderServiceAsyncTest {
         @Test
         @DisplayName("correlationId on saved order must match the returned correlationId")
         void savedOrderCorrelationIdMatchesReturned() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
             when(orderRepository.existsByReference(anyString())).thenReturn(false);
             when(orderMapper.toOrder(any())).thenReturn(savedOrder);
@@ -229,7 +249,6 @@ class OrderServiceAsyncTest {
                     List.of(new ProductPurchaseRequest(1, 1.0))
             );
 
-            // Mapper returns an Order with null reference (mirrors what toOrder does with null input)
             Order orderWithNullRef = Order.builder()
                     .orderId(43)
                     .reference(null)
@@ -240,8 +259,8 @@ class OrderServiceAsyncTest {
                     .tenantId("test-tenant-123")
                     .build();
 
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
-            // existsByReference must NOT be called when request.reference() == null
             when(orderMapper.toOrder(any())).thenReturn(orderWithNullRef);
             when(orderRepository.save(any())).thenReturn(orderWithNullRef);
             when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
@@ -258,13 +277,13 @@ class OrderServiceAsyncTest {
                     .isNotBlank()
                     .startsWith("ORD-");
 
-            // existsByReference must NOT be invoked when reference is null in request
             verify(orderRepository, never()).existsByReference(any());
         }
 
         @Test
         @DisplayName("should throw CustomerNotFoundException when customer not found — no DB writes")
         void shouldThrowAndNotWriteWhenCustomerMissing() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
             when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.createOrder(validRequest))
@@ -273,6 +292,84 @@ class OrderServiceAsyncTest {
 
             verify(orderRepository, never()).save(any());
             verify(outboxRepository, never()).save(any());
+        }
+    }
+
+    // -------------------------------------------------------
+    // resolveCustomer — Phase 2 snapshot-first strategy
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("resolveCustomer — snapshot-first with Feign fallback")
+    class ResolveCustomer {
+
+        @Test
+        @DisplayName("snapshot hit: Feign is never called when snapshot exists")
+        void snapshotHitNeverCallsFeign() {
+            CustomerSnapshot snapshot = CustomerSnapshot.builder()
+                    .customerId("cust-001")
+                    .firstname("Ana")
+                    .lastname("Silva")
+                    .email("ana@example.com")
+                    .lastUpdated(LocalDateTime.now())
+                    .build();
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.of(snapshot));
+            when(orderRepository.existsByReference(anyString())).thenReturn(false);
+            when(orderMapper.toOrder(any())).thenReturn(savedOrder);
+            when(orderRepository.save(any())).thenReturn(savedOrder);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            orderService.createOrder(validRequest);
+
+            verify(customerClient, never()).findCustomerById(any());
+        }
+
+        @Test
+        @DisplayName("snapshot hit: customer data from snapshot is used in the order event")
+        void snapshotDataUsedInOrder() {
+            CustomerSnapshot snapshot = CustomerSnapshot.builder()
+                    .customerId("cust-001")
+                    .firstname("Ana")
+                    .lastname("Silva")
+                    .email("ana@example.com")
+                    .lastUpdated(LocalDateTime.now())
+                    .build();
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.of(snapshot));
+            when(orderRepository.existsByReference(anyString())).thenReturn(false);
+            when(orderMapper.toOrder(any())).thenReturn(savedOrder);
+            when(orderRepository.save(any())).thenReturn(savedOrder);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            String correlationId = orderService.createOrder(validRequest);
+
+            assertThat(correlationId).isNotBlank();
+        }
+
+        @Test
+        @DisplayName("snapshot miss: Feign is called when snapshot not present")
+        void snapshotMissFallsBackToFeign() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
+            when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
+            when(orderRepository.existsByReference(anyString())).thenReturn(false);
+            when(orderMapper.toOrder(any())).thenReturn(savedOrder);
+            when(orderRepository.save(any())).thenReturn(savedOrder);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            orderService.createOrder(validRequest);
+
+            verify(customerClient).findCustomerById("cust-001");
+        }
+
+        @Test
+        @DisplayName("snapshot miss + Feign returns empty: throws CustomerNotFoundException")
+        void snapshotMissFeignNotFoundThrows() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
+            when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.createOrder(validRequest))
+                    .isInstanceOf(CustomerNotFoundException.class);
+
+            verify(orderRepository, never()).save(any());
         }
     }
 
