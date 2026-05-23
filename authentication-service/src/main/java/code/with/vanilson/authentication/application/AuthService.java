@@ -8,6 +8,7 @@ import code.with.vanilson.authentication.exception.RegistrationException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.CustomerRegistrationClient;
 import code.with.vanilson.authentication.infrastructure.JwtService;
+import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
 import code.with.vanilson.authentication.infrastructure.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +47,7 @@ public class AuthService {
     private final MessageSource                messageSource;
     private final RefreshTokenService          refreshTokenService;
     private final CustomerRegistrationClient   customerRegistrationClient;
+    private final UserRegisteredProducer       userRegisteredProducer;
 
     public AuthService(UserRepository userRepository,
                        TokenRepository tokenRepository,
@@ -54,7 +56,8 @@ public class AuthService {
                        AuthenticationManager authManager,
                        MessageSource messageSource,
                        RefreshTokenService refreshTokenService,
-                       CustomerRegistrationClient customerRegistrationClient) {
+                       CustomerRegistrationClient customerRegistrationClient,
+                       UserRegisteredProducer userRegisteredProducer) {
         this.userRepository             = userRepository;
         this.tokenRepository            = tokenRepository;
         this.jwtService                 = jwtService;
@@ -63,6 +66,7 @@ public class AuthService {
         this.messageSource              = messageSource;
         this.refreshTokenService        = refreshTokenService;
         this.customerRegistrationClient = customerRegistrationClient;
+        this.userRegisteredProducer     = userRegisteredProducer;
     }
 
     // -------------------------------------------------------
@@ -107,17 +111,10 @@ public class AuthService {
         User saved = userRepository.save(user);
         log.info(msg("auth.log.register.success", saved.getId(), saved.getEmail()));
 
-        try {
-            customerRegistrationClient.createCustomer(
-                    new CustomerRegistrationClient.CustomerRegistrationRequest(
-                            String.valueOf(saved.getId()),
-                            saved.getFirstname(),
-                            saved.getLastname(),
-                            saved.getEmail()));
-            log.info("Customer profile created for userId=[{}]", saved.getId());
-        } catch (Exception ex) {
-            log.warn("Failed to create customer profile for userId=[{}]: {}", saved.getId(), ex.getMessage());
-        }
+        // Publish event — customer-service will create the profile asynchronously.
+        // Login backfill (below in login()) remains as safety net for the eventual-consistency window.
+        userRegisteredProducer.publishUserRegistered(saved);
+        log.info("[AuthService] Published user.registered event for userId=[{}]", saved.getId());
 
         String accessJwt  = jwtService.generateAccessToken(saved);
         String refreshJwt = jwtService.generateRefreshToken(saved);

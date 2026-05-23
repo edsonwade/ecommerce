@@ -138,6 +138,12 @@
             <artifactId>spring-cloud-openfeign-core</artifactId>
         </dependency>
         
+        <!-- Kafka — customer.profile producer + user.registered consumer -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Shared tenant-context library (multi-tenancy + JWT security primitives) -->
         <dependency>
             <groupId>code.with.vanilson</groupId>
@@ -179,6 +185,11 @@
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-suite</artifactId>
             <version>1.10.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
             <scope>test</scope>
         </dependency>
 

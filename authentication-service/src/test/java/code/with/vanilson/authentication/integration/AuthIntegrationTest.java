@@ -1,5 +1,6 @@
 package code.with.vanilson.authentication.integration;
 
+import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -63,6 +65,11 @@ class AuthIntegrationTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     }
+
+    // Mock Kafka producer — no broker in integration tests; Kafka is tested in unit tests.
+    @MockBean
+    @SuppressWarnings("unused")
+    UserRegisteredProducer userRegisteredProducer;
 
     @Autowired MockMvc      mockMvc;
     @Autowired ObjectMapper objectMapper;

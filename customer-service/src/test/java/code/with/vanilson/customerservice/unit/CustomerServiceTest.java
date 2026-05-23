@@ -9,6 +9,7 @@ import code.with.vanilson.customerservice.CustomerResponse;
 import code.with.vanilson.customerservice.CustomerService;
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
+import code.with.vanilson.customerservice.kafka.CustomerProfileProducer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -49,9 +50,10 @@ import static org.mockito.Mockito.when;
 @DisplayName("CustomerService — Unit Tests")
 class CustomerServiceTest {
 
-    @Mock private CustomerRepository customerRepository;
-    @Mock private CustomerMapper     customerMapper;
-    @Mock private MessageSource      messageSource;
+    @Mock private CustomerRepository     customerRepository;
+    @Mock private CustomerMapper         customerMapper;
+    @Mock private MessageSource          messageSource;
+    @Mock private CustomerProfileProducer customerProfileProducer;
 
     @InjectMocks
     private CustomerService customerService;

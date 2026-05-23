@@ -14,6 +14,7 @@ import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.infrastructure.JwtService;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
 import code.with.vanilson.authentication.infrastructure.UserRepository;
+import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,13 +56,14 @@ import code.with.vanilson.authentication.domain.Token;
 @DisplayName("AuthService Unit Tests")
 class AuthServiceTest {
 
-    @Mock UserRepository        userRepository;
-    @Mock TokenRepository       tokenRepository;
-    @Mock JwtService            jwtService;
-    @Mock PasswordEncoder       passwordEncoder;
-    @Mock AuthenticationManager authManager;
-    @Mock MessageSource         messageSource;
-    @Mock RefreshTokenService   refreshTokenService;
+    @Mock UserRepository          userRepository;
+    @Mock TokenRepository         tokenRepository;
+    @Mock JwtService              jwtService;
+    @Mock PasswordEncoder         passwordEncoder;
+    @Mock AuthenticationManager   authManager;
+    @Mock MessageSource           messageSource;
+    @Mock RefreshTokenService     refreshTokenService;
+    @Mock UserRegisteredProducer  userRegisteredProducer;
 
     @InjectMocks AuthService authService;
 
@@ -120,6 +122,45 @@ class AuthServiceTest {
 
             verify(userRepository).save(any(User.class));
             verify(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("register publishes user.registered Kafka event after user save (Phase 2)")
+        void registerPublishesKafkaEvent() {
+            RegisterRequest req = new RegisterRequest("John", "Doe",
+                    "john.doe@example.com", "password123", "default", null);
+
+            when(userRepository.existsByEmail("john.doe@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("$2a$12$encoded");
+            when(userRepository.save(any(User.class))).thenReturn(savedUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("access.jwt.token");
+            when(jwtService.generateRefreshToken(any())).thenReturn("refresh.jwt.token");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            authService.register(req);
+
+            verify(userRegisteredProducer).publishUserRegistered(savedUser);
+        }
+
+        @Test
+        @DisplayName("register does NOT call Feign CustomerRegistrationClient (replaced by Kafka)")
+        void registerDoesNotCallFeignDirectly() {
+            // Verifies that register() no longer calls the sync Feign client
+            // The login backfill still calls it, but register() should only use Kafka now.
+            RegisterRequest req = new RegisterRequest("John", "Doe",
+                    "john.doe@example.com", "password123", "default", null);
+
+            when(userRepository.existsByEmail("john.doe@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+            when(userRepository.save(any(User.class))).thenReturn(savedUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("access");
+            when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            authService.register(req);
+
+            // Kafka producer must be called
+            verify(userRegisteredProducer).publishUserRegistered(any(User.class));
         }
 
         @Test

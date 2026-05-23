@@ -3,6 +3,7 @@ package code.with.vanilson.orderservice.bdd;
 import code.with.vanilson.orderservice.*;
 import code.with.vanilson.orderservice.customer.CustomerClient;
 import code.with.vanilson.orderservice.customer.CustomerInfo;
+import code.with.vanilson.orderservice.customer.CustomerSnapshotRepository;
 import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
@@ -19,6 +20,8 @@ import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.mockito.Mockito;
 import org.springframework.context.MessageSource;
 
@@ -27,6 +30,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -42,10 +48,12 @@ public class OrderStepDefinitions {
     private OrderRepository orderRepository;
     private OrderMapper orderMapper;
     private CustomerClient customerClient;
+    private CustomerSnapshotRepository snapshotRepository;
     private OrderLineService orderLineService;
     private OutboxRepository outboxRepository;
     private MessageSource messageSource;
     private TenantHibernateFilterActivator filterActivator;
+    private MeterRegistry meterRegistry;
     private OrderService orderService;
 
     // State
@@ -60,14 +68,23 @@ public class OrderStepDefinitions {
         orderRepository = Mockito.mock(OrderRepository.class);
         orderMapper = Mockito.mock(OrderMapper.class);
         customerClient = Mockito.mock(CustomerClient.class);
+        snapshotRepository = Mockito.mock(CustomerSnapshotRepository.class);
         orderLineService = Mockito.mock(OrderLineService.class);
         outboxRepository = Mockito.mock(OutboxRepository.class);
         messageSource = Mockito.mock(MessageSource.class);
         filterActivator = Mockito.mock(TenantHibernateFilterActivator.class);
+        meterRegistry = Mockito.mock(MeterRegistry.class);
+
+        Counter mockCounter = mock(Counter.class);
+        Mockito.lenient().when(meterRegistry.counter(anyString(), anyString(), anyString()))
+                .thenReturn(mockCounter);
+
+        // Default: no snapshot found — tests fall through to Feign
+        Mockito.lenient().when(snapshotRepository.findById(anyString())).thenReturn(Optional.empty());
 
         orderService = new OrderService(
-                orderRepository, orderMapper, customerClient,
-                orderLineService, outboxRepository, messageSource, filterActivator);
+                orderRepository, orderMapper, customerClient, snapshotRepository,
+                orderLineService, outboxRepository, messageSource, filterActivator, meterRegistry);
 
         TenantContext.setCurrentTenantId("test-tenant");
 
