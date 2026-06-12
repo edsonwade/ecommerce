@@ -154,6 +154,8 @@ public class CustomerService {
     public String ensureCustomer(CustomerRequest request) {
         if (request.customerId() != null && customerRepository.existsById(request.customerId())) {
             log.info("[CustomerService] ensureCustomer: already exists id=[{}]", request.customerId());
+            customerRepository.findById(request.customerId())
+                    .ifPresent(c -> customerProfileProducer.publishProfileEvent(c, "UPDATED"));
             return request.customerId();
         }
         try {
@@ -164,6 +166,7 @@ public class CustomerService {
             Customer saved = customerRepository.save(entity);
             log.info("[CustomerService] ensureCustomer: created id=[{}] email=[{}]",
                     saved.getCustomerId(), saved.getEmail());
+            customerProfileProducer.publishProfileEvent(saved, "CREATED");
             return saved.getCustomerId();
         } catch (DataIntegrityViolationException ex) {
             // Concurrent insert — fall back to existing record by email

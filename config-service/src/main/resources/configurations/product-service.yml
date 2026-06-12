@@ -16,6 +16,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+      keepalive-time: 120000
       leak-detection-threshold: 60000
       pool-name: ProductServiceHikariPool
   jpa:
@@ -84,8 +85,6 @@ spring:
       properties:
         spring.json.trusted.packages: "code.with.vanilson.*"
         spring.json.use.type.headers: false
-        spring.json.value.default.type: >
-          code.with.vanilson.productservice.kafka.OrderRequestedEvent
 
   flyway:
     locations: classpath:db/migration

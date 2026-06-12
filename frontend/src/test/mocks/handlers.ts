@@ -85,6 +85,7 @@ const ORDER: OrderResponse = {
   amount: 59.98,
   paymentMethod: 'CREDIT_CARD',
   customerId: 'user-001',
+  status: 'CONFIRMED',
 };
 
 const CUSTOMER: CustomerResponse = {

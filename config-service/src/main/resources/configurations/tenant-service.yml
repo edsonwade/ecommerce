@@ -10,6 +10,15 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/tenant_db
     username: ${POSTGRES_USERNAME:vanilson}
     password: ${POSTGRES_PASSWORD:vanilson}
+    # Gateway validates the tenant on EVERY request — default pool (10, no
+    # keepalive) starves under load; align with the other services.
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      keepalive-time: 120000
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:

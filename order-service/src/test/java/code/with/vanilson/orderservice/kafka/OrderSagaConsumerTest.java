@@ -181,7 +181,7 @@ class OrderSagaConsumerTest {
     class InventoryInsufficient {
 
         @Test
-        @DisplayName("should update order through INVENTORY_INSUFFICIENT to CANCELLED")
+        @DisplayName("should cancel order directly with a single status update")
         void shouldCancelOrderOnInsufficientStock() {
             InventoryInsufficientEvent event = new InventoryInsufficientEvent(
                     "evt-inv-001", CORRELATION_ID, "ORD-001",
@@ -189,14 +189,14 @@ class OrderSagaConsumerTest {
 
             consumer.onInventoryInsufficient(event, 0, 0L, acknowledgment);
 
-            verify(orderService).updateStatus(CORRELATION_ID, OrderStatus.INVENTORY_INSUFFICIENT);
             verify(orderService).updateStatus(CORRELATION_ID, OrderStatus.CANCELLED);
+            verify(orderService, never()).updateStatus(CORRELATION_ID, OrderStatus.INVENTORY_INSUFFICIENT);
             verify(acknowledgment).acknowledge();
         }
 
         @Test
-        @DisplayName("should publish INVENTORY_INSUFFICIENT then CANCELLED events in order")
-        void shouldPublishIntermediateAndTerminalEvents() {
+        @DisplayName("should publish a single CANCELLED event")
+        void shouldPublishSingleTerminalEvent() {
             InventoryInsufficientEvent event = new InventoryInsufficientEvent(
                     "evt-inv-002", CORRELATION_ID, "ORD-001",
                     1, 5.0, 0.0, Instant.now(), 1);
@@ -205,12 +205,12 @@ class OrderSagaConsumerTest {
 
             ArgumentCaptor<OrderStatusChangedEvent> captor =
                     ArgumentCaptor.forClass(OrderStatusChangedEvent.class);
-            verify(eventPublisher, times(2)).publishEvent(captor.capture());
+            verify(eventPublisher).publishEvent(captor.capture());
 
             List<OrderStatusChangedEvent> published = captor.getAllValues();
-            assertThat(published).hasSize(2)
+            assertThat(published).hasSize(1)
                     .extracting(OrderStatusChangedEvent::status)
-                    .containsExactly("INVENTORY_INSUFFICIENT", "CANCELLED");
+                    .containsExactly("CANCELLED");
         }
     }
 }

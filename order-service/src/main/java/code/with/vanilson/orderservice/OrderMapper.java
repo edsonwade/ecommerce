@@ -43,7 +43,8 @@ public class OrderMapper {
                 order.getReference(),
                 order.getTotalAmount(),
                 order.getPaymentMethod() != null ? order.getPaymentMethod().name() : null,
-                order.getCustomerId()
+                order.getCustomerId(),
+                order.getStatus() != null ? order.getStatus().name() : null
         );
     }
 }

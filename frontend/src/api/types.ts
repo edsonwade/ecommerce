@@ -116,6 +116,8 @@ export interface OrderResponse {
   amount: number;
   paymentMethod: string;
   customerId: string;
+  /** Saga status (REQUESTED/CONFIRMED/CANCELLED/…) — added so badges stop guessing from paymentMethod. */
+  status: OrderStatus | string;
 }
 
 export interface OrderCreateResponse {

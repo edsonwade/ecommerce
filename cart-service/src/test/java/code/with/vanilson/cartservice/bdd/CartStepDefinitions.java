@@ -9,6 +9,8 @@ import code.with.vanilson.cartservice.domain.CartItem;
 import code.with.vanilson.cartservice.exception.CartNotFoundException;
 import code.with.vanilson.cartservice.exception.CartValidationException;
 import code.with.vanilson.cartservice.infrastructure.CartRepository;
+import code.with.vanilson.tenantcontext.TenantContext;
+import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -36,8 +38,16 @@ public class CartStepDefinitions {
     private Exception caughtException;
     private Cart mockedDbCart;
 
+    private static final String TENANT_ID = "11111111-1111-1111-1111-111111111111";
+
+    /** Tenant-scoped Redis key, mirroring CartService.buildCartId. */
+    private static String cartId(String custId) {
+        return "cart:" + TENANT_ID + ":" + custId;
+    }
+
     @Before
     public void setUp() {
+        TenantContext.setCurrentTenantId(TENANT_ID);
         cartRepository = Mockito.mock(CartRepository.class);
         cartMapper = Mockito.mock(CartMapper.class);
         MessageSource messageSource = Mockito.mock(MessageSource.class);
@@ -49,11 +59,16 @@ public class CartStepDefinitions {
         caughtException = null;
     }
 
+    @After
+    public void tearDown() {
+        TenantContext.clear();
+    }
+
     @Given("the cart for customer {string} is empty")
     public void the_cart_is_empty(String custId) {
         this.customerId = custId;
-        when(cartRepository.findById("cart:" + custId)).thenReturn(Optional.empty());
-        mockedDbCart = Cart.builder().cartId("cart:" + custId).customerId(custId).items(new ArrayList<>()).build();
+        when(cartRepository.findById(cartId(custId))).thenReturn(Optional.empty());
+        mockedDbCart = Cart.builder().cartId(cartId(custId)).customerId(custId).items(new ArrayList<>()).build();
         when(cartRepository.save(any(Cart.class))).thenReturn(mockedDbCart);
     }
 
@@ -61,10 +76,10 @@ public class CartStepDefinitions {
     public void the_cart_has_product_with_quantity(String custId, int productId, double quantity) {
         this.customerId = custId;
         CartItem item = CartItem.builder().productId(productId).quantity(quantity).unitPrice(BigDecimal.TEN).build();
-        mockedDbCart = Cart.builder().cartId("cart:" + custId).customerId(custId)
+        mockedDbCart = Cart.builder().cartId(cartId(custId)).customerId(custId)
                 .items(new ArrayList<>(List.of(item))).build();
 
-        when(cartRepository.findById("cart:" + custId)).thenReturn(Optional.of(mockedDbCart));
+        when(cartRepository.findById(cartId(custId))).thenReturn(Optional.of(mockedDbCart));
         when(cartRepository.save(any(Cart.class))).thenReturn(mockedDbCart);
     }
 
@@ -152,10 +167,10 @@ public class CartStepDefinitions {
                 .unitPrice(BigDecimal.TEN)
                 .availableQuantity(stockLimit)
                 .build();
-        mockedDbCart = Cart.builder().cartId("cart:" + custId).customerId(custId)
+        mockedDbCart = Cart.builder().cartId(cartId(custId)).customerId(custId)
                 .items(new ArrayList<>(List.of(item))).build();
 
-        when(cartRepository.findById("cart:" + custId)).thenReturn(Optional.of(mockedDbCart));
+        when(cartRepository.findById(cartId(custId))).thenReturn(Optional.of(mockedDbCart));
         when(cartRepository.save(any(Cart.class))).thenReturn(mockedDbCart);
     }
 

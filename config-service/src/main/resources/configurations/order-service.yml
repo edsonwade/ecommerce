@@ -16,6 +16,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+      keepalive-time: 120000
       leak-detection-threshold: 60000
       pool-name: OrderServiceHikariPool
   jpa:

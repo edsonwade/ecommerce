@@ -156,7 +156,7 @@ class OrderControllerSecurityTest {
         @DisplayName("200 when ADMIN lists all orders")
         void admin_lists_all_orders() throws Exception {
             when(orderService.findAllOrders()).thenReturn(List.of(
-                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42")));
+                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "REQUESTED")));
 
             mockMvc.perform(get(BASE)
                             .header(TENANT_HDR, TENANT_VAL)
@@ -184,7 +184,7 @@ class OrderControllerSecurityTest {
         @DisplayName("200 when USER accesses their own order")
         void user_accesses_own_order() throws Exception {
             when(orderService.findById(1)).thenReturn(
-                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42"));
+                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "REQUESTED"));
 
             mockMvc.perform(get(BASE + "/1")
                             .header(TENANT_HDR, TENANT_VAL)
@@ -208,7 +208,7 @@ class OrderControllerSecurityTest {
         @DisplayName("200 when ADMIN accesses any order")
         void admin_accesses_any_order() throws Exception {
             when(orderService.findById(anyInt())).thenReturn(
-                    new OrderResponse(99, "REF-099", BigDecimal.valueOf(200), "CREDIT_CARD", "99"));
+                    new OrderResponse(99, "REF-099", BigDecimal.valueOf(200), "CREDIT_CARD", "99", "REQUESTED"));
 
             mockMvc.perform(get(BASE + "/99")
                             .header(TENANT_HDR, TENANT_VAL)

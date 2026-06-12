@@ -16,6 +16,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+      keepalive-time: 120000
       leak-detection-threshold: 60000
       pool-name: AuthServiceHikariPool
   jpa:
@@ -53,6 +54,32 @@ eureka:
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
+
+# Resilience4j — circuit breaker for the customer-registration Feign backfill call
+resilience4j:
+  circuitbreaker:
+    instances:
+      customer-registration:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
+
+# Explicit Feign timeouts — without these a hung customer-service blocks login
+# threads for the 60s Feign default
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 5000
+
+# CORS — explicit origin allowlist (wildcard + credentials is a CSRF-equivalent hole)
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:80,http://localhost:5173,http://localhost:3000,http://localhost:8222}
 
 # JWT configuration — secret must match the Gateway's JWT secret exactly
 application:

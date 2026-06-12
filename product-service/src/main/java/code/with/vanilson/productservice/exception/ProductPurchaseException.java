@@ -15,7 +15,38 @@ import org.springframework.http.HttpStatus;
  */
 public class ProductPurchaseException extends ProductBaseException {
 
+    private final Integer productId;
+    private final String  productName;
+    private final double  requestedQty;
+    private final double  availableQty;
+
     public ProductPurchaseException(String resolvedMessage, String messageKey) {
+        this(resolvedMessage, messageKey, null, null, 0, 0);
+    }
+
+    public ProductPurchaseException(String resolvedMessage, String messageKey,
+                                    Integer productId, String productName,
+                                    double requestedQty, double availableQty) {
         super(resolvedMessage, HttpStatus.UNPROCESSABLE_ENTITY, messageKey);
+        this.productId = productId;
+        this.productName = productName;
+        this.requestedQty = requestedQty;
+        this.availableQty = availableQty;
+    }
+
+    public Integer getProductId() {
+        return productId;
+    }
+
+    public String getProductName() {
+        return productName;
+    }
+
+    public double getRequestedQty() {
+        return requestedQty;
+    }
+
+    public double getAvailableQty() {
+        return availableQty;
     }
 }

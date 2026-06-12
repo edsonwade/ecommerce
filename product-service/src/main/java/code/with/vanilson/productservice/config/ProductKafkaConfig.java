@@ -16,7 +16,7 @@ import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.converter.StringJsonMessageConverter;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -74,19 +74,12 @@ public class ProductKafkaConfig {
 
     @Bean
     public ConsumerFactory<String, Object> inventoryConsumerFactory() {
-        // Start from Spring Boot's fully-merged consumer properties (bootstrap-servers,
-        // security.protocol, sasl.*, etc.) then override the inventory-specific settings.
-        // VALUE_DEFAULT_TYPE is NOT set — both InventoryReservationConsumer (OrderRequestedEvent)
-        // and InventoryCompensationConsumer (PaymentFailedEvent) share this factory.
-        // Spring resolves the target type from the @Payload parameter on each @KafkaListener method.
         Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "inventory-reservation-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
@@ -104,6 +97,7 @@ public class ProductKafkaConfig {
         var factory = new ConcurrentKafkaListenerContainerFactory<String, Object>();
         factory.setConsumerFactory(inventoryConsumerFactory());
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setRecordMessageConverter(new StringJsonMessageConverter());
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 inventoryKafkaTemplate,

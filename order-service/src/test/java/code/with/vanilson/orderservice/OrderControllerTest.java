@@ -83,7 +83,7 @@ class OrderControllerTest {
         );
 
         orderResponse = new OrderResponse(
-                42, "REF-001", BigDecimal.valueOf(299.99), "CREDIT_CARD", "cust-001");
+                42, "REF-001", BigDecimal.valueOf(299.99), "CREDIT_CARD", "cust-001", "REQUESTED");
 
         statusResponse = new OrderStatusResponse(
                 42, "corr-id-001", "REF-001", "REQUESTED",

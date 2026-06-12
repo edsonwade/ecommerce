@@ -124,6 +124,30 @@ public class OrderGlobalExceptionHandler {
     }
 
     /**
+     * Handles NullPointerException specifically.
+     * NPEs are always bugs and should be logged with priority but clean format.
+     */
+    @ExceptionHandler(NullPointerException.class)
+    public ResponseEntity<Map<String, Object>> handleNullPointerException(
+            NullPointerException ex, WebRequest request) {
+        String ref = UUID.randomUUID().toString();
+
+        if (isTestMessage(ex.getMessage())) {
+            log.error("[OrderExceptionHandler] BUG DETECTED (TEST) - NullPointerException ref=[{}]: {}",
+                    ref, ex.getMessage());
+        } else {
+            log.error("[OrderExceptionHandler] BUG DETECTED - NullPointerException ref=[{}]: {}",
+                    ref, ex.getMessage(), ex);
+        }
+
+        String message = messageSource.getMessage(
+                "order.error.internal.user",
+                null,
+                LocaleContextHolder.getLocale());
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, "order.error.bug.npe", request);
+    }
+
+    /**
      * Fallback for any unexpected exception — never exposes stack traces to the client.
      */
     @ExceptionHandler(Exception.class)
@@ -131,7 +155,9 @@ public class OrderGlobalExceptionHandler {
             Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && (ex.getMessage().contains("test") || ex.getMessage().contains("Simulated"))) {
+        boolean isInternalOrTest = ex instanceof OrderInternalServiceException || isTestMessage(ex.getMessage());
+
+        if (isInternalOrTest) {
             log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
         } else {
             log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
@@ -143,6 +169,14 @@ public class OrderGlobalExceptionHandler {
                 null,
                 LocaleContextHolder.getLocale());
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, "order.error.internal", request);
+    }
+
+    private boolean isTestMessage(String message) {
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("test") || lower.contains("simulated") || lower.contains("mock");
     }
 
     // -------------------------------------------------------

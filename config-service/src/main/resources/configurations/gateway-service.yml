@@ -258,22 +258,25 @@ resilience4j:
         slow-call-duration-threshold: 5s
       cart-cb:
         sliding-window-size: 20
-        failure-rate-threshold: 60
-        wait-duration-in-open-state: 15s
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 5
         slow-call-rate-threshold: 80
         slow-call-duration-threshold: 5s
       order-cb:
         sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 15s
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 5
         slow-call-rate-threshold: 80
         slow-call-duration-threshold: 5s
       product-cb:
         sliding-window-size: 20
-        failure-rate-threshold: 60
-        wait-duration-in-open-state: 15s
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 5
         slow-call-rate-threshold: 80
         slow-call-duration-threshold: 5s
