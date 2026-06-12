@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -59,7 +58,6 @@ class ProductServiceTest {
     @Mock private MessageSource      messageSource;
     @Mock private code.with.vanilson.productservice.category.CategoryRepository categoryRepository;
 
-    @InjectMocks
     private ProductService productService;
 
     // -------------------------------------------------------
@@ -87,6 +85,11 @@ class ProductServiceTest {
         // MessageSource stub: returns the key itself so tests are portable
         when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+
+        // Real shared reservation core wired over the same mocks — purchase tests
+        // exercise the actual fetch/validate/deduct logic, not a stub.
+        productService = new ProductService(productRepository, productMapper, messageSource,
+                categoryRepository, new InventoryReservationService(productRepository, messageSource));
     }
 
     // -------------------------------------------------------

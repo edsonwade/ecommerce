@@ -1,5 +1,6 @@
 package code.with.vanilson.authentication.integration;
 
+import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -42,6 +44,11 @@ import static org.hamcrest.Matchers.notNullValue;
 @ActiveProfiles("test")
 @DisplayName("Authentication REST Assured Integration Tests")
 class AuthRestAssuredIT {
+
+    // Kafka is not available in the IT environment — mock the producer so
+    // kafkaTemplate.send() does not block 60 s on localhost:9092 and cause a 500.
+    @MockBean
+    UserRegisteredProducer userRegisteredProducer;
 
     @Container
     static PostgreSQLContainer<?> postgres =

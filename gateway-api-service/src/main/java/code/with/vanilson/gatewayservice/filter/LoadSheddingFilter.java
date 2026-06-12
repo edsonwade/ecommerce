@@ -27,7 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - Non-critical requests receive 503 with Retry-After: 30
  * - Core checkout/payment paths are protected
  * <p>
- * Runs AFTER JWT auth (order = HIGHEST_PRECEDENCE + 20).
+ * Runs AFTER tenant validation (order = HIGHEST_PRECEDENCE + 30) so that a
+ * rejected tenant's request never consumes shedding capacity.
  * All messages resolved from messages.properties.
  * </p>
  *
@@ -79,6 +80,8 @@ public class LoadSheddingFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 20;
+        // +30: TenantValidationFilter already owns +20 — equal orders make the
+        // execution sequence of GlobalFilters non-deterministic.
+        return Ordered.HIGHEST_PRECEDENCE + 30;
     }
 }

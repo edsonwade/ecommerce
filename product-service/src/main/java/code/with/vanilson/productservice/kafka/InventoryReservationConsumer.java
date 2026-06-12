@@ -2,13 +2,11 @@ package code.with.vanilson.productservice.kafka;
 
 import code.with.vanilson.productservice.domain.InventoryReservation;
 import code.with.vanilson.productservice.domain.InventoryReservationRepository;
+import code.with.vanilson.productservice.InventoryReservationService;
 import code.with.vanilson.productservice.Product;
-import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.Acknowledgment;
@@ -16,13 +14,12 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.slf4j.MDC;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,11 +50,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InventoryReservationConsumer {
 
-    private final ProductRepository                  productRepository;
+    private final InventoryReservationService        inventoryReservationService;
     private final InventoryReservationRepository     reservationRepository;
     private final KafkaTemplate<String, Object>      kafkaTemplate;
-    private final MessageSource                      messageSource;
     private final MeterRegistry                      meterRegistry;
+    private final TransactionTemplate                transactionTemplate;
 
     private static final String TOPIC_RESERVED     = "inventory.reserved";
     private static final String TOPIC_INSUFFICIENT = "inventory.insufficient";
@@ -66,7 +63,6 @@ public class InventoryReservationConsumer {
             topics = "order.requested",
             groupId = "inventory-reservation-group",
             containerFactory = "inventoryKafkaListenerContainerFactory")
-    @Transactional
     public void onOrderRequested(
             @Payload OrderRequestedEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
@@ -81,8 +77,15 @@ public class InventoryReservationConsumer {
                     event.correlationId(), event.products().size(), partition, offset);
 
             try {
+                // Programmatic TX instead of @Transactional on the listener:
+                // ProductPurchaseException crosses the MANDATORY-propagation
+                // service proxy and marks the TX rollback-only; catching it
+                // inside a declarative TX would make the commit at the listener
+                // boundary throw UnexpectedRollbackException (retries + DLQ).
+                // Here the TX ends (rolled back) before the catch below runs.
                 List<InventoryReservedEvent.ReservedItem> reservedItems =
-                        reserveStock(event.products(), event.correlationId());
+                        transactionTemplate.execute(status ->
+                                reserveStock(event.products(), event.correlationId()));
 
                 publishInventoryReserved(event, reservedItems);
                 log.info("[InventoryConsumer] Stock reserved. correlationId=[{}] items=[{}]",
@@ -91,10 +94,10 @@ public class InventoryReservationConsumer {
                 meterRegistry.counter("saga.step.completed", "step", "inventory", "outcome", "success").increment();
 
             } catch (ProductPurchaseException ex) {
-                // Stock insufficient — extract productId from exception context
+                // Stock insufficient — extract failing product details from the exception
                 log.warn("[InventoryConsumer] Insufficient stock for correlationId=[{}]: {}",
                         event.correlationId(), ex.getMessage());
-                publishInventoryInsufficient(event, null, ex.getMessage());
+                publishInventoryInsufficient(event, ex);
                 meterRegistry.counter("saga.step.completed", "step", "inventory", "outcome", "failure").increment();
             }
 
@@ -107,60 +110,37 @@ public class InventoryReservationConsumer {
     // -------------------------------------------------------
 
     /**
-     * Reserves stock for all products using pessimistic locking.
-     * If ANY product has insufficient stock → throws ProductPurchaseException
-     * → entire reservation is rolled back (transaction boundary).
+     * Reserves stock via the shared InventoryReservationService (pessimistic
+     * locking, all-or-nothing within this consumer's transaction), then records
+     * the saga-specific InventoryReservation rows used by the compensation flow.
      */
     private List<InventoryReservedEvent.ReservedItem> reserveStock(
             List<OrderRequestedEvent.ProductPurchaseItem> items, String correlationId) {
 
-        List<Integer> productIds = items.stream()
-                .map(OrderRequestedEvent.ProductPurchaseItem::productId)
-                .toList();
-
-        List<Product> storedProducts = productRepository.findAllByIdInOrderById(productIds);
-
-        if (storedProducts.size() != productIds.size()) {
-            throw new ProductPurchaseException(
-                    msg("product.purchase.not.found", productIds),
-                    "product.purchase.not.found");
-        }
-
-        List<OrderRequestedEvent.ProductPurchaseItem> sortedItems = items.stream()
-                .sorted(Comparator.comparing(OrderRequestedEvent.ProductPurchaseItem::productId))
-                .toList();
+        List<InventoryReservationService.ReservedLine> lines =
+                inventoryReservationService.reserveStock(items.stream()
+                        .map(i -> new InventoryReservationService.ReservationItem(i.productId(), i.quantity()))
+                        .toList());
 
         List<InventoryReservedEvent.ReservedItem> reserved = new ArrayList<>();
 
-        for (int i = 0; i < storedProducts.size(); i++) {
-            Product product = storedProducts.get(i);
-            OrderRequestedEvent.ProductPurchaseItem item = sortedItems.get(i);
-
-            if (product.getAvailableQuantity() < item.quantity()) {
-                throw new ProductPurchaseException(
-                        msg("product.purchase.insufficient.stock",
-                                item.productId(), product.getAvailableQuantity(), item.quantity()),
-                        "product.purchase.insufficient.stock");
-            }
-
-            double newQty = product.getAvailableQuantity() - item.quantity();
-            product.setAvailableQuantity(newQty);
-            productRepository.save(product);
+        for (InventoryReservationService.ReservedLine line : lines) {
+            Product product = line.product();
 
             reservationRepository.save(InventoryReservation.builder()
                     .correlationId(correlationId)
                     .productId(product.getId())
-                    .reservedQuantity((int) item.quantity())
+                    .reservedQuantity((int) line.quantity())
                     .status(InventoryReservation.ReservationStatus.RESERVED)
                     .createdAt(java.time.LocalDateTime.now())
                     .build());
 
             log.debug("[InventoryConsumer] Stock reserved: productId=[{}] qty=[{}] newAvailable=[{}] correlationId=[{}]",
-                    product.getId(), item.quantity(), newQty, correlationId);
+                    product.getId(), line.quantity(), product.getAvailableQuantity(), correlationId);
 
             reserved.add(new InventoryReservedEvent.ReservedItem(
                     product.getId(), product.getName(),
-                    item.quantity(), product.getPrice()));
+                    line.quantity(), product.getPrice()));
         }
 
         return reserved;
@@ -186,21 +166,18 @@ public class InventoryReservationConsumer {
     }
 
     private void publishInventoryInsufficient(OrderRequestedEvent order,
-                                               Integer productId, String reason) {
+                                               ProductPurchaseException cause) {
         InventoryInsufficientEvent event = new InventoryInsufficientEvent(
                 UUID.randomUUID().toString(),
                 order.correlationId(),
                 order.orderReference(),
-                productId,
-                null,
-                0, 0,
+                cause.getProductId(),
+                cause.getProductName(),
+                cause.getRequestedQty(),
+                cause.getAvailableQty(),
                 Instant.now(),
                 1
         );
         kafkaTemplate.send(TOPIC_INSUFFICIENT, order.correlationId(), event);
-    }
-
-    private String msg(String key, Object... args) {
-        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }
 }

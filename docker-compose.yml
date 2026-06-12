@@ -94,9 +94,10 @@ services:
     image: redis:7.2-alpine
     container_name: redis
     # No external port in production — internal only
-    # Keeping for local dev access; remove port binding in production
+    # Host port 16379 to avoid clashing with the local WSL redis-server on 6379;
+    # services connect via the docker network (redis:6379) regardless.
     ports:
-      - "6379:6379"
+      - "16379:6379"
     command: >
       redis-server
       --maxmemory 512mb
@@ -465,8 +466,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: frontend
+    # Host port 8080 to avoid clashing with the local WSL nginx on 80;
+    # nginx inside the container still serves on 80.
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       gateway-api-service:
         condition: service_started
@@ -583,7 +586,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -785,7 +788,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -839,7 +842,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}

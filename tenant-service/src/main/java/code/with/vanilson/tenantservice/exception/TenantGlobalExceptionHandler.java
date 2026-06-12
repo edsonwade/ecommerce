@@ -55,6 +55,12 @@ public class TenantGlobalExceptionHandler {
         return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
     }
 
+    @ExceptionHandler(TenantDeletionNotAllowedException.class)
+    public ResponseEntity<Map<String, Object>> handleDeletionNotAllowed(TenantDeletionNotAllowedException ex, WebRequest req) {
+        log.warn("[TenantHandler] Deletion not allowed: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
+    }
+
     @ExceptionHandler(TenantForbiddenException.class)
     public ResponseEntity<Map<String, Object>> handleForbidden(TenantForbiddenException ex, WebRequest req) {
         log.warn("[TenantHandler] Forbidden: key=[{}]", ex.getMessageKey());

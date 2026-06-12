@@ -3,7 +3,9 @@ package code.with.vanilson.tenantservice.application;
 import code.with.vanilson.tenantservice.domain.Tenant;
 import code.with.vanilson.tenantservice.domain.TenantFeatureFlag;
 import code.with.vanilson.tenantservice.domain.TenantPlan;
+import code.with.vanilson.tenantservice.domain.TenantStatus;
 import code.with.vanilson.tenantservice.exception.TenantAlreadyExistsException;
+import code.with.vanilson.tenantservice.exception.TenantDeletionNotAllowedException;
 import code.with.vanilson.tenantservice.exception.TenantNotFoundException;
 import code.with.vanilson.tenantservice.exception.TenantNotOperationalException;
 import code.with.vanilson.tenantservice.infrastructure.TenantFeatureFlagRepository;
@@ -196,6 +198,11 @@ public class TenantService {
     @Transactional
     public void deleteTenant(String tenantId) {
         Tenant tenant = requireTenant(tenantId);
+        if (tenant.getStatus() != TenantStatus.CANCELLED) {
+            throw new TenantDeletionNotAllowedException(
+                    msg("tenant.delete.not.cancelled", tenant.getSlug(), tenant.getStatus()),
+                    "tenant.delete.not.cancelled");
+        }
         tenantRepository.delete(tenant);
         log.info(msg("tenant.log.deleted", tenantId));
     }

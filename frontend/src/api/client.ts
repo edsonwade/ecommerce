@@ -21,31 +21,33 @@ function processQueue(error: unknown, token: string | null) {
 }
 
 // Lazy store accessors — avoid circular import at module init time.
-// Cached after first import so concurrent requests share the same reference.
-let cachedAuthStore: typeof import('../stores/auth.store').useAuthStore | null = null;
-let cachedUIStore: typeof import('../stores/ui.store').useUIStore | null = null;
+// The import *promise* is cached (not the resolved value) so concurrent
+// requests arriving before the first import resolves share one import.
+let authStorePromise: Promise<typeof import('../stores/auth.store').useAuthStore> | null = null;
+let uiStorePromise: Promise<typeof import('../stores/ui.store').useUIStore> | null = null;
 
-async function getAuthStore() {
-  if (!cachedAuthStore) {
-    const m = await import('../stores/auth.store');
-    cachedAuthStore = m.useAuthStore;
-  }
-  return cachedAuthStore;
+function getAuthStore() {
+  authStorePromise ??= import('../stores/auth.store').then((m) => m.useAuthStore);
+  return authStorePromise;
 }
 
-async function getUIStore() {
-  if (!cachedUIStore) {
-    const m = await import('../stores/ui.store');
-    cachedUIStore = m.useUIStore;
-  }
-  return cachedUIStore;
+function getUIStore() {
+  uiStorePromise ??= import('../stores/ui.store').then((m) => m.useUIStore);
+  return uiStorePromise;
 }
 
-const apiClient = axios.create({
+const BASE_CONFIG = {
   baseURL: '/api/v1',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
-});
+} as const;
+
+const apiClient = axios.create(BASE_CONFIG);
+
+// Interceptor-free twin of apiClient for the refresh call itself: the auth
+// interceptor must not run on it (it would attach the expired access token),
+// but it must share base URL/timeout so config changes apply to both.
+const refreshClient = axios.create(BASE_CONFIG);
 
 // ── Request Interceptor ──
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
@@ -90,7 +92,7 @@ apiClient.interceptors.response.use(
       const { refreshToken, clearAuth } = useAuthStore.getState();
 
       try {
-        const response = await axios.post('/api/v1/auth/refresh', null, {
+        const response = await refreshClient.post('/auth/refresh', null, {
           headers: { Authorization: `Bearer ${refreshToken}` },
         });
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;

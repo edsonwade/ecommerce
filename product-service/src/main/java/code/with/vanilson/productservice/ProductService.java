@@ -24,8 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -58,15 +56,18 @@ public class ProductService {
     private final ProductMapper productMapper;
     private final MessageSource messageSource;
     private final CategoryRepository categoryRepository;
+    private final InventoryReservationService inventoryReservationService;
 
     public ProductService(ProductRepository productRepository,
                           ProductMapper productMapper,
                           MessageSource messageSource,
-                          CategoryRepository categoryRepository) {
+                          CategoryRepository categoryRepository,
+                          InventoryReservationService inventoryReservationService) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.messageSource = messageSource;
         this.categoryRepository = categoryRepository;
+        this.inventoryReservationService = inventoryReservationService;
     }
 
     // -------------------------------------------------------
@@ -258,47 +259,16 @@ public class ProductService {
 
         log.info(resolve("product.log.purchase.start", request.size()));
 
-        List<Integer> productIds = request.stream()
-                .map(ProductPurchaseRequest::productId)
+        // Reservation core (fetch-lock / validate / deduct) is shared with the
+        // Kafka saga path — see InventoryReservationService.
+        List<InventoryReservationService.ReservedLine> reserved =
+                inventoryReservationService.reserveStock(request.stream()
+                        .map(r -> new InventoryReservationService.ReservationItem(r.productId(), r.quantity()))
+                        .toList());
+
+        List<ProductPurchaseResponse> purchased = reserved.stream()
+                .map(line -> productMapper.toproductPurchaseResponse(line.product(), line.quantity()))
                 .toList();
-
-        List<Product> storedProducts = productRepository.findAllByIdInOrderById(productIds);
-
-        if (productIds.size() != storedProducts.size()) {
-            List<Integer> foundIds = storedProducts.stream().map(Product::getId).toList();
-            List<Integer> missingIds = productIds.stream().filter(id -> !foundIds.contains(id)).toList();
-            throw new ProductPurchaseException(
-                    resolve("product.purchase.not.found", missingIds.toString()),
-                    "product.purchase.not.found");
-        }
-
-        List<ProductPurchaseRequest> sortedRequest = request.stream()
-                .sorted(Comparator.comparing(ProductPurchaseRequest::productId))
-                .toList();
-
-        List<ProductPurchaseResponse> purchased = new ArrayList<>();
-
-        for (int i = 0; i < storedProducts.size(); i++) {
-            Product product = storedProducts.get(i);
-            ProductPurchaseRequest req = sortedRequest.get(i);
-
-            log.info(resolve("product.log.purchase.item",
-                    product.getId(), req.quantity(), product.getAvailableQuantity()));
-
-            if (product.getAvailableQuantity() < req.quantity()) {
-                throw new ProductPurchaseException(
-                        resolve("product.purchase.insufficient.stock",
-                                req.productId(), product.getAvailableQuantity(), req.quantity()),
-                        "product.purchase.insufficient.stock");
-            }
-
-            double newQty = product.getAvailableQuantity() - req.quantity();
-            product.setAvailableQuantity(newQty);
-            productRepository.save(product);
-
-            log.info(resolve("product.log.stock.updated", product.getId(), newQty));
-            purchased.add(productMapper.toproductPurchaseResponse(product, req.quantity()));
-        }
 
         log.info(resolve("product.log.purchase.complete", purchased.size()));
         return purchased;

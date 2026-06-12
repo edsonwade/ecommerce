@@ -1,4 +1,4 @@
-import { Box, Button, Container, Typography } from '@mui/material';
+import { Alert, Box, Button, Container, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -39,9 +39,9 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 export default function DashboardPage() {
   const { email } = useAuthStore();
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, isError, refetch } = useQuery({
     queryKey: [QUERY_KEYS.ORDERS],
-    queryFn: ({ signal }) => ordersApi.getAll(signal),
+    queryFn: ({ signal }) => ordersApi.getMyOrders(signal),
     staleTime: 30 * 1000,
     retry: false,
     throwOnError: false,
@@ -63,6 +63,21 @@ export default function DashboardPage() {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 5 }}>
           {email}
         </Typography>
+
+        {/* Error — without this, a failed query renders as "0 orders / No orders yet" */}
+        {isError && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={() => refetch()}>
+                Retry
+              </Button>
+            }
+            sx={{ mb: 4 }}
+          >
+            Failed to load your orders. Stats below may be incomplete.
+          </Alert>
+        )}
 
         {/* Stats */}
         <Box
@@ -98,7 +113,7 @@ export default function DashboardPage() {
           </Button>
         </Box>
 
-        {recentOrders.length === 0 ? (
+        {!isError && recentOrders.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No orders yet.{' '}
             <Link to={ROUTES.CATALOG} style={{ color: 'var(--accent-primary)' }}>
@@ -135,7 +150,7 @@ export default function DashboardPage() {
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <OrderStatusBadge status={order.paymentMethod as OrderStatus} />
+                  <OrderStatusBadge status={order.status as OrderStatus} />
                   <Typography variant="body2" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                     {formatCurrency(order.amount)}
                   </Typography>

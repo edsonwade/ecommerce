@@ -9,6 +9,7 @@ import code.with.vanilson.cartservice.domain.CartItem;
 import code.with.vanilson.cartservice.exception.CartNotFoundException;
 import code.with.vanilson.cartservice.exception.CartValidationException;
 import code.with.vanilson.cartservice.infrastructure.CartRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -57,8 +58,9 @@ class CartServiceTest {
     @InjectMocks
     private CartService cartService;
 
+    private static final String TENANT_ID   = "11111111-1111-1111-1111-111111111111";
     private static final String CUSTOMER_ID = "cust-001";
-    private static final String CART_ID     = "cart:cust-001";
+    private static final String CART_ID     = "cart:" + TENANT_ID + ":" + CUSTOMER_ID;
 
     private Cart emptyCart;
     private Cart cartWithOneItem;
@@ -67,6 +69,9 @@ class CartServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Tenant-scoped cart keys: buildCartId requires a tenant on the thread
+        code.with.vanilson.tenantcontext.TenantContext.setCurrentTenantId(TENANT_ID);
+
         // MessageSource stub — returns key so tests don't depend on .properties file
         when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -95,6 +100,11 @@ class CartServiceTest {
         addLaptopRequest = new AddCartItemRequest(
                 1, "Laptop", "Gaming Laptop",
                 BigDecimal.valueOf(1200.00), 2.0, 10);
+    }
+
+    @AfterEach
+    void tearDown() {
+        code.with.vanilson.tenantcontext.TenantContext.clear();
     }
 
     // -------------------------------------------------------

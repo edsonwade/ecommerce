@@ -13,6 +13,7 @@ import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -57,6 +58,7 @@ public class TenantValidationFilter implements GlobalFilter, Ordered {
     private final TenantServiceClient tenantServiceClient;
     private final MessageSource       messageSource;
     private final List<String>        publicPaths;
+    private final AntPathMatcher      pathMatcher = new AntPathMatcher();
 
     public TenantValidationFilter(
             TenantServiceClient tenantServiceClient,
@@ -170,10 +172,9 @@ public class TenantValidationFilter implements GlobalFilter, Ordered {
                 httpStatus, messageKey, message);
     }
 
+    // Ant-style matching — a naive startsWith would also skip validation for
+    // sibling paths sharing the prefix (e.g. "/api/v1/auth-admin/...").
     private boolean isPublicPath(String path) {
-        return publicPaths.stream().anyMatch(pattern -> {
-            String normalised = pattern.replace("/**", "");
-            return path.startsWith(normalised);
-        });
+        return publicPaths.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
     }
 }

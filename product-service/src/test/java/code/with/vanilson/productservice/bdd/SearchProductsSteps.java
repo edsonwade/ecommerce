@@ -1,5 +1,6 @@
 package code.with.vanilson.productservice.bdd;
 
+import code.with.vanilson.productservice.InventoryReservationService;
 import code.with.vanilson.productservice.Product;
 import code.with.vanilson.productservice.ProductMapper;
 import code.with.vanilson.productservice.ProductRepository;
@@ -59,7 +60,8 @@ public class SearchProductsSteps {
         // Use real ProductMapper — fromProduct() is package-private and is invoked
         // internally by ProductService (same package), so the real mapper works fine.
         ProductMapper realMapper = new ProductMapper(mockMessageSource);
-        productService = new ProductService(mockRepo, realMapper, mockMessageSource, mockCategoryRepo);
+        productService = new ProductService(mockRepo, realMapper, mockMessageSource, mockCategoryRepo,
+                new InventoryReservationService(mockRepo, mockMessageSource));
         searchResult = null;
         catalogProducts = null;
     }

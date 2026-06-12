@@ -12,6 +12,7 @@ import code.with.vanilson.tenantservice.domain.TenantFeatureFlag;
 import code.with.vanilson.tenantservice.domain.TenantPlan;
 import code.with.vanilson.tenantservice.domain.TenantStatus;
 import code.with.vanilson.tenantservice.exception.TenantAlreadyExistsException;
+import code.with.vanilson.tenantservice.exception.TenantDeletionNotAllowedException;
 import code.with.vanilson.tenantservice.exception.TenantNotFoundException;
 import code.with.vanilson.tenantservice.exception.TenantNotOperationalException;
 import code.with.vanilson.tenantservice.infrastructure.TenantFeatureFlagRepository;
@@ -249,6 +250,41 @@ class TenantServiceTest {
             ArgumentCaptor<Tenant> captor = ArgumentCaptor.forClass(Tenant.class);
             verify(tenantRepository).save(captor.capture());
             assertThat(captor.getValue().getStatus()).isEqualTo(TenantStatus.ACTIVE);
+        }
+    }
+
+    // -------------------------------------------------------
+    @Nested @DisplayName("deleteTenant")
+    class DeleteTenant {
+
+        @Test @DisplayName("should delete tenant when status is CANCELLED")
+        void shouldDeleteCancelledTenant() {
+            activeTenant.cancel();
+            when(tenantRepository.findByTenantId("tenant-001")).thenReturn(Optional.of(activeTenant));
+
+            tenantService.deleteTenant("tenant-001");
+
+            verify(tenantRepository).delete(activeTenant);
+        }
+
+        @Test @DisplayName("should reject deletion when status is ACTIVE")
+        void shouldRejectActiveTenant() {
+            when(tenantRepository.findByTenantId("tenant-001")).thenReturn(Optional.of(activeTenant));
+
+            assertThatThrownBy(() -> tenantService.deleteTenant("tenant-001"))
+                    .isInstanceOf(TenantDeletionNotAllowedException.class)
+                    .hasFieldOrPropertyWithValue("messageKey", "tenant.delete.not.cancelled");
+            verify(tenantRepository, never()).delete(any(Tenant.class));
+        }
+
+        @Test @DisplayName("should reject deletion when status is SUSPENDED")
+        void shouldRejectSuspendedTenant() {
+            activeTenant.suspend();
+            when(tenantRepository.findByTenantId("tenant-001")).thenReturn(Optional.of(activeTenant));
+
+            assertThatThrownBy(() -> tenantService.deleteTenant("tenant-001"))
+                    .isInstanceOf(TenantDeletionNotAllowedException.class);
+            verify(tenantRepository, never()).delete(any(Tenant.class));
         }
     }
 

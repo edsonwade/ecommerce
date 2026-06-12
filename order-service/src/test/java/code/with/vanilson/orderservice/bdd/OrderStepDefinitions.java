@@ -201,7 +201,7 @@ public class OrderStepDefinitions {
         ).toList();
         when(orderRepository.findAll()).thenReturn(orders);
         orders.forEach(o -> when(orderMapper.fromOrder(o)).thenReturn(new OrderResponse(
-                o.getOrderId(), o.getReference(), o.getTotalAmount(), "CREDIT_CARD", o.getCustomerId()
+                o.getOrderId(), o.getReference(), o.getTotalAmount(), "CREDIT_CARD", o.getCustomerId(), o.getStatus() != null ? o.getStatus().name() : "REQUESTED"
         )));
     }
 

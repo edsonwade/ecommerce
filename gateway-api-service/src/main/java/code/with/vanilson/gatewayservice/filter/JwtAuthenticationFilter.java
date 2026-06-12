@@ -18,6 +18,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -63,6 +64,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private final Object verificationKey;  // RSAPublicKey (RS256) or SecretKey (HS256 fallback)
     private final boolean useRsa;
     private final List<String> publicPaths;
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     public JwtAuthenticationFilter(
             MessageSource messageSource,
@@ -196,11 +198,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         return Ordered.HIGHEST_PRECEDENCE + 10;
     }
 
+    // Ant-style matching — a naive startsWith("/api/v1/auth") would also let
+    // "/api/v1/auth-admin/secret" bypass JWT validation.
     private boolean isPublicPath(String path) {
-        return publicPaths.stream().anyMatch(pattern -> {
-            String normalizedPattern = pattern.replace("/**", "");
-            return path.startsWith(normalizedPattern);
-        });
+        return publicPaths.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
     }
 
     private static RSAPublicKey loadRsaPublicKey(String base64Pem) {

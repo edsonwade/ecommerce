@@ -5,6 +5,7 @@ import code.with.vanilson.cartservice.domain.CartItem;
 import code.with.vanilson.cartservice.exception.CartNotFoundException;
 import code.with.vanilson.cartservice.exception.CartValidationException;
 import code.with.vanilson.cartservice.infrastructure.CartRepository;
+import code.with.vanilson.tenantcontext.TenantContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -18,7 +19,7 @@ import java.util.ArrayList;
  * Core business logic for cart management.
  * <p>
  * Design decisions:
- * 1. Cart ID is deterministic: "cart:{customerId}" — no random UUID.
+ * 1. Cart ID is deterministic and tenant-scoped: "cart:{tenantId}:{customerId}" — no random UUID.
  *    This allows O(1) lookup without secondary index for the common case.
  * 2. addItem: if product already in cart → update quantity (merge), not duplicate.
  * 3. Every mutation calls cart.touch() → resets TTL in Redis (24h sliding window).
@@ -73,6 +74,7 @@ public class CartService {
             Cart newCart = Cart.builder()
                     .cartId(cartId)
                     .customerId(customerId)
+                    .tenantId(TenantContext.requireCurrentTenantId())
                     .items(new ArrayList<>())
                     .build();
             log.info(msg("cart.log.created", cartId, customerId));
@@ -194,9 +196,14 @@ public class CartService {
                         "cart.not.found"));
     }
 
-    /** Deterministic cart ID: "cart:{customerId}" — no random UUID. */
+    /**
+     * Deterministic tenant-scoped cart ID: "cart:{tenantId}:{customerId}" — no random UUID.
+     * Without the tenant segment, customer "user1" in Tenant A and "user1" in
+     * Tenant B would share the same Redis key and see each other's items.
+     * requireCurrentTenantId() fails fast instead of silently building "cart:null:…" keys.
+     */
     private String buildCartId(String customerId) {
-        return "cart:" + customerId;
+        return "cart:" + TenantContext.requireCurrentTenantId() + ":" + customerId;
     }
 
     private String msg(String key, Object... args) {

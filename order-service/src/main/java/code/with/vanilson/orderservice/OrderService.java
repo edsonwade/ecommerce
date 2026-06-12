@@ -8,6 +8,7 @@ import code.with.vanilson.orderservice.exception.CustomerNotFoundException;
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
 import code.with.vanilson.orderservice.exception.OrderDuplicateReferenceException;
 import code.with.vanilson.orderservice.exception.OrderForbiddenException;
+import code.with.vanilson.orderservice.exception.OrderIllegalStateTransitionException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -178,8 +179,23 @@ public class OrderService {
     @Transactional
     public void updateStatus(String correlationId, OrderStatus newStatus) {
         orderRepository.findByCorrelationId(correlationId).ifPresent(order -> {
+            OrderStatus current = order.getStatus();
+
+            // Idempotent no-op: at-least-once Kafka delivery may replay the same update.
+            if (current == newStatus) {
+                log.info("[OrderService] Status already {} — skipping duplicate update: correlationId=[{}]",
+                        newStatus, correlationId);
+                return;
+            }
+
+            if (!current.canTransitionTo(newStatus)) {
+                throw new OrderIllegalStateTransitionException(
+                        msg("order.status.transition.invalid", current, newStatus, correlationId),
+                        "order.status.transition.invalid");
+            }
+
             log.info("[OrderService] Status update: correlationId=[{}] {} → {}",
-                    correlationId, order.getStatus(), newStatus);
+                    correlationId, current, newStatus);
             order.setStatus(newStatus);
             orderRepository.save(order);
         });

@@ -2,6 +2,7 @@ package code.with.vanilson.productservice.kafka;
 
 import code.with.vanilson.productservice.domain.InventoryReservation;
 import code.with.vanilson.productservice.domain.InventoryReservationRepository;
+import code.with.vanilson.productservice.InventoryReservationService;
 import code.with.vanilson.productservice.Product;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.category.Category;
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.lenient;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.MessageSource;
@@ -64,8 +64,9 @@ class InventoryReservationConsumerTest {
     private Acknowledgment acknowledgment;
     @Mock
     private io.micrometer.core.instrument.MeterRegistry meterRegistry;
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
-    @InjectMocks
     private InventoryReservationConsumer consumer;
 
     private static final String CORRELATION_ID = "corr-test-001";
@@ -83,6 +84,15 @@ class InventoryReservationConsumerTest {
 
         lenient().when(meterRegistry.counter(anyString(), any(String[].class)))
                 .thenReturn(org.mockito.Mockito.mock(io.micrometer.core.instrument.Counter.class));
+
+        // Real shared reservation core wired over the mocked repository — the
+        // consumer test exercises the actual fetch/validate/deduct logic.
+        // TransactionTemplate over a mocked manager: runs the callback inline
+        // and rethrows on failure, mirroring the production rollback semantics.
+        consumer = new InventoryReservationConsumer(
+                new InventoryReservationService(productRepository, messageSource),
+                reservationRepository, kafkaTemplate, meterRegistry,
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager));
 
         Category category = Category.builder().id(1).name("Electronics").description("Electronic items").build();
         laptop = new Product(1, "Laptop", "Gaming Laptop", 10.0, BigDecimal.valueOf(1200.00), category);
@@ -229,6 +239,32 @@ class InventoryReservationConsumerTest {
             consumer.onOrderRequested(overRequest, 0, 0L, acknowledgment);
 
             verify(productRepository, times(0)).save(any());
+        }
+
+        @Test
+        @DisplayName("should publish event carrying the failing product's id, name and quantities")
+        void shouldPublishEventWithRealProductDetails() {
+            // laptop (id=1, "Laptop") has 10.0 available but 20.0 requested
+            OrderRequestedEvent overRequest = new OrderRequestedEvent(
+                    "evt-006", CORRELATION_ID, "cust-001", "ana@example.com",
+                    "Ana", "Silva",
+                    List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 20.0)),
+                    BigDecimal.valueOf(24000.00), "CREDIT_CARD",
+                    ORDER_REFERENCE, Instant.now(), 1
+            );
+            when(productRepository.findAllByIdInOrderById(List.of(1)))
+                    .thenReturn(List.of(laptop));
+
+            consumer.onOrderRequested(overRequest, 0, 0L, acknowledgment);
+
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            verify(kafkaTemplate).send(eq(TOPIC_INSUFFICIENT), eq(CORRELATION_ID), captor.capture());
+
+            InventoryInsufficientEvent published = (InventoryInsufficientEvent) captor.getValue();
+            assertThat(published.productId()).isEqualTo(1);
+            assertThat(published.productName()).isEqualTo("Laptop");
+            assertThat(published.requestedQty()).isEqualTo(20.0);
+            assertThat(published.availableQty()).isEqualTo(10.0);
         }
 
         @Test

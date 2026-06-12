@@ -13,6 +13,7 @@ import jakarta.annotation.PostConstruct;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * OutboxEventPublisher — Infrastructure Layer (Outbox Pattern)
@@ -67,16 +68,20 @@ public class OutboxEventPublisher {
         for (OutboxEvent event : pendingEvents) {
             try {
                 // Send to Kafka with correlationId as partition key
-                // (ensures all events for the same order go to the same partition)
-                kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), event.getPayload())
-                        .whenComplete((result, ex) -> {
-                            if (ex != null) {
-                                handlePublishFailure(event, ex);
-                            } else {
-                                handlePublishSuccess(event, result);
-                            }
-                        });
+                // (ensures all events for the same order go to the same partition).
+                // Blocking send: the async whenComplete callback could fire after the
+                // scheduler run (and its transaction) ended, leaving events PENDING
+                // forever on shutdown and ignoring Kafka backpressure. One event at a
+                // time with confirmed delivery keeps the status write in this transaction.
+                SendResult<String, String> result = kafkaTemplate
+                        .send(event.getTopic(), event.getPartitionKey(), event.getPayload())
+                        .get(5, TimeUnit.SECONDS);
+                handlePublishSuccess(event, result);
 
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                handlePublishFailure(event, ex);
+                return; // shutting down — stop processing, remaining events stay PENDING
             } catch (Exception ex) {
                 handlePublishFailure(event, ex);
             }

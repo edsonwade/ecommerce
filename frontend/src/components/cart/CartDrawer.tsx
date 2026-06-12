@@ -30,9 +30,13 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
 
   const { data: cart, isLoading } = useQuery({
     queryKey: [QUERY_KEYS.CART, userId],
-    queryFn: () => cartApi.get(userId!),
+    queryFn: () => cartApi.get(userId!).catch((err) => {
+      if (err?.response?.status === 404 || err?.response?.status === 503) return null;
+      throw err;
+    }),
     enabled: isAuthenticated && !!userId,
-    staleTime: 0,
+    staleTime: 30 * 1000,
+    retry: false,
   });
 
   const { mutate: removeItem } = useMutation({

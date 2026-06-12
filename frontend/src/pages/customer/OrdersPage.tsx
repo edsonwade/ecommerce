@@ -1,4 +1,4 @@
-import { Container, Typography } from '@mui/material';
+import { Alert, Container, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 
 export default function OrdersPage() {
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, isError, refetch } = useQuery({
     queryKey: [QUERY_KEYS.ORDERS],
     queryFn: ({ signal }) => ordersApi.getMyOrders(signal),
     staleTime: 30 * 1000,
@@ -31,9 +31,23 @@ export default function OrdersPage() {
           My Orders
         </Typography>
 
+        {isError && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={() => refetch()}>
+                Retry
+              </Button>
+            }
+            sx={{ mb: 4 }}
+          >
+            Failed to load your orders. Please try again.
+          </Alert>
+        )}
+
         {isLoading ? (
           <TableSkeleton rows={6} cols={5} />
-        ) : !orders || orders.length === 0 ? (
+        ) : isError ? null : !orders || orders.length === 0 ? (
           <EmptyState
             title="No orders yet"
             description="Browse the catalog and place your first order."
@@ -48,7 +62,7 @@ export default function OrdersPage() {
             <Table>
               <TableHead>
                 <TableRow>
-                  {['Reference', 'Amount', 'Payment', 'Customer', ''].map((h) => (
+                  {['Reference', 'Amount', 'Status', 'Customer', ''].map((h) => (
                     <TableCell
                       key={h}
                       sx={{
@@ -78,7 +92,7 @@ export default function OrdersPage() {
                       {formatCurrency(order.amount)}
                     </TableCell>
                     <TableCell>
-                      <OrderStatusBadge status={order.paymentMethod as OrderStatus} />
+                      <OrderStatusBadge status={order.status as OrderStatus} />
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
                       {order.customerId.slice(0, 8)}…

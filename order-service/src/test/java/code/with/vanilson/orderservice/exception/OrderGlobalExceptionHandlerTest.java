@@ -72,6 +72,27 @@ class OrderGlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("handleNullPointerException should return 500 with clean message and specific errorCode")
+    void handleNullPointerException_shouldReturnCleanMessage() {
+        // Given
+        String cleanMessage = "An unexpected error occurred. Please try again later.";
+        when(messageSource.getMessage(eq("order.error.internal.user"), isNull(), any(Locale.class)))
+                .thenReturn(cleanMessage);
+
+        NullPointerException ex = new NullPointerException("Null reference in test");
+
+        // When
+        ResponseEntity<Map<String, Object>> response = handler.handleNullPointerException(ex, webRequest);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        Map<String, Object> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.get("errorCode")).isEqualTo("order.error.bug.npe");
+        assertThat(body.get("message")).isEqualTo(cleanMessage);
+    }
+
+    @Test
     @DisplayName("handleGenericException should use 'order.error.internal.user' key with null args — no UUID parameter")
     void handleGenericException_shouldUseUserMessageKey() {
         // Given

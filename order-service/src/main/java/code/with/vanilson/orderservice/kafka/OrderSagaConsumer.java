@@ -148,11 +148,9 @@ public class OrderSagaConsumer {
                     event.correlationId(), event.productId(),
                     event.requestedQty(), event.availableQty(), partition, offset);
 
-            orderService.updateStatus(event.correlationId(), OrderStatus.INVENTORY_INSUFFICIENT);
-            eventPublisher.publishEvent(new OrderStatusChangedEvent(
-                    event.correlationId(), OrderStatus.INVENTORY_INSUFFICIENT.name(),
-                    event.orderReference(), Instant.now()));
-
+            // Single terminal update — writing INVENTORY_INSUFFICIENT first and
+            // immediately overwriting it with CANCELLED produced two DB writes and
+            // two domain events for one saga step.
             orderService.updateStatus(event.correlationId(), OrderStatus.CANCELLED);
             eventPublisher.publishEvent(new OrderStatusChangedEvent(
                     event.correlationId(), OrderStatus.CANCELLED.name(),

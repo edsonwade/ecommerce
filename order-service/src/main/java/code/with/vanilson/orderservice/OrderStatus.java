@@ -44,5 +44,37 @@ public enum OrderStatus {
     PENDING_PAYMENT,
 
     /** Saga took too long to complete — order cancelled. */
-    TIMEOUT
+    TIMEOUT;
+
+    /**
+     * Explicit allowed transitions. CONFIRMED and CANCELLED are terminal.
+     * REQUESTED may jump straight to CONFIRMED/CANCELLED because the current
+     * choreography does not persist the intermediate saga states.
+     */
+    public boolean canTransitionTo(OrderStatus target) {
+        return switch (this) {
+            case REQUESTED -> target == INVENTORY_RESERVED
+                    || target == INVENTORY_INSUFFICIENT
+                    || target == PENDING_PAYMENT
+                    || target == CONFIRMED
+                    || target == CANCELLED
+                    || target == TIMEOUT;
+            case INVENTORY_RESERVED -> target == PAYMENT_AUTHORIZED
+                    || target == PAYMENT_FAILED
+                    || target == PENDING_PAYMENT
+                    || target == CONFIRMED
+                    || target == CANCELLED
+                    || target == TIMEOUT;
+            case PAYMENT_AUTHORIZED -> target == CONFIRMED
+                    || target == CANCELLED
+                    || target == TIMEOUT;
+            case PENDING_PAYMENT -> target == PAYMENT_AUTHORIZED
+                    || target == PAYMENT_FAILED
+                    || target == CONFIRMED
+                    || target == CANCELLED
+                    || target == TIMEOUT;
+            case PAYMENT_FAILED, INVENTORY_INSUFFICIENT, TIMEOUT -> target == CANCELLED;
+            case CONFIRMED, CANCELLED -> false;
+        };
+    }
 }
