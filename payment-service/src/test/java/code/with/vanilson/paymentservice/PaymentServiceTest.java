@@ -11,6 +11,8 @@ import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.messaging.PaymentNotificationRequest;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
+import code.with.vanilson.tenantcontext.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,6 +76,9 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Saga consumer / gateway filter seeds this; PaymentService stamps payment.tenant_id from it.
+        TenantContext.setCurrentTenantId("tenant-test-001");
+
         CustomerData customer = new CustomerData("c-001", "Ana", "Silva", "ana@example.com");
 
         validRequest = new PaymentRequest(
@@ -102,6 +107,11 @@ class PaymentServiceTest {
         // MessageSource: return key itself so we can check calls without exact message strings
         when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     // -------------------------------------------------------
@@ -149,6 +159,10 @@ class PaymentServiceTest {
             assertThat(captor.getValue().getIdempotencyKey())
                     .as("Idempotency key must be set to 'payment:<orderReference>'")
                     .isEqualTo("payment:ORD-2024-001");
+
+            assertThat(captor.getValue().getTenantId())
+                    .as("tenant_id is NOT NULL — must be stamped from TenantContext before save")
+                    .isEqualTo("tenant-test-001");
         }
 
         @Test

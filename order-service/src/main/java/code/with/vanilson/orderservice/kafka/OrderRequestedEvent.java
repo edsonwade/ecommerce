@@ -37,6 +37,11 @@ public record OrderRequestedEvent(
         BigDecimal                   totalAmount,
         PaymentMethod                paymentMethod,
         String                       orderReference,
+        // tenantId + orderId must travel the whole saga (order → inventory → payment).
+        // payment.tenant_id and payment.order_id are NOT NULL, but the async saga has
+        // no HTTP TenantContext and no order PK at the payment step unless we carry them.
+        String                       tenantId,
+        Integer                      orderId,
         Instant                      occurredAt,
         int                          schemaVersion    // always 1 for now
 ) {}

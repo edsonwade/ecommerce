@@ -131,7 +131,8 @@ public class OrderService {
         log.info(msg("order.log.order.saved", order.getOrderId(), order.getReference()));
 
         // Step 3 — Persist OutboxEvent (same transaction — atomic!)
-        OrderRequestedEvent event = buildOrderRequestedEvent(request, customer, correlationId);
+        OrderRequestedEvent event = buildOrderRequestedEvent(
+                request, customer, correlationId, order.getReference(), order.getTenantId(), order.getOrderId());
         persistOutboxEvent(event, correlationId);
 
         log.info("[OrderService] Order persisted in REQUESTED state. correlationId=[{}] — saga will proceed via Kafka",
@@ -339,7 +340,10 @@ public class OrderService {
 
     private OrderRequestedEvent buildOrderRequestedEvent(OrderRequest request,
                                                           CustomerInfo customer,
-                                                          String correlationId) {
+                                                          String correlationId,
+                                                          String orderReference,
+                                                          String tenantId,
+                                                          Integer orderId) {
         List<ProductPurchaseRequest> products = request.products().stream()
                 .map(p -> new ProductPurchaseRequest(p.productId(), p.quantity()))
                 .collect(Collectors.toList());
@@ -354,7 +358,16 @@ public class OrderService {
                 products,
                 request.amount(),
                 request.paymentMethod(),
-                request.reference(),
+                // Use the PERSISTED order reference, not request.reference():
+                // the UI never sends a reference, so request.reference() is null.
+                // A null here propagates through inventory.reserved into the
+                // payment.order_reference NOT NULL column → payment always fails.
+                orderReference,
+                // tenantId + orderId carried through the saga so payment-service can
+                // satisfy its NOT NULL payment.tenant_id / payment.order_id columns —
+                // the Kafka consumer has no HTTP TenantContext and no order PK otherwise.
+                tenantId,
+                orderId,
                 Instant.now(),
                 1                                // schemaVersion
         );

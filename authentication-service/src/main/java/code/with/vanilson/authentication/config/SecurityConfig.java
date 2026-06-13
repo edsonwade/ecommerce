@@ -66,7 +66,7 @@ public class SecurityConfig {
 
     // Explicit allowlist — a wildcard origin combined with allowCredentials(true)
     // would let any site make credentialed requests (CSRF-equivalent exposure).
-    @Value("${app.cors.allowed-origins:http://localhost:80,http://localhost:5173,http://localhost:3000,http://localhost:8222}")
+    @Value("${app.cors.allowed-origins:http://localhost:8080,http://localhost:5173,http://localhost:3000,http://localhost:8222}")
     private List<String> allowedOrigins;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,

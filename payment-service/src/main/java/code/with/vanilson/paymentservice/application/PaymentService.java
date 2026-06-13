@@ -5,6 +5,7 @@ import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.messaging.PaymentNotificationRequest;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
+import code.with.vanilson.tenantcontext.TenantContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -164,6 +165,10 @@ public class PaymentService {
     private Integer processNewPayment(PaymentRequest request, String idempotencyKey) {
         Payment payment = paymentMapper.toPayment(request);
         payment.setIdempotencyKey(idempotencyKey);
+        // payment.tenant_id is NOT NULL. The tenant is taken from TenantContext —
+        // seeded from the saga event by PaymentSagaConsumer, or by the gateway's
+        // tenant filter on the direct HTTP path. Mirrors order-service's approach.
+        payment.setTenantId(TenantContext.requireCurrentTenantId());
 
         Payment savedPayment = paymentRepository.save(payment);
 

@@ -108,6 +108,8 @@ class InventoryReservationConsumerTest {
                 BigDecimal.valueOf(3600.00),
                 "CREDIT_CARD",
                 ORDER_REFERENCE,
+                "tenant-test-001",
+                42,
                 Instant.now(),
                 1
         );
@@ -194,7 +196,7 @@ class InventoryReservationConsumerTest {
                     "Ana", "Silva",
                     List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 20.0)),
                     BigDecimal.valueOf(24000.00), "CREDIT_CARD",
-                    ORDER_REFERENCE, Instant.now(), 1
+                    ORDER_REFERENCE, "tenant-test-001", 42, Instant.now(), 1
             );
             when(productRepository.findAllByIdInOrderById(List.of(1)))
                     .thenReturn(List.of(laptop));
@@ -212,7 +214,7 @@ class InventoryReservationConsumerTest {
                     "Ana", "Silva",
                     List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 999.0)),
                     BigDecimal.ZERO, "CREDIT_CARD",
-                    ORDER_REFERENCE, Instant.now(), 1
+                    ORDER_REFERENCE, "tenant-test-001", 42, Instant.now(), 1
             );
             when(productRepository.findAllByIdInOrderById(List.of(1)))
                     .thenReturn(List.of(laptop));
@@ -231,7 +233,7 @@ class InventoryReservationConsumerTest {
                     "Ana", "Silva",
                     List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 50.0)),
                     BigDecimal.ZERO, "CREDIT_CARD",
-                    ORDER_REFERENCE, Instant.now(), 1
+                    ORDER_REFERENCE, "tenant-test-001", 42, Instant.now(), 1
             );
             when(productRepository.findAllByIdInOrderById(List.of(1)))
                     .thenReturn(List.of(laptop));
@@ -250,7 +252,7 @@ class InventoryReservationConsumerTest {
                     "Ana", "Silva",
                     List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 20.0)),
                     BigDecimal.valueOf(24000.00), "CREDIT_CARD",
-                    ORDER_REFERENCE, Instant.now(), 1
+                    ORDER_REFERENCE, "tenant-test-001", 42, Instant.now(), 1
             );
             when(productRepository.findAllByIdInOrderById(List.of(1)))
                     .thenReturn(List.of(laptop));
@@ -275,7 +277,7 @@ class InventoryReservationConsumerTest {
                     "Ana", "Silva",
                     List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 999.0)),
                     BigDecimal.ZERO, "CREDIT_CARD",
-                    ORDER_REFERENCE, Instant.now(), 1
+                    ORDER_REFERENCE, "tenant-test-001", 42, Instant.now(), 1
             );
             when(productRepository.findAllByIdInOrderById(List.of(1)))
                     .thenReturn(List.of(laptop));
