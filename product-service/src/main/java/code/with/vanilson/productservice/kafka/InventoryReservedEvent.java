@@ -23,6 +23,10 @@ public record InventoryReservedEvent(
         List<ReservedItem> reservedItems,
         java.math.BigDecimal totalAmount,
         String  paymentMethod,
+        // Propagated from order.requested → consumed by payment-service to fill its
+        // NOT NULL payment.tenant_id / payment.order_id columns in the async saga.
+        String  tenantId,
+        Integer orderId,
         Instant occurredAt,
         int     schemaVersion
 ) {

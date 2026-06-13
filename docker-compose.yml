@@ -511,6 +511,10 @@ services:
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      # Browser loads the SPA at http://localhost:8080 (nginx) and sends Origin:
+      # http://localhost:8080 on /api calls; 8080 MUST be allowed or auth endpoints
+      # return 403 "Invalid CORS request". (Frontend was remapped :80 -> :8080.)
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173,http://localhost:3000,http://localhost:8222}
       LOGGING_CONFIG: /app/logback-spring.xml
     volumes:
       - ./logback-spring.xml:/app/logback-spring.xml:ro

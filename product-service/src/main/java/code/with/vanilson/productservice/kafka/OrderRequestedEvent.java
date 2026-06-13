@@ -26,6 +26,11 @@ public record OrderRequestedEvent(
         BigDecimal                   totalAmount,
         String                       paymentMethod,
         String                       orderReference,
+        // Carried through to inventory.reserved so payment-service can satisfy its
+        // NOT NULL payment.tenant_id / payment.order_id columns (field names must
+        // match order-service's OrderRequestedEvent serialisation).
+        String                       tenantId,
+        Integer                      orderId,
         Instant                      occurredAt,
         int                          schemaVersion
 ) {

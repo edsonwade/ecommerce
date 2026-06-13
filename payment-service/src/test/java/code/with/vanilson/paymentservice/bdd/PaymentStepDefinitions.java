@@ -9,6 +9,8 @@ import code.with.vanilson.paymentservice.domain.Payment;
 import code.with.vanilson.paymentservice.domain.PaymentMethod;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
+import code.with.vanilson.tenantcontext.TenantContext;
+import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -53,9 +55,17 @@ public class PaymentStepDefinitions {
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
+        // Saga consumer / gateway filter seeds the tenant; PaymentService stamps payment.tenant_id from it.
+        TenantContext.setCurrentTenantId("tenant-test-001");
+
         caughtException = null;
         duplicateScenario = false;
         savedPaymentId = null;
+    }
+
+    @After
+    public void tearDown() {
+        TenantContext.clear();
     }
 
     @Given("a valid payment request for order {string} with amount {double}")

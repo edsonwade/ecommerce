@@ -281,6 +281,52 @@ class OrderServiceAsyncTest {
         }
 
         @Test
+        @DisplayName("published event payload must carry the persisted reference, never a null orderReference")
+        void outboxEventCarriesGeneratedReference() {
+            // Regression: the UI never sends a reference, so request.reference() is null.
+            // The event MUST carry the persisted order.getReference() (auto-generated ORD-...),
+            // otherwise a null orderReference propagates to payment.order_reference (NOT NULL)
+            // and every payment fails → order CANCELLED.
+            OrderRequest noRefRequest = new OrderRequest(
+                    null,
+                    null, // no reference sent by client
+                    BigDecimal.valueOf(199.99),
+                    PaymentMethod.CREDIT_CARD,
+                    "cust-001",
+                    List.of(new ProductPurchaseRequest(1, 1.0))
+            );
+
+            Order orderWithNullRef = Order.builder()
+                    .orderId(43)
+                    .reference(null)
+                    .totalAmount(BigDecimal.valueOf(199.99))
+                    .paymentMethod(PaymentMethod.CREDIT_CARD)
+                    .customerId("cust-001")
+                    .status(OrderStatus.REQUESTED)
+                    .tenantId("test-tenant-123")
+                    .build();
+
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
+            when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
+            when(orderMapper.toOrder(any())).thenReturn(orderWithNullRef);
+            when(orderRepository.save(any())).thenReturn(orderWithNullRef);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            orderService.createOrder(noRefRequest);
+
+            ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+            verify(outboxRepository).save(captor.capture());
+            String payload = captor.getValue().getPayload();
+
+            assertThat(payload)
+                    .as("event payload must carry the generated ORD- reference")
+                    .contains("\"orderReference\":\"ORD-");
+            assertThat(payload)
+                    .as("event payload must never carry a null orderReference")
+                    .doesNotContain("\"orderReference\":null");
+        }
+
+        @Test
         @DisplayName("should throw CustomerNotFoundException when customer not found — no DB writes")
         void shouldThrowAndNotWriteWhenCustomerMissing() {
             when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());

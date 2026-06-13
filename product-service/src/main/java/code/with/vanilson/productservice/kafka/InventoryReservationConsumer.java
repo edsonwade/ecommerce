@@ -159,6 +159,9 @@ public class InventoryReservationConsumer {
                 reserved,
                 order.totalAmount(),
                 order.paymentMethod(),
+                // pass tenantId + orderId through so payment-service can persist
+                order.tenantId(),
+                order.orderId(),
                 Instant.now(),
                 1
         );

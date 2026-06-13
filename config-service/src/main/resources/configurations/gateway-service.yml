@@ -21,6 +21,30 @@ spring:
 
   cloud:
     gateway:
+      # ----------------------------------------------------------------
+      # HTTP client connection pool — root-cause fix for the intermittent
+      # 503s on the FIRST request after an idle period (product, cart AND
+      # order all fell over together right after login).
+      #
+      # Cause: the reactor-netty pool reused keep-alive connections that the
+      # backend Tomcat had already closed (default keepAliveTimeout = 60s),
+      # so the write hit a half-closed socket → "connection closed
+      # prematurely" (an IOException) → CircuitBreaker fallback → 503.
+      # The Retry filter only retries on 502/503 *status*, not on this
+      # connection exception, so the user saw the 503 on the first call and
+      # success only after a manual refresh.
+      #
+      # Evicting idle connections well below the server keep-alive window
+      # guarantees the gateway never writes to a stale socket.
+      # ----------------------------------------------------------------
+      httpclient:
+        connect-timeout: 5000          # ms — fail fast when a backend is genuinely unreachable
+        pool:
+          type: elastic
+          max-idle-time: 20s           # evict idle conns long before Tomcat's 60s keepAliveTimeout
+          max-life-time: 120s          # hard cap on total connection lifetime
+          eviction-interval: 30s       # proactively sweep idle connections from the pool
+
       discovery:
         locator:
           enabled: true

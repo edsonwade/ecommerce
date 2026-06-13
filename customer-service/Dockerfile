@@ -11,6 +11,7 @@ WORKDIR /build
 COPY . .
 
 # Build only the customer-service module
+ENV MAVEN_OPTS="-Dhttps.protocols=TLSv1.2,TLSv1.3"
 RUN mvn -B clean package -DskipTests=true -pl customer-service -am
 
 # ===================================================================

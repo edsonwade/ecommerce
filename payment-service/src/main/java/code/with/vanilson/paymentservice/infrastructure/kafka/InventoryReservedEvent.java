@@ -26,6 +26,11 @@ public record InventoryReservedEvent(
         List<ReservedItem> reservedItems,
         BigDecimal totalAmount,
         String  paymentMethod,
+        // Carried from order.requested through inventory.reserved: used to fill the
+        // NOT NULL payment.tenant_id / payment.order_id columns. Field names match
+        // product-service's InventoryReservedEvent serialisation.
+        String  tenantId,
+        Integer orderId,
         Instant occurredAt,
         int     schemaVersion
 ) {

@@ -4,6 +4,7 @@ import code.with.vanilson.paymentservice.application.PaymentRequest;
 import code.with.vanilson.paymentservice.application.PaymentService;
 import code.with.vanilson.paymentservice.domain.CustomerData;
 import code.with.vanilson.paymentservice.domain.PaymentMethod;
+import code.with.vanilson.tenantcontext.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -65,6 +66,10 @@ public class PaymentSagaConsumer {
         try {
             MDC.put("correlationId", event.correlationId());
             MDC.put("sagaStep", "payment");
+            // Kafka consumers have no HTTP TenantContext. Seed it from the event so
+            // PaymentService can stamp the NOT NULL payment.tenant_id on the new row
+            // (and so any tenant-filtered reads stay scoped to the right tenant).
+            TenantContext.setCurrentTenantId(event.tenantId());
 
             log.info("[PaymentSagaConsumer] inventory.reserved received: correlationId=[{}] amount=[{}] partition=[{}] offset=[{}]",
                     event.correlationId(), event.totalAmount(), partition, offset);
@@ -80,7 +85,7 @@ public class PaymentSagaConsumer {
                         null,
                         event.totalAmount(),
                         method,
-                        null,            // orderId not available here — set null, saga uses correlationId
+                        event.orderId(),   // carried through the saga — payment.order_id is NOT NULL
                         event.orderReference(),
                         customer
                 );
@@ -103,6 +108,7 @@ public class PaymentSagaConsumer {
             ack.acknowledge();
         } finally {
             MDC.clear();
+            TenantContext.clear();
         }
     }
 
