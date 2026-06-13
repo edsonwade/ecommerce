@@ -43,7 +43,8 @@ export default function DashboardPage() {
     queryKey: [QUERY_KEYS.ORDERS],
     queryFn: ({ signal }) => ordersApi.getMyOrders(signal),
     staleTime: 30 * 1000,
-    retry: false,
+    // Inherit the global smart retry so a transient 503 right after login self-heals
+    // instead of showing "Failed to load your orders".
     throwOnError: false,
   });
 

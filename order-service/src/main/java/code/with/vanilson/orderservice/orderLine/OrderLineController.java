@@ -29,11 +29,17 @@ public class OrderLineController {
 
     /**
      * Returns all order lines for a given order ID.
+     * <p>
+     * Any authenticated user may call this, but the service enforces that only the
+     * order's owner (or an ADMIN) actually receives the lines — non-owners get 403.
+     * This matches {@code GET /api/v1/orders/{id}} and the error message contract
+     * ("Only the owner or an ADMIN can view it"). Previously this was
+     * {@code hasRole('ADMIN')}, which 403'd every customer viewing their own order.
      *
      * @param orderId the parent order ID
      * @return list of order lines
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/{order-id}")
     public ResponseEntity<List<OrderLineResponse>> findByOrderId(
             @PathVariable("order-id") Integer orderId) {

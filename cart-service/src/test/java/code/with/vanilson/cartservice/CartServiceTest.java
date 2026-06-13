@@ -126,13 +126,18 @@ class CartServiceTest {
             assertThat(result.itemCount()).isEqualTo(1);
         }
 
-        @Test @DisplayName("should throw CartNotFoundException when cart does not exist")
-        void shouldThrowWhenCartNotFound() {
+        @Test @DisplayName("should return an empty cart (200, not 404) when none exists yet")
+        void shouldReturnEmptyCartWhenNotFound() {
             when(cartRepository.findById(CART_ID)).thenReturn(Optional.empty());
+            CartResponse emptyResponse = buildResponse(CART_ID, CUSTOMER_ID, 0);
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(emptyResponse);
 
-            assertThatThrownBy(() -> cartService.getCart(CUSTOMER_ID))
-                    .isInstanceOf(CartNotFoundException.class)
-                    .hasMessageContaining("cart.not.found");
+            CartResponse result = cartService.getCart(CUSTOMER_ID);
+
+            assertThat(result).isNotNull();
+            assertThat(result.itemCount()).isEqualTo(0);
+            // Probing an empty cart must not persist anything to Redis.
+            verify(cartRepository, never()).save(any());
         }
     }
 

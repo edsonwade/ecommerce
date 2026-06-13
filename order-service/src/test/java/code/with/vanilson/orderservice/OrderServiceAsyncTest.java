@@ -420,6 +420,71 @@ class OrderServiceAsyncTest {
     }
 
     // -------------------------------------------------------
+    // createOrder — idempotency (Idempotency-Key header)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("createOrder — idempotency key prevents duplicate orders")
+    class CreateOrderIdempotency {
+
+        private static final String IDEM_KEY = "11111111-2222-3333-4444-555555555555";
+
+        @Test
+        @DisplayName("replay with a known key returns the existing order and creates nothing")
+        void replayReturnsExistingWithoutCreating() {
+            // An order already exists for this idempotency key (used as correlationId) + tenant.
+            when(orderRepository.findByCorrelationIdAndTenantId(IDEM_KEY, "test-tenant-123"))
+                    .thenReturn(Optional.of(savedOrder));
+
+            String correlationId = orderService.createOrder(validRequest, IDEM_KEY);
+
+            assertThat(correlationId).isEqualTo(IDEM_KEY);
+            // No new order, no customer resolution, no outbox event — pure replay.
+            verify(orderRepository, never()).save(any());
+            verify(orderMapper, never()).toOrder(any());
+            verify(outboxRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("first use of a key creates the order with that key as correlationId")
+        void firstUseCreatesWithKeyAsCorrelationId() {
+            when(orderRepository.findByCorrelationIdAndTenantId(IDEM_KEY, "test-tenant-123"))
+                    .thenReturn(Optional.empty());
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
+            when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
+            when(orderRepository.existsByReference("REF-PHASE3-001")).thenReturn(false);
+            when(orderMapper.toOrder(any())).thenReturn(savedOrder);
+            when(orderRepository.save(any())).thenReturn(savedOrder);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            String correlationId = orderService.createOrder(validRequest, IDEM_KEY);
+
+            assertThat(correlationId).isEqualTo(IDEM_KEY);
+            // The persisted order carried the idempotency key as its correlationId.
+            ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(captor.capture());
+            assertThat(captor.getValue().getCorrelationId()).isEqualTo(IDEM_KEY);
+        }
+
+        @Test
+        @DisplayName("null key falls back to a generated UUID correlationId")
+        void nullKeyGeneratesUuid() {
+            when(snapshotRepository.findById("cust-001")).thenReturn(Optional.empty());
+            when(customerClient.findCustomerById("cust-001")).thenReturn(Optional.of(validCustomer));
+            when(orderRepository.existsByReference("REF-PHASE3-001")).thenReturn(false);
+            when(orderMapper.toOrder(any())).thenReturn(savedOrder);
+            when(orderRepository.save(any())).thenReturn(savedOrder);
+            when(outboxRepository.save(any())).thenReturn(new OutboxEvent());
+
+            String correlationId = orderService.createOrder(validRequest, null);
+
+            assertThat(correlationId).matches("[0-9a-f\\-]{36}");
+            // No idempotency lookup performed when no key is supplied.
+            verify(orderRepository, never()).findByCorrelationIdAndTenantId(any(), any());
+        }
+    }
+
+    // -------------------------------------------------------
     // getOrderStatus — saga polling
     // -------------------------------------------------------
 

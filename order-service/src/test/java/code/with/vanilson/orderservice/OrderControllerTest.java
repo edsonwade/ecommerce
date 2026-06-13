@@ -103,7 +103,7 @@ class OrderControllerTest {
         @Test
         @DisplayName("should return 202 Accepted with correlationId when valid request")
         void shouldReturn202WithCorrelationId() throws Exception {
-            when(orderService.createOrder(any(OrderRequest.class))).thenReturn("corr-id-001");
+            when(orderService.createOrder(any(OrderRequest.class), any())).thenReturn("corr-id-001");
 
             mockMvc.perform(post("/api/v1/orders")
                             .header("X-Tenant-ID", "test-tenant-123")
@@ -125,7 +125,7 @@ class OrderControllerTest {
                     "cust-001",
                     List.of(new ProductPurchaseRequest(1, 1.0))
             );
-            when(orderService.createOrder(any(OrderRequest.class))).thenReturn("corr-id-auto");
+            when(orderService.createOrder(any(OrderRequest.class), any())).thenReturn("corr-id-auto");
 
             mockMvc.perform(post("/api/v1/orders")
                             .header("X-Tenant-ID", "test-tenant-123")
@@ -139,7 +139,7 @@ class OrderControllerTest {
         @Test
         @DisplayName("should return 503 when customer service is unavailable")
         void shouldReturn503WhenCustomerUnavailable() throws Exception {
-            when(orderService.createOrder(any(OrderRequest.class)))
+            when(orderService.createOrder(any(OrderRequest.class), any()))
                     .thenThrow(new CustomerServiceUnavailableException("Unavailable", "order.customer.not.found"));
 
             mockMvc.perform(post("/api/v1/orders")

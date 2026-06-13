@@ -20,7 +20,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cartApi } from '@api/cart.api';
 import { ordersApi } from '@api/orders.api';
@@ -53,8 +53,11 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 
 const STEPS = ['Delivery address', 'Payment method', 'Confirm order'];
 
+const IDEMPOTENCY_KEY_STORAGE = 'checkout_idempotency_key';
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { userId } = useAuthStore();
   const addToast = useUIStore((s) => s.addToast);
   const [activeStep, setActiveStep] = useState(() => {
@@ -64,6 +67,19 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CREDIT_CARD');
   const [correlationId, setCorrelationId] = useState<string | null>(null);
   const submittingRef = useRef(false);
+
+  // Stable per-checkout idempotency key. Persisted in sessionStorage so a resubmit
+  // after a (possibly false) 503 reuses the same key → order-service de-duplicates
+  // instead of creating a second order. Cleared once the order is accepted (202).
+  const idempotencyKeyRef = useRef<string>(
+    (() => {
+      const existing = sessionStorage.getItem(IDEMPOTENCY_KEY_STORAGE);
+      if (existing) return existing;
+      const key = crypto.randomUUID();
+      sessionStorage.setItem(IDEMPOTENCY_KEY_STORAGE, key);
+      return key;
+    })(),
+  );
 
   const { data: cart, isLoading: cartLoading } = useQuery({
     queryKey: [QUERY_KEYS.CART, userId],
@@ -89,19 +105,24 @@ export default function CheckoutPage() {
 
   const { mutate: placeOrder, isPending: placingOrder, error: orderError } = useMutation({
     mutationFn: () =>
-      ordersApi.create({
-        amount: cart!.total,
-        paymentMethod,
-        customerId: userId!,
-        products: cart!.items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
-      }),
+      ordersApi.create(
+        {
+          amount: cart!.total,
+          paymentMethod,
+          customerId: userId!,
+          products: cart!.items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+          })),
+        },
+        idempotencyKeyRef.current,
+      ),
     onSuccess: (res) => {
       submittingRef.current = false;
       sessionStorage.removeItem('checkout_step');
       sessionStorage.removeItem('checkout_address');
+      // Order accepted — the next checkout must use a fresh idempotency key.
+      sessionStorage.removeItem(IDEMPOTENCY_KEY_STORAGE);
       setCorrelationId(res.correlationId);
       setActiveStep(3);
     },
@@ -118,7 +139,11 @@ export default function CheckoutPage() {
 
   const handleTimelineComplete = (status: OrderStatus) => {
     if (status === 'CONFIRMED') {
-      cartApi.clear(userId!);
+      // Clear server-side, then refresh the cached cart so the header badge and
+      // drawer empty immediately instead of only after the next navigation.
+      cartApi.clear(userId!).finally(() => {
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
+      });
       addToast({ message: 'Order confirmed!', variant: 'success' });
     } else if (status === 'CANCELLED') {
       addToast({ message: 'Order was cancelled. Please try again.', variant: 'error' });

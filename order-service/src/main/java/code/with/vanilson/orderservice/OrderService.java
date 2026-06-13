@@ -113,11 +113,50 @@ public class OrderService {
      */
     @Transactional
     public String createOrder(OrderRequest request) {
+        return createOrder(request, null);
+    }
+
+    /**
+     * Creates an order, with optional client-supplied idempotency.
+     * <p>
+     * The {@code idempotencyKey} (sent by the client as the {@code Idempotency-Key}
+     * header) makes order creation safe to retry. Without it, a <em>false</em> 503 at
+     * the gateway — caused by a stale keep-alive connection on a write that actually
+     * succeeded — let a user's resubmit create a <strong>second</strong> order
+     * (observed in live QA as a duplicated order). When a key is supplied we reuse it
+     * as the order's {@code correlationId} (already {@code unique}, so no new schema):
+     * if an order with that key already exists for this tenant, we return its
+     * correlationId unchanged instead of creating a duplicate. The DB unique constraint
+     * on {@code correlationId} is the final backstop against a concurrent double-submit.
+     *
+     * @param request        validated order request
+     * @param idempotencyKey client-generated key, stable across retries of one checkout; may be null
+     * @return correlationId for the client to poll status
+     */
+    @Transactional
+    public String createOrder(OrderRequest request, String idempotencyKey) {
         // Derive customerId from the authenticated JWT principal, not the request body.
         // The principal's userId (Long) is the string key used as the MongoDB customer _id.
         // This prevents spoofing where user A sends user B's customerId.
         String customerId = resolveCustomerId(request);
         log.info(msg("order.log.creating", customerId, request.products().size()));
+
+        boolean hasIdempotencyKey = idempotencyKey != null && !idempotencyKey.isBlank();
+        String correlationId = hasIdempotencyKey ? idempotencyKey : UUID.randomUUID().toString();
+
+        // Idempotent replay: if this key already produced an order for this tenant,
+        // return that order rather than creating a second one.
+        if (hasIdempotencyKey) {
+            filterActivator.activateFilter();
+            String tenantId = TenantContext.requireCurrentTenantId();
+            var existing = orderRepository.findByCorrelationIdAndTenantId(correlationId, tenantId);
+            if (existing.isPresent()) {
+                log.info("[OrderService] Idempotent replay — returning existing order: "
+                                + "correlationId=[{}] orderId=[{}]",
+                        correlationId, existing.get().getOrderId());
+                return correlationId;
+            }
+        }
 
         // Step 1 — Validate customer (snapshot-first, Feign fallback)
         CustomerInfo customer = resolveCustomer(customerId);
@@ -125,7 +164,6 @@ public class OrderService {
         log.info(msg("order.log.customer.found", customer.customerId()));
 
         // Step 2 — Persist order in REQUESTED state
-        String correlationId = UUID.randomUUID().toString();
         Order order = persistOrderWithLines(request, correlationId);
 
         log.info(msg("order.log.order.saved", order.getOrderId(), order.getReference()));

@@ -3,7 +3,6 @@ package code.with.vanilson.cartservice.presentation;
 import code.with.vanilson.cartservice.application.AddCartItemRequest;
 import code.with.vanilson.cartservice.application.CartResponse;
 import code.with.vanilson.cartservice.application.CartService;
-import code.with.vanilson.cartservice.exception.CartNotFoundException;
 import code.with.vanilson.cartservice.exception.CartValidationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,13 +81,16 @@ class CartControllerTest {
         }
 
         @Test
-        @DisplayName("should return 404 when cart not found")
-        void shouldReturn404() throws Exception {
-            when(cartService.getCart("unknown")).thenThrow(new CartNotFoundException("Not found", "cart.not.found"));
+        @DisplayName("should return 200 with an empty cart when none exists yet (not 404)")
+        void shouldReturn200EmptyWhenNoCartYet() throws Exception {
+            CartResponse empty = new CartResponse("cart:unknown", "unknown", List.of(),
+                    BigDecimal.ZERO, 0, null, null);
+            when(cartService.getCart("unknown")).thenReturn(empty);
 
             mockMvc.perform(get("/api/v1/carts/{customerId}", "unknown")
                             .header(TENANT_HEADER, TENANT_ID))
-                    .andExpect(status().isNotFound());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.itemCount", is(0)));
         }
     }
 

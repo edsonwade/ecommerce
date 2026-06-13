@@ -14,7 +14,19 @@ import './index.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      // Transient gateway blips (503 fallback, 502/504, or a dropped connection that
+      // surfaces as status 0) should self-heal before the user ever sees an error —
+      // the backends can be slow to warm up on the first call after login. Retry those
+      // up to 4 times with a short backoff; everything else (404/403/401/400) retries
+      // at most once, as before.
+      retry: (failureCount, error) => {
+        const status = (error as { status?: number } | null)?.status;
+        if (status === 503 || status === 502 || status === 504 || status === 0) {
+          return failureCount < 4;
+        }
+        return failureCount < 1;
+      },
+      retryDelay: (attempt) => Math.min(300 * 2 ** attempt, 2000),
       refetchOnWindowFocus: false,
     },
   },
