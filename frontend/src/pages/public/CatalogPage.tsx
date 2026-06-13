@@ -121,7 +121,7 @@ export default function CatalogPage() {
       }),
     staleTime: 2 * 60 * 1000,
     placeholderData: (prev) => prev,
-    retry: 1,
+    // Inherit the global smart retry — the product list must survive a transient 503.
   });
 
   const apiError = error as AppError | null;

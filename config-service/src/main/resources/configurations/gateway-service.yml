@@ -166,14 +166,23 @@ spring:
               args:
                 name: order-cb
                 fallbackUri: forward:/fallback/orders
+            # Retry transparently on transient connection blips (stale/cold keep-alive
+            # sockets surface as PrematureCloseException, a subclass of IOException) as
+            # well as on 503/502/504 statuses, BEFORE the circuit breaker counts a
+            # failure. This is what stops the "503 on the first GET after login".
+            # GET only — safe to replay.
             - name: Retry
               args:
-                retries: 1
-                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                retries: 3
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
                 methods: GET
+                exceptions:
+                  - java.io.IOException
+                  - java.util.concurrent.TimeoutException
+                  - org.springframework.cloud.gateway.support.TimeoutException
                 backoff:
-                  firstBackoff: 200ms
-                  maxBackoff: 1000ms
+                  firstBackoff: 50ms
+                  maxBackoff: 500ms
                   factor: 2
 
         # -------------------------------------------------------
@@ -190,6 +199,21 @@ spring:
               args:
                 name: order-cb
                 fallbackUri: forward:/fallback/orders
+            # order-lines had NO retry — a single connection blip went straight to the
+            # 503 fallback, so the invoice/line-items view failed intermittently.
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                methods: GET
+                exceptions:
+                  - java.io.IOException
+                  - java.util.concurrent.TimeoutException
+                  - org.springframework.cloud.gateway.support.TimeoutException
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 500ms
+                  factor: 2
 
         # -------------------------------------------------------
         # PRODUCT SERVICE
@@ -205,13 +229,20 @@ spring:
               args:
                 name: product-cb
                 fallbackUri: forward:/fallback/products
+            # Product list must be reliably available right after login — retry transient
+            # connection blips (PrematureCloseException ⊂ IOException) and 503/502/504,
+            # GET only, before the breaker falls back.
             - name: Retry
               args:
-                retries: 2
-                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+                retries: 3
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
                 methods: GET
+                exceptions:
+                  - java.io.IOException
+                  - java.util.concurrent.TimeoutException
+                  - org.springframework.cloud.gateway.support.TimeoutException
                 backoff:
-                  firstBackoff: 100ms
+                  firstBackoff: 50ms
                   maxBackoff: 500ms
                   factor: 2
 
@@ -289,21 +320,24 @@ resilience4j:
         slow-call-rate-threshold: 80
         slow-call-duration-threshold: 5s
       order-cb:
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
-        failure-rate-threshold: 60
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 5
-        slow-call-rate-threshold: 80
-        slow-call-duration-threshold: 5s
-      product-cb:
         sliding-window-size: 20
+        # Needs more failures before tripping — one cold/slow first call must not open it.
         minimum-number-of-calls: 10
-        failure-rate-threshold: 70
-        wait-duration-in-open-state: 10s
+        failure-rate-threshold: 60
+        # Recover quickly: half-open after 5s so a brief blip doesn't 503 every call for 10s.
+        wait-duration-in-open-state: 5s
         permitted-number-of-calls-in-half-open-state: 5
-        slow-call-rate-threshold: 80
-        slow-call-duration-threshold: 5s
+        slow-call-rate-threshold: 90
+        # These services genuinely take ~4s on the first hit — do NOT count that as a failure.
+        slow-call-duration-threshold: 15s
+      product-cb:
+        sliding-window-size: 30
+        minimum-number-of-calls: 15
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 5
+        slow-call-rate-threshold: 90
+        slow-call-duration-threshold: 15s
       payment-cb:
         sliding-window-size: 10
         failure-rate-threshold: 30

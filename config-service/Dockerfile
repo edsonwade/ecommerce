@@ -12,7 +12,10 @@ COPY . .
 
 # Build only the config-service module
 ENV MAVEN_OPTS="-Dhttps.protocols=TLSv1.2,TLSv1.3"
-RUN mvn -B clean package -DskipTests=true -pl config-service -am
+RUN mvn -B clean package -DskipTests=true -pl config-service -am \
+      -Dmaven.wagon.http.retryHandler.count=5 \
+      -Dmaven.wagon.http.retryHandler.requestSentEnabled=true \
+      -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 
 # ===================================================================
 # Stage 2: Runtime Stage

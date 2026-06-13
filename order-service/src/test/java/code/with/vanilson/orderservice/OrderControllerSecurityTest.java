@@ -104,7 +104,7 @@ class OrderControllerSecurityTest {
         @Test
         @DisplayName("202 when authenticated USER creates order")
         void authenticated_user_creates_order() throws Exception {
-            when(orderService.createOrder(any())).thenReturn("corr-id-123");
+            when(orderService.createOrder(any(), any())).thenReturn("corr-id-123");
 
             mockMvc.perform(post(BASE)
                             .header(TENANT_HDR, TENANT_VAL)
@@ -117,7 +117,7 @@ class OrderControllerSecurityTest {
         @Test
         @DisplayName("202 when ADMIN creates order")
         void admin_creates_order() throws Exception {
-            when(orderService.createOrder(any())).thenReturn("corr-id-456");
+            when(orderService.createOrder(any(), any())).thenReturn("corr-id-456");
 
             mockMvc.perform(post(BASE)
                             .header(TENANT_HDR, TENANT_VAL)

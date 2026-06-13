@@ -52,8 +52,23 @@ public class CartService {
     // READ
     // -------------------------------------------------------
 
+    /**
+     * Returns the customer's cart, or an empty (un-persisted) cart when none exists yet.
+     * <p>
+     * "The current user's cart" is a resource that conceptually always exists — a customer
+     * who has never added an item simply has an empty one. Returning 200 + empty cart instead
+     * of 404 stops the UI from showing a scary "cart.not.found" error on pages that probe the
+     * cart (e.g. right after login/registration) and removes the matching WARN log noise.
+     * The empty cart is NOT saved to Redis here — we only create a row when an item is added.
+     */
     public CartResponse getCart(String customerId) {
-        Cart cart = findOrThrow(buildCartId(customerId), customerId);
+        String cartId = buildCartId(customerId);
+        Cart cart = cartRepository.findById(cartId).orElseGet(() -> Cart.builder()
+                .cartId(cartId)
+                .customerId(customerId)
+                .tenantId(TenantContext.requireCurrentTenantId())
+                .items(new ArrayList<>())
+                .build());
         log.info(msg("cart.log.fetched", cart.getCartId(), cart.getItemCount()));
         return cartMapper.toResponse(cart);
     }

@@ -8,8 +8,18 @@ import type {
 } from './types';
 
 export const ordersApi = {
-  create: (data: OrderRequest) =>
-    apiClient.post<OrderCreateResponse>('/orders', data).then((r) => r.data),
+  // idempotencyKey: a stable per-checkout UUID. The gateway can return a false 503
+  // on a write that actually succeeded (stale keep-alive connection); sending the
+  // same key on a resubmit lets order-service return the existing order instead of
+  // creating a duplicate.
+  create: (data: OrderRequest, idempotencyKey?: string) =>
+    apiClient
+      .post<OrderCreateResponse>(
+        '/orders',
+        data,
+        idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined,
+      )
+      .then((r) => r.data),
 
   getStatus: (correlationId: string) =>
     apiClient
