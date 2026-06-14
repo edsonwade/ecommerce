@@ -81,10 +81,21 @@ export default function CheckoutPage() {
     })(),
   );
 
+  // Fetch the cart via cartApi.get (GET /carts/{id}) — which returns 200 + an EMPTY
+  // cart when none exists — NOT cartApi.checkout (GET /carts/{id}/checkout), which
+  // THROWS 404 (cart.not.found) / 400 (empty) on an empty or cleared cart.
+  // After an order confirms, handleTimelineComplete clears the cart server-side, so
+  // any later re-trigger of this query — a remount (navigating back to /checkout) or
+  // a page refresh (which resets activeStep to 0 because onSuccess removed
+  // checkout_step) — would hit the throw-on-empty endpoint and surface the 404 the
+  // user kept seeing. get() returns 200-empty instead, and the empty-cart guard below
+  // (`if (!cart || cart.items.length === 0)`) already renders the "cart is empty"
+  // state gracefully. Kept on its own key + disabled at step 3 so the post-order
+  // invalidate of [CART, userId] (badge/drawer) never disturbs the tracking view.
   const { data: cart, isLoading: cartLoading } = useQuery({
-    queryKey: [QUERY_KEYS.CART, userId],
-    queryFn: () => cartApi.checkout(userId!),
-    enabled: !!userId,
+    queryKey: [QUERY_KEYS.CART, 'checkout', userId],
+    queryFn: () => cartApi.get(userId!),
+    enabled: !!userId && activeStep < 3,
   });
 
   const savedAddress = (() => {

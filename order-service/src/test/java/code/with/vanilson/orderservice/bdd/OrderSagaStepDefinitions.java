@@ -113,17 +113,6 @@ public class OrderSagaStepDefinitions {
         verify(orderService).updateStatus(correlationId, OrderStatus.CANCELLED);
     }
 
-    @Then("the order status is updated to INVENTORY_INSUFFICIENT")
-    public void orderStatusUpdatedToInventoryInsufficient() {
-        verify(orderService).updateStatus(correlationId, OrderStatus.INVENTORY_INSUFFICIENT);
-    }
-
-    @Then("the order status is then updated to CANCELLED")
-    public void orderStatusThenUpdatedToCancelled() {
-        verify(orderService, times(2)).updateStatus(eq(correlationId), any(OrderStatus.class));
-        verify(orderService).updateStatus(correlationId, OrderStatus.CANCELLED);
-    }
-
     @Then("an OrderConfirmation notification is sent via OrderProducer")
     public void orderConfirmationSent() {
         verify(orderProducer).sendOrderConfirmation(any(OrderConfirmation.class));
