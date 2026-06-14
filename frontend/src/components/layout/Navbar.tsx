@@ -24,6 +24,7 @@ import {
   AdminPanelSettings,
   LightMode,
   DarkMode,
+  ReceiptLong,
 } from '@mui/icons-material';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
@@ -92,6 +93,17 @@ export default function Navbar({ onCartOpen, cartItemCount = 0 }: NavbarProps) {
             >
               Catalog
             </Button>
+            {isAuthenticated && role === 'USER' && (
+              <Button
+                component={Link}
+                to={ROUTES.ORDERS}
+                color="inherit"
+                startIcon={<ReceiptLong fontSize="small" />}
+                sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
+              >
+                My Orders
+              </Button>
+            )}
           </Box>
         )}
 
@@ -164,6 +176,15 @@ export default function Navbar({ onCartOpen, cartItemCount = 0 }: NavbarProps) {
                     {role === 'ADMIN' ? 'Admin' : role === 'SELLER' ? 'Seller Hub' : 'My Account'}
                   </Typography>
                 </MenuItem>
+                {role === 'USER' && (
+                  <MenuItem
+                    onClick={() => { navigate(ROUTES.ORDERS); setAnchorEl(null); }}
+                    sx={{ gap: 1.5 }}
+                  >
+                    <ReceiptLong fontSize="small" />
+                    <Typography variant="body2">My Orders</Typography>
+                  </MenuItem>
+                )}
                 <MenuItem onClick={handleLogout} sx={{ gap: 1.5, color: 'error.main' }}>
                   <Logout fontSize="small" />
                   <Typography variant="body2">Sign out</Typography>

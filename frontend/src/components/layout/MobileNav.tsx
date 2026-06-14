@@ -5,7 +5,7 @@ import {
   Paper,
   Badge,
 } from '@mui/material';
-import { Home, Explore, ShoppingBag, Person } from '@mui/icons-material';
+import { Home, Explore, ShoppingBag, Person, ReceiptLong } from '@mui/icons-material';
 import { ROUTES } from '@utils/constants';
 import { useAuthStore } from '@stores/auth.store';
 
@@ -18,10 +18,14 @@ export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavPr
   const location = useLocation();
   const { isAuthenticated } = useAuthStore();
 
+  // Index layout depends on whether the authenticated-only "Orders" action is shown:
+  //   authed:     Home(0) Catalog(1) Cart(2) Orders(3) Account(4)
+  //   anonymous:  Home(0) Catalog(1) Cart(2) Account(3)
   const getValue = () => {
     if (location.pathname === ROUTES.HOME) return 0;
     if (location.pathname.startsWith('/catalog')) return 1;
-    if (location.pathname.startsWith('/account')) return 3;
+    if (location.pathname.startsWith('/account/orders')) return isAuthenticated ? 3 : false;
+    if (location.pathname.startsWith('/account')) return isAuthenticated ? 4 : 3;
     return false;
   };
 
@@ -42,6 +46,7 @@ export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavPr
     >
       <BottomNavigation value={getValue()} sx={{ bgcolor: 'background.paper', height: 60 }}>
         <BottomNavigationAction
+          value={0}
           component={Link}
           to={ROUTES.HOME}
           label="Home"
@@ -49,6 +54,7 @@ export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavPr
           sx={{ color: 'text.secondary', '&.Mui-selected': { color: 'primary.main' } }}
         />
         <BottomNavigationAction
+          value={1}
           component={Link}
           to={ROUTES.CATALOG}
           label="Catalog"
@@ -56,6 +62,7 @@ export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavPr
           sx={{ color: 'text.secondary', '&.Mui-selected': { color: 'primary.main' } }}
         />
         <BottomNavigationAction
+          value={2}
           label="Cart"
           icon={
             <Badge badgeContent={cartItemCount} color="primary">
@@ -65,7 +72,18 @@ export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavPr
           onClick={onCartOpen}
           sx={{ color: 'text.secondary' }}
         />
+        {isAuthenticated && (
+          <BottomNavigationAction
+            value={3}
+            component={Link}
+            to={ROUTES.ORDERS}
+            label="Orders"
+            icon={<ReceiptLong />}
+            sx={{ color: 'text.secondary', '&.Mui-selected': { color: 'primary.main' } }}
+          />
+        )}
         <BottomNavigationAction
+          value={isAuthenticated ? 4 : 3}
           component={Link}
           to={isAuthenticated ? ROUTES.ACCOUNT : ROUTES.LOGIN}
           label="Account"

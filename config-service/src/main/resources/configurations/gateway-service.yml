@@ -302,6 +302,40 @@ spring:
 # Resilience4j Circuit Breakers
 # -------------------------------------------------------
 resilience4j:
+  # ----------------------------------------------------------------
+  # TimeLimiter — THE missing piece behind the persistent 503s.
+  #
+  # Spring Cloud CircuitBreaker (Resilience4j) wraps EVERY breaker in a
+  # TimeLimiter whose DEFAULT timeout is 1 second. A cold first call to
+  # product/cart/order genuinely takes ~1.5–5s, so the limiter cancelled
+  # it at 1s -> TimeoutException -> fallback -> 503 (Retry-After: 30),
+  # and the cancel happened BEFORE the request reached the downstream
+  # service (which is why product-service logged nothing).
+  #
+  # The carefully-tuned slow-call-duration-threshold: 15s below was never
+  # consulted because the 1s limiter fired first. Raising the limiter so
+  # the breaker's own slow-call logic governs is the actual fix.
+  # connect-timeout (httpclient: 5000ms) still fails fast on a genuinely
+  # unreachable backend, so a dead service does not hang for the full window.
+  # ----------------------------------------------------------------
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 20s
+        cancel-running-future: true
+    instances:
+      customer-cb:
+        timeout-duration: 10s
+      cart-cb:
+        timeout-duration: 10s
+      order-cb:
+        timeout-duration: 20s
+      product-cb:
+        timeout-duration: 20s
+      payment-cb:
+        timeout-duration: 10s
+      tenant-cb:
+        timeout-duration: 10s
   circuitbreaker:
     instances:
       customer-cb:

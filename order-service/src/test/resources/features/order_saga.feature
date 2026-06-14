@@ -22,10 +22,9 @@ Feature: Order Saga — Kafka Event Processing (Phase 0)
     And the Kafka offset is acknowledged
 
   @saga
-  Scenario: Inventory insufficient — order goes to INVENTORY_INSUFFICIENT then CANCELLED
+  Scenario: Inventory insufficient — order cancelled in a single terminal update
     When an inventory.insufficient event is received for "corr-saga-bdd-001"
-    Then the order status is updated to INVENTORY_INSUFFICIENT
-    And the order status is then updated to CANCELLED
+    Then the order status is updated to CANCELLED
     And the Kafka offset is acknowledged
 
   @saga

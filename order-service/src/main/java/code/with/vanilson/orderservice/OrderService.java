@@ -163,8 +163,13 @@ public class OrderService {
 
         log.info(msg("order.log.customer.found", customer.customerId()));
 
-        // Step 2 — Persist order in REQUESTED state
-        Order order = persistOrderWithLines(request, correlationId);
+        // Step 2 — Persist order in REQUESTED state.
+        // Pass the authenticated customerId so the saved order is keyed by the SAME id
+        // that findMyOrders() later queries by (principal.userId()). Without this the
+        // mapper stores request.customerId() (client-supplied) while history reads by
+        // the principal — if they ever diverge, the order is created but never appears
+        // in the user's history. Forcing it here also closes the spoofing hole.
+        Order order = persistOrderWithLines(request, correlationId, customerId);
 
         log.info(msg("order.log.order.saved", order.getOrderId(), order.getReference()));
 
@@ -335,7 +340,7 @@ public class OrderService {
     }
 
     @Transactional
-    protected Order persistOrderWithLines(OrderRequest request, String correlationId) {
+    protected Order persistOrderWithLines(OrderRequest request, String correlationId, String customerId) {
         if (request.reference() != null && orderRepository.existsByReference(request.reference())) {
             throw new OrderDuplicateReferenceException(
                     msg("order.reference.duplicate", request.reference()),
@@ -344,6 +349,9 @@ public class OrderService {
 
         Order order = orderMapper.toOrder(request);
         order.setCorrelationId(correlationId);
+        // Override the mapper's request-body customerId with the authenticated id so
+        // the persisted owner matches exactly what findMyOrders() filters on.
+        order.setCustomerId(customerId);
         order.setStatus(OrderStatus.REQUESTED);
         order.setTenantId(TenantContext.requireCurrentTenantId());
         if (order.getReference() == null || order.getReference().isBlank()) {
