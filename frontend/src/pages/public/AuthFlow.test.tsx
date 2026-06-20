@@ -46,8 +46,7 @@ describe('LoginPage — email is always empty', () => {
 describe('RegisterPage — both roles must sign in after registering', () => {
   it('USER registration navigates to /login (no auto-login)', async () => {
     const user = userEvent.setup();
-    let path = '';
-    renderAt(['/register'], (p) => { path = p; });
+    renderAt(['/register']);
 
     await user.type(screen.getByLabelText(/first name/i), 'Ada');
     await user.type(screen.getByLabelText(/last name/i), 'Lovelace');
