@@ -90,8 +90,8 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderStatus(correlationId));
     }
 
-    @Operation(summary = "List all orders (admin only)")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "List orders within the caller's tenant (ADMIN or SELLER)")
+    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
     @GetMapping
     public ResponseEntity<List<OrderResponse>> findAll() {
         return ResponseEntity.ok(orderService.findAllOrders());

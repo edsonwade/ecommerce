@@ -129,11 +129,11 @@ class OrderControllerSecurityTest {
     }
 
     // -------------------------------------------------------
-    // GET /orders — list all (ADMIN only)
+    // GET /orders — list orders within tenant (ADMIN or SELLER)
     // -------------------------------------------------------
 
     @Nested
-    @DisplayName("GET /orders — list all (ADMIN only)")
+    @DisplayName("GET /orders — list orders within tenant (ADMIN or SELLER)")
     class ListOrders {
 
         @Test
@@ -161,6 +161,18 @@ class OrderControllerSecurityTest {
             mockMvc.perform(get(BASE)
                             .header(TENANT_HDR, TENANT_VAL)
                             .with(authentication(authAs(1L, "ADMIN"))))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("200 when SELLER lists their tenant's orders")
+        void seller_lists_tenant_orders() throws Exception {
+            when(orderService.findAllOrders()).thenReturn(List.of(
+                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "REQUESTED")));
+
+            mockMvc.perform(get(BASE)
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(7L, "SELLER"))))
                     .andExpect(status().isOk());
         }
     }
