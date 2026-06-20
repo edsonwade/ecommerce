@@ -31,9 +31,8 @@ type FormValues = z.infer<typeof schema>;
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const navState = location.state as { from?: string; email?: string } | null;
+  const navState = location.state as { from?: string } | null;
   const from = navState?.from ?? ROUTES.ACCOUNT;
-  const prefilledEmail = navState?.email ?? '';
   const setAuth = useAuthStore((s) => s.setAuth);
   const addToast = useUIStore((s) => s.addToast);
   const [showPassword, setShowPassword] = useState(false);
@@ -45,7 +44,7 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: prefilledEmail, password: '' },
+    defaultValues: { email: '', password: '' },
   });
 
   const onSubmit = async (values: FormValues) => {

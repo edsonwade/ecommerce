@@ -37,6 +37,9 @@ public class ProductSecurityConfig {
                     "/v3/api-docs/**",
                     "/api-docs/**"
                 ).permitAll()
+                // Seller's own catalogue must be authenticated — matched BEFORE the public
+                // GET /** rule below (first match wins). Role is enforced via @PreAuthorize.
+                .requestMatchers(HttpMethod.GET, "/api/v1/products/mine").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
                 .anyRequest().authenticated()
             )

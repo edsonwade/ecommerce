@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '@api/auth.api';
-import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import { normalizeError } from '@api/client';
@@ -36,7 +35,6 @@ type FormValues = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.setAuth);
   const addToast = useUIStore((s) => s.addToast);
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -55,28 +53,13 @@ export default function RegisterPage() {
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
     try {
-      const response = await authApi.register(values);
-      if (values.role === 'SELLER') {
-        setAuth({
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken,
-          userId: response.userId,
-          email: response.email,
-          role: response.role,
-          tenantId: response.tenantId,
-        });
-        addToast({
-          message: 'Welcome! Set up your store to start selling.',
-          variant: 'success',
-        });
-        navigate(ROUTES.SELLER, { replace: true });
-      } else {
-        addToast({
-          message: 'Account created — please sign in to continue',
-          variant: 'success',
-        });
-        navigate(ROUTES.LOGIN, { replace: true, state: { email: values.email } });
-      }
+      await authApi.register(values);
+      const message =
+        values.role === 'SELLER'
+          ? 'Seller account created — please sign in to access your store'
+          : 'Account created — please sign in to continue';
+      addToast({ message, variant: 'success' });
+      navigate(ROUTES.LOGIN, { replace: true });
     } catch (err) {
       const normalized = normalizeError(err);
       if (normalized.fieldErrors) {

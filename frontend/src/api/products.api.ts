@@ -23,6 +23,13 @@ export const productsApi = {
       .get<PageResponse<ProductResponse>>('/products', { params: { page, size }, signal })
       .then((r) => r.data),
 
+  // Seller's own products only (scoped by created_by on the backend). Newest-first.
+  // Used by the seller management screens; the public catalogue uses getAll/search.
+  getMine: (page = 0, size = 20, signal?: AbortSignal) =>
+    apiClient
+      .get<PageResponse<ProductResponse>>('/products/mine', { params: { page, size }, signal })
+      .then((r) => r.data),
+
   getById: (id: number) =>
     apiClient.get<ProductResponse>(`/products/${id}`).then((r) => r.data),
 

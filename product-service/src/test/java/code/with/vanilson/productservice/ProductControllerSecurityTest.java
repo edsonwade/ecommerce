@@ -102,6 +102,52 @@ class ProductControllerSecurityTest {
     }
 
     // -------------------------------------------------------
+    // GET /mine — seller's own catalogue (SELLER or ADMIN only)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /mine — SELLER or ADMIN only")
+    class MyProducts {
+
+        @Test
+        @DisplayName("401 Unauthorized when no authentication")
+        void unauthenticated_gets_401() throws Exception {
+            mockMvc.perform(get(BASE + "/mine").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        @DisplayName("403 Forbidden for USER role")
+        void user_cannot_list_mine() throws Exception {
+            mockMvc.perform(get(BASE + "/mine").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "SELLER")
+        @DisplayName("200 OK for SELLER — returns the seller's own products")
+        void seller_can_list_mine() throws Exception {
+            when(productService.getMyProducts(any()))
+                    .thenReturn(org.springframework.data.domain.Page.empty());
+
+            mockMvc.perform(get(BASE + "/mine").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("200 OK for ADMIN role")
+        void admin_can_list_mine() throws Exception {
+            when(productService.getMyProducts(any()))
+                    .thenReturn(org.springframework.data.domain.Page.empty());
+
+            mockMvc.perform(get(BASE + "/mine").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    // -------------------------------------------------------
     // POST /create
     // -------------------------------------------------------
 

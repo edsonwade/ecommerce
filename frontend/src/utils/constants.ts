@@ -25,10 +25,12 @@ export const ROUTES = {
 
 export const QUERY_KEYS = {
   PRODUCTS: 'products',
+  MY_PRODUCTS: 'my-products',
   PRODUCT: 'product',
   CATEGORIES: 'categories',
   CART: 'cart',
   ORDERS: 'orders',
+  SELLER_ORDERS: 'seller-orders',
   ORDER: 'order',
   ORDER_STATUS: 'order-status',
   ORDER_LINES: 'order-lines',

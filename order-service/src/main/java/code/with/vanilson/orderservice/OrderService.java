@@ -259,6 +259,26 @@ public class OrderService {
         return orders;
     }
 
+    /**
+     * Returns the orders that contain at least one of the authenticated seller's
+     * products. Marketplace isolation: a seller sees only orders placed for their own
+     * products (keyed off the {@code seller_id} stamped on each line at creation), never
+     * other sellers' orders. Backs {@code GET /api/v1/orders/seller}.
+     */
+    public List<OrderResponse> findOrdersForSeller() {
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal == null) {
+            return List.of();
+        }
+        String sellerId = String.valueOf(principal.userId());
+        List<OrderResponse> orders = orderLineService.findOrdersForSeller(sellerId)
+                .stream()
+                .map(orderMapper::fromOrder)
+                .collect(Collectors.toList());
+        log.info("[OrderService] Seller orders for sellerId=[{}]: count=[{}]", sellerId, orders.size());
+        return orders;
+    }
+
     public List<OrderResponse> findMyOrders() {
         filterActivator.activateFilter();
         SecurityPrincipal principal = currentPrincipal();
@@ -282,7 +302,9 @@ public class OrderService {
 
         SecurityPrincipal principal = currentPrincipal();
         if (principal != null && !"ADMIN".equals(principal.role())
-                && !order.getCustomerId().equals(String.valueOf(principal.userId()))) {
+                && !order.getCustomerId().equals(String.valueOf(principal.userId()))
+                && !(principal.isSeller()
+                     && orderLineService.sellerOwnsLineInOrder(id, String.valueOf(principal.userId())))) {
             throw new OrderForbiddenException(
                     msg("order.access.denied"), "order.access.denied");
         }

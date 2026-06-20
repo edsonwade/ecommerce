@@ -4,6 +4,7 @@ import code.with.vanilson.orderservice.Order;
 import code.with.vanilson.orderservice.OrderRepository;
 import code.with.vanilson.orderservice.exception.OrderForbiddenException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
+import code.with.vanilson.orderservice.product.ProductClient;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
@@ -39,6 +40,7 @@ public class OrderLineService {
     private final OrderRepository orderRepository;
     private final TenantHibernateFilterActivator filterActivator;
     private final MessageSource messageSource;
+    private final ProductClient productClient;
 
     /**
      * Persists a single order line.
@@ -50,10 +52,51 @@ public class OrderLineService {
     public Integer saveOrderLine(OrderLineRequest request) {
         OrderLine orderLine = mapper.toOrderLine(request);
         orderLine.setTenantId(TenantContext.requireCurrentTenantId());
+        orderLine.setSellerId(resolveSellerId(request.productId()));
         Integer savedId = repository.save(orderLine).getId();
-        log.debug("[OrderLineService] Saved order line: id=[{}] orderId=[{}] productId=[{}] qty=[{}]",
-                savedId, request.orderId(), request.productId(), request.quantity());
+        log.debug("[OrderLineService] Saved order line: id=[{}] orderId=[{}] productId=[{}] qty=[{}] sellerId=[{}]",
+                savedId, request.orderId(), request.productId(), request.quantity(), orderLine.getSellerId());
         return savedId;
+    }
+
+    /**
+     * Resolves the owning seller (product.createdBy) for a product, used to stamp the
+     * order line at creation. Defensive: a null productId or any product-service failure
+     * yields {@code null} (logged) rather than blocking checkout — the line is still
+     * persisted; it just won't surface to a seller until backfilled.
+     */
+    private String resolveSellerId(Integer productId) {
+        if (productId == null) {
+            return null;
+        }
+        try {
+            return productClient.getProductById(productId)
+                    .map(p -> p.createdBy())
+                    .orElse(null);
+        } catch (Exception ex) {
+            log.warn("[OrderLineService] Could not resolve seller for productId=[{}] — order line stored without "
+                    + "sellerId: {}", productId, ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Returns the distinct orders that contain at least one line owned by the given
+     * seller. Backs {@code GET /api/v1/orders/seller}.
+     *
+     * @param sellerId the seller's userId
+     * @return orders placed for the seller's products (most-recent-first by DB order)
+     */
+    public List<Order> findOrdersForSeller(String sellerId) {
+        filterActivator.activateFilter();
+        return repository.findDistinctOrdersBySellerId(sellerId);
+    }
+
+    /**
+     * @return true if the given seller owns at least one line in the given order.
+     */
+    public boolean sellerOwnsLineInOrder(Integer orderId, String sellerId) {
+        return repository.existsByOrderIdAndSellerId(orderId, sellerId);
     }
 
     /**
@@ -74,7 +117,9 @@ public class OrderLineService {
 
         SecurityPrincipal principal = currentPrincipal();
         if (principal != null && !"ADMIN".equals(principal.role())
-                && !order.getCustomerId().equals(String.valueOf(principal.userId()))) {
+                && !order.getCustomerId().equals(String.valueOf(principal.userId()))
+                && !(principal.isSeller()
+                     && repository.existsByOrderIdAndSellerId(orderId, String.valueOf(principal.userId())))) {
             throw new OrderForbiddenException(
                     msg("order.access.denied"), "order.access.denied");
         }

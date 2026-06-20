@@ -82,6 +82,7 @@ export default function ProductForm() {
   const { mutateAsync: createProduct } = useMutation({
     mutationFn: (req: ProductRequest) => productsApi.create(req),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_PRODUCTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCTS] });
       addToast({ message: 'Product created', variant: 'success' });
       navigate(ROUTES.SELLER_PRODUCTS);
@@ -92,6 +93,7 @@ export default function ProductForm() {
   const { mutateAsync: updateProduct } = useMutation({
     mutationFn: (req: ProductRequest) => productsApi.update(Number(id), req),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_PRODUCTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCT, id] });
       addToast({ message: 'Product updated', variant: 'success' });

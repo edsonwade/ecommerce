@@ -129,11 +129,11 @@ class OrderControllerSecurityTest {
     }
 
     // -------------------------------------------------------
-    // GET /orders — list all (ADMIN only)
+    // GET /orders — list ALL orders across the platform (ADMIN only)
     // -------------------------------------------------------
 
     @Nested
-    @DisplayName("GET /orders — list all (ADMIN only)")
+    @DisplayName("GET /orders — list ALL orders (ADMIN only)")
     class ListOrders {
 
         @Test
@@ -159,6 +159,63 @@ class OrderControllerSecurityTest {
                     new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "REQUESTED")));
 
             mockMvc.perform(get(BASE)
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(1L, "ADMIN"))))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("403 when SELLER tries to list ALL orders — must use /orders/seller")
+        void seller_cannot_list_all_orders() throws Exception {
+            mockMvc.perform(get(BASE)
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(7L, "SELLER"))))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    // -------------------------------------------------------
+    // GET /orders/seller — orders for the seller's own products (SELLER or ADMIN)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /orders/seller — seller's own product orders (SELLER or ADMIN)")
+    class SellerOrders {
+
+        @Test
+        @DisplayName("401 when unauthenticated")
+        void unauthenticated_gets_401() throws Exception {
+            mockMvc.perform(get(BASE + "/seller").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("403 when USER tries to list seller orders")
+        void user_cannot_list_seller_orders() throws Exception {
+            mockMvc.perform(get(BASE + "/seller")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(42L, "USER"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("200 when SELLER lists orders for their own products")
+        void seller_lists_their_product_orders() throws Exception {
+            when(orderService.findOrdersForSeller()).thenReturn(List.of(
+                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "REQUESTED")));
+
+            mockMvc.perform(get(BASE + "/seller")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(7L, "SELLER"))))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("200 when ADMIN lists seller orders")
+        void admin_can_list_seller_orders() throws Exception {
+            when(orderService.findOrdersForSeller()).thenReturn(List.of());
+
+            mockMvc.perform(get(BASE + "/seller")
                             .header(TENANT_HDR, TENANT_VAL)
                             .with(authentication(authAs(1L, "ADMIN"))))
                     .andExpect(status().isOk());

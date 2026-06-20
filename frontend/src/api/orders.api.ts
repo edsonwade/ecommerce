@@ -26,8 +26,13 @@ export const ordersApi = {
       .get<OrderStatusResponse>(`/orders/status/${correlationId}`)
       .then((r) => r.data),
 
+  // ADMIN-only: every order across the platform.
   getAll: (signal?: AbortSignal) =>
     apiClient.get<OrderResponse[]>('/orders', { signal }).then((r) => r.data),
+
+  // SELLER: only orders placed for the seller's own products (scoped by seller_id).
+  getSeller: (signal?: AbortSignal) =>
+    apiClient.get<OrderResponse[]>('/orders/seller', { signal }).then((r) => r.data),
 
   getById: (orderId: number, signal?: AbortSignal) =>
     apiClient.get<OrderResponse>(`/orders/${orderId}`, { signal }).then((r) => r.data),

@@ -64,6 +64,19 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllProducts(pageable));
     }
 
+    @Operation(summary = "List the authenticated seller's own products (paginated)",
+               description = "Returns only products created by the caller (SELLER) — competing sellers " +
+                       "never see each other's catalogue. Newest-first by default. ADMIN sees their own too; " +
+                       "use GET /products for the full cross-seller catalogue.")
+    @ApiResponse(responseCode = "200", description = "Seller's own products retrieved successfully")
+    @GetMapping("/mine")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
+    public ResponseEntity<Page<ProductResponse>> getMyProducts(
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC)
+            @Parameter(hidden = true) Pageable pageable) {
+        return ResponseEntity.ok(productService.getMyProducts(pageable));
+    }
+
     @Operation(summary = "Get product by ID")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Product found"),

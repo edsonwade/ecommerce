@@ -90,6 +90,31 @@ public class ProductService {
     }
 
     /**
+     * Returns a paginated list of the authenticated seller's own products.
+     * <p>
+     * Marketplace rule: competing sellers must not see each other's products, so this
+     * scopes by {@code created_by = principal.userId} (ownership) — the field stamped at
+     * creation in {@link #createProduct(Product)}. This is the read-side counterpart to
+     * the write-side ownership checks already enforced in {@link #updateProduct} and
+     * {@link #deleteProduct}. NOT cached on the shared {@code product-list} key, which is
+     * page-only and would leak one seller's products to another.
+     *
+     * @param pageable pagination and sort parameters (defaults to newest-first)
+     * @return Page of the caller's own ProductResponse DTOs (empty if unauthenticated)
+     */
+    public Page<ProductResponse> getMyProducts(Pageable pageable) {
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal == null) {
+            return Page.empty(pageable);
+        }
+        String createdBy = String.valueOf(principal.userId());
+        Page<ProductResponse> page = productRepository.findByCreatedBy(createdBy, pageable)
+                .map(productMapper::fromProduct);
+        log.info(resolve("product.log.mine.found", page.getTotalElements(), createdBy));
+        return page;
+    }
+
+    /**
      * Returns a single product by ID.
      * Cached individually in Redis under 'products::{id}'.
      *
