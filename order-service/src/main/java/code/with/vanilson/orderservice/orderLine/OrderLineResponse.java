@@ -12,6 +12,7 @@ package code.with.vanilson.orderservice.orderLine;
  */
 public record OrderLineResponse(
         Integer id,
+        Integer productId,
         double quantity
 ) {
 }
