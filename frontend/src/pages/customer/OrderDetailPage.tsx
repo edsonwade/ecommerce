@@ -3,14 +3,16 @@ import {
   Alert, Box, Button, CircularProgress, Container, Divider, Typography,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { ArrowBack } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { ordersApi } from '@api/orders.api';
+import { productsApi } from '@api/products.api';
 import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { formatCurrency } from '@utils/format';
 import OrderStatusBadge from '@components/order/OrderStatusBadge';
-import type { OrderStatus } from '@api/types';
+import OrderItemRow from '@components/order/OrderItemRow';
+import type { OrderStatus, ProductResponse } from '@api/types';
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,26 @@ export default function OrderDetailPage() {
     queryFn: ({ signal }) => ordersApi.getLines(Number(id), signal),
     enabled: !!id,
   });
+
+  // Enrich each bare order line (productId + quantity only) with the product's
+  // name and image. Each distinct productId is fetched once via the existing
+  // products endpoint, deduped/cached under the shared product query key. A failed
+  // lookup (e.g. deleted product) is tolerated per-row inside OrderItemRow.
+  const productIds = [...new Set((lines ?? []).map((l) => l.productId))];
+  const productQueries = useQueries({
+    queries: productIds.map((productId) => ({
+      queryKey: [QUERY_KEYS.PRODUCT, productId],
+      queryFn: () => productsApi.getById(productId),
+      enabled: productIds.length > 0,
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+
+  const productsById = new Map<number, ProductResponse>();
+  productQueries.forEach((q) => {
+    if (q.data) productsById.set(q.data.id, q.data);
+  });
+  const productsLoading = productQueries.some((q) => q.isLoading);
 
   if (isLoading) {
     return (
@@ -77,18 +99,18 @@ export default function OrderDetailPage() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>Product ID</TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>Product</TableCell>
                       <TableCell sx={{ fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>Quantity</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {lines.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
-                          #{line.productId}
-                        </TableCell>
-                        <TableCell sx={{ fontFamily: 'var(--font-mono)' }}>{line.quantity}</TableCell>
-                      </TableRow>
+                      <OrderItemRow
+                        key={line.id}
+                        line={line}
+                        product={productsById.get(line.productId)}
+                        isLoading={productsLoading && !productsById.has(line.productId)}
+                      />
                     ))}
                   </TableBody>
                 </Table>

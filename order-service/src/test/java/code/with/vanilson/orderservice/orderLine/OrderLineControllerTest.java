@@ -63,8 +63,8 @@ class OrderLineControllerTest {
     @DisplayName("should return 200 with list of order lines for valid order ID")
     void shouldReturn200WithOrderLines() throws Exception {
         List<OrderLineResponse> responses = List.of(
-                new OrderLineResponse(1, 2.0),
-                new OrderLineResponse(2, 3.0));
+                new OrderLineResponse(1, 100, 2.0),
+                new OrderLineResponse(2, 200, 3.0));
         when(orderLineService.findAllByOrderId(42)).thenReturn(responses);
 
         mockMvc.perform(get("/api/v1/order-lines/{order-id}", 42)
@@ -72,6 +72,7 @@ class OrderLineControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].id", is(1)))
+                .andExpect(jsonPath("$[0].productId", is(100)))
                 .andExpect(jsonPath("$[0].quantity", is(2.0)))
                 .andExpect(jsonPath("$[1].id", is(2)));
     }

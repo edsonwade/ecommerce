@@ -83,7 +83,7 @@ class OrderLineServiceTest {
                 .quantity(2.0)
                 .build();
 
-        response = new OrderLineResponse(10, 2.0);
+        response = new OrderLineResponse(10, 1, 2.0);
     }
 
     @AfterEach
@@ -160,6 +160,7 @@ class OrderLineServiceTest {
                     .first()
                     .satisfies(r -> {
                         assertThat(r.id()).isEqualTo(10);
+                        assertThat(r.productId()).isEqualTo(1);
                         assertThat(r.quantity()).isEqualTo(2.0);
                     });
             verify(filterActivator).activateFilter();
