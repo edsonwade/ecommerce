@@ -4,6 +4,7 @@ import code.with.vanilson.orderservice.Order;
 import code.with.vanilson.orderservice.OrderRepository;
 import code.with.vanilson.orderservice.exception.OrderForbiddenException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
+import code.with.vanilson.orderservice.product.ProductClient;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
@@ -56,6 +57,7 @@ class OrderLineServiceTest {
     @Mock private OrderRepository      orderRepository;
     @Mock private TenantHibernateFilterActivator filterActivator;
     @Mock private MessageSource        messageSource;
+    @Mock private ProductClient        productClient;
 
     @InjectMocks
     private OrderLineService orderLineService;

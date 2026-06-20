@@ -20,14 +20,15 @@ export default function ProductManagement() {
   const [deleteTarget, setDeleteTarget] = useState<ProductResponse | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.PRODUCTS, page, 20],
-    queryFn: () => productsApi.getAll(page, 20),
+    queryKey: [QUERY_KEYS.MY_PRODUCTS, page, 20],
+    queryFn: () => productsApi.getMine(page, 20),
     staleTime: 2 * 60 * 1000,
   });
 
   const { mutate: deleteProduct, isPending: deleting } = useMutation({
     mutationFn: (id: number) => productsApi.delete(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_PRODUCTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCTS] });
       addToast({ message: 'Product deleted', variant: 'success' });
       setDeleteTarget(null);

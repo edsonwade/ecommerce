@@ -90,11 +90,23 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderStatus(correlationId));
     }
 
-    @Operation(summary = "List orders within the caller's tenant (ADMIN or SELLER)")
-    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
+    @Operation(summary = "List ALL orders across the platform (ADMIN only)",
+            description = "Returns every order regardless of seller. Sellers must use GET /orders/seller, " +
+                    "which scopes to orders placed for their own products — competing sellers never see " +
+                    "each other's orders.")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<OrderResponse>> findAll() {
         return ResponseEntity.ok(orderService.findAllOrders());
+    }
+
+    @Operation(summary = "List orders placed for the authenticated seller's products",
+            description = "Returns only orders that contain at least one product owned by the caller (SELLER). " +
+                    "Ownership is the seller_id stamped on each order line at creation.")
+    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
+    @GetMapping("/seller")
+    public ResponseEntity<List<OrderResponse>> findSellerOrders() {
+        return ResponseEntity.ok(orderService.findOrdersForSeller());
     }
 
     @Operation(summary = "List orders for the authenticated user")

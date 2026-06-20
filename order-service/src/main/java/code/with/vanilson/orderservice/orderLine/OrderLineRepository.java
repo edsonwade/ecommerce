@@ -1,5 +1,6 @@
 package code.with.vanilson.orderservice.orderLine;
 
+import code.with.vanilson.orderservice.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,4 +37,25 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Integer> {
      */
     @Query("SELECT ol FROM OrderLine ol WHERE ol.order.orderId = :orderId")
     List<OrderLine> findAllOrderById(@Param("orderId") Integer orderId);
+
+    /**
+     * Returns the distinct orders that contain at least one line owned by the given
+     * seller (line.sellerId = product.createdBy). Backs the seller order list — each
+     * seller sees only the orders placed for their own products.
+     *
+     * @param sellerId the seller's userId
+     * @return distinct parent orders, newest-first
+     */
+    @Query("SELECT DISTINCT ol.order FROM OrderLine ol WHERE ol.sellerId = :sellerId "
+            + "ORDER BY ol.order.orderId DESC")
+    List<Order> findDistinctOrdersBySellerId(@Param("sellerId") String sellerId);
+
+    /**
+     * @return true if the given seller owns at least one line in the given order —
+     *         used to authorise a seller viewing an order's detail / lines.
+     */
+    @Query("SELECT (COUNT(ol) > 0) FROM OrderLine ol "
+            + "WHERE ol.order.orderId = :orderId AND ol.sellerId = :sellerId")
+    boolean existsByOrderIdAndSellerId(@Param("orderId") Integer orderId,
+                                       @Param("sellerId") String sellerId);
 }

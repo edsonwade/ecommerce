@@ -1,6 +1,8 @@
 package code.with.vanilson.productservice;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -49,4 +51,20 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
     @Query("SELECT p FROM Product p WHERE p.id IN :ids ORDER BY p.id ASC")
     List<Product> findAllByIdInOrderById(@Param("ids") List<Integer> ids);
+
+    /**
+     * Returns only the products created by the given user (the seller's own catalogue).
+     * <p>
+     * Backs {@code GET /api/v1/products/mine}: in this marketplace, competing sellers
+     * must not see each other's products. Ownership is keyed off {@code created_by}
+     * (the seller's userId, stamped at creation) — not {@code tenant_id}, which the
+     * read path does not currently filter on. The public catalogue ({@code /products},
+     * {@code /products/search}) intentionally stays cross-seller so customers browse
+     * every store.
+     *
+     * @param createdBy the seller's userId (as stored in {@code created_by})
+     * @param pageable  pagination and sort parameters
+     * @return page of the seller's own products
+     */
+    Page<Product> findByCreatedBy(String createdBy, Pageable pageable);
 }

@@ -58,4 +58,13 @@ public class OrderLine {
     private Integer productId;
 
     private double quantity;
+
+    /**
+     * Marketplace ownership: the userId of the SELLER who owns this line's product
+     * (= product.createdBy), stamped at order creation. Lets a seller see exactly the
+     * orders placed for their own products. Nullable — pre-existing lines and any line
+     * whose product lookup failed at creation stay null and simply don't surface.
+     */
+    @Column(name = "seller_id")
+    private String sellerId;
 }

@@ -17,8 +17,8 @@ function StockBadge({ qty }: { qty: number }) {
 export default function InventoryPage() {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.PRODUCTS, 0, 100],
-    queryFn: () => productsApi.getAll(0, 100),
+    queryKey: [QUERY_KEYS.MY_PRODUCTS, 0, 100],
+    queryFn: () => productsApi.getMine(0, 100),
     staleTime: 2 * 60 * 1000,
   });
 

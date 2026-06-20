@@ -52,11 +52,14 @@ describe('RegisterPage — both roles must sign in after registering', () => {
     await user.type(screen.getByLabelText(/first name/i), 'Ada');
     await user.type(screen.getByLabelText(/last name/i), 'Lovelace');
     await user.type(screen.getByLabelText(/email/i), 'ada@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'password123');
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
-    await waitFor(() => expect(path).toBe('/login'));
-    // And the login form is empty (no prefill from registration)
+    // findByText waits for LoginPage's subtitle to appear in the DOM — this is
+    // unique to LoginPage and only true after the route commit, avoiding the race
+    // between LocationProbe's render-phase path update and the actual DOM transition.
+    await screen.findByText('Sign in to your account', {}, { timeout: 5000 });
+    // Now LoginPage is definitively mounted — email must be empty (no auto-fill).
     const email = screen.getByLabelText(/email/i) as HTMLInputElement;
     expect(email.value).toBe('');
   });
@@ -70,7 +73,7 @@ describe('RegisterPage — both roles must sign in after registering', () => {
     await user.type(screen.getByLabelText(/first name/i), 'Sam');
     await user.type(screen.getByLabelText(/last name/i), 'Seller');
     await user.type(screen.getByLabelText(/email/i), 'sam@shop.example');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'password123');
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => expect(path).toBe('/login'));

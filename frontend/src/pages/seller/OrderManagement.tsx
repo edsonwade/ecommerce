@@ -12,8 +12,8 @@ import type { OrderResponse } from '@api/types';
 export default function OrderManagement() {
   const navigate = useNavigate();
   const { data: orders, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.ORDERS],
-    queryFn: ({ signal }) => ordersApi.getAll(signal),
+    queryKey: [QUERY_KEYS.SELLER_ORDERS],
+    queryFn: ({ signal }) => ordersApi.getSeller(signal),
     staleTime: 30 * 1000,
   });
 

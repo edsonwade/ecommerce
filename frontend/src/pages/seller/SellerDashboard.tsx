@@ -20,15 +20,15 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 
 export default function SellerDashboard() {
   const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: [QUERY_KEYS.PRODUCTS, 0, 100],
-    queryFn: ({ signal }) => productsApi.getAll(0, 100, signal),
+    queryKey: [QUERY_KEYS.MY_PRODUCTS, 0, 100],
+    queryFn: ({ signal }) => productsApi.getMine(0, 100, signal),
     staleTime: 2 * 60 * 1000,
     retry: false,
     throwOnError: false,
   });
   const { data: orders, isLoading: ordersLoading } = useQuery({
-    queryKey: [QUERY_KEYS.ORDERS],
-    queryFn: ({ signal }) => ordersApi.getAll(signal),
+    queryKey: [QUERY_KEYS.SELLER_ORDERS],
+    queryFn: ({ signal }) => ordersApi.getSeller(signal),
     staleTime: 30 * 1000,
     retry: false,
     throwOnError: false,
