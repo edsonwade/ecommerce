@@ -118,6 +118,51 @@ export interface OrderResponse {
   customerId: string;
   /** Saga status (REQUESTED/CONFIRMED/CANCELLED/…) — added so badges stop guessing from paymentMethod. */
   status: OrderStatus | string;
+
+  // ── Customer block (from order-service CustomerSnapshot; omitted if not yet synced) ──
+  customerFirstname?: string;
+  customerLastname?: string;
+  customerEmail?: string;
+  shippingStreet?: string;
+  shippingHouseNumber?: string;
+  shippingZipCode?: string;
+  shippingCity?: string;
+  shippingCountry?: string;
+
+  // ── Order header ──
+  createdDate?: string;
+
+  // ── Money breakdown (tax-inclusive; IVA derived from total when not persisted) ──
+  subtotal?: number;
+  discountAmount?: number;
+  promotionCode?: string;
+  promotionAmount?: number;
+  taxRate?: number;
+  taxAmount?: number;
+}
+
+// ── Seller business profile (invoice "sold by" identity) ──
+export interface SellerProfileResponse {
+  id: number;
+  fullName: string;
+  firstname?: string;
+  lastname?: string;
+  email: string;
+  companyName?: string;
+  vatNumber?: string;
+  street?: string;
+  city?: string;
+  country?: string;
+  postalCode?: string;
+}
+
+export interface SellerProfileRequest {
+  companyName?: string;
+  vatNumber?: string;
+  street?: string;
+  city?: string;
+  country?: string;
+  postalCode?: string;
 }
 
 export interface OrderCreateResponse {

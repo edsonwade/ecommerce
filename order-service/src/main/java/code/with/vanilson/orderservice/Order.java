@@ -88,6 +88,31 @@ public class Order {
     @Column(nullable = false)
     private BigDecimal totalAmount;
 
+    // -------------------------------------------------------
+    // Invoice breakdown (nullable — derived on read for legacy orders).
+    // total_amount stays the authoritative amount paid (tax-inclusive). subtotal/taxAmount
+    // are computed from it + taxRate when absent; discount/promotion are captured by
+    // checkout in future and default to none for existing orders.
+    // -------------------------------------------------------
+
+    @Column(name = "subtotal")
+    private BigDecimal subtotal;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount;
+
+    @Column(name = "promotion_code", length = 64)
+    private String promotionCode;
+
+    @Column(name = "promotion_amount")
+    private BigDecimal promotionAmount;
+
+    @Column(name = "tax_rate")
+    private BigDecimal taxRate;
+
+    @Column(name = "tax_amount")
+    private BigDecimal taxAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentMethod paymentMethod;

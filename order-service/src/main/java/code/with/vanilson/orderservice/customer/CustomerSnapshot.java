@@ -54,6 +54,22 @@ public class CustomerSnapshot {
     @Column(name = "tenant_id", length = 64)
     private String tenantId;
 
+    /** Shipping address — carried from customer-service via the customer.profile event. */
+    @Column(name = "street", length = 256)
+    private String street;
+
+    @Column(name = "house_number", length = 64)
+    private String houseNumber;
+
+    @Column(name = "zip_code", length = 64)
+    private String zipCode;
+
+    @Column(name = "city", length = 128)
+    private String city;
+
+    @Column(name = "country", length = 128)
+    private String country;
+
     @Column(name = "last_updated", nullable = false)
     private LocalDateTime lastUpdated;
 }

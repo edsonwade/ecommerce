@@ -1,5 +1,11 @@
 import apiClient from './client';
-import type { AuthResponse, LoginRequest, RegisterRequest } from './types';
+import type {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  SellerProfileRequest,
+  SellerProfileResponse,
+} from './types';
 
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -16,4 +22,14 @@ export const authApi = {
       .then((r) => r.data),
 
   logout: () => apiClient.post('/auth/logout').then(() => undefined),
+
+  // Seller business profile ("sold by" identity on invoices).
+  // getSeller is readable by any authenticated user (a buyer sees who they bought from).
+  getSeller: (sellerId: number | string, signal?: AbortSignal) =>
+    apiClient
+      .get<SellerProfileResponse>(`/auth/sellers/${sellerId}`, { signal })
+      .then((r) => r.data),
+
+  updateSellerProfile: (data: SellerProfileRequest) =>
+    apiClient.put<SellerProfileResponse>('/auth/sellers/me', data).then((r) => r.data),
 };

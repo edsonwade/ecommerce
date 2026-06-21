@@ -21,7 +21,18 @@ export default function OrderManagement() {
     { key: 'reference', label: 'Reference', render: (r: OrderResponse) => <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'primary.main' }}>{r.reference}</Typography> },
     { key: 'amount', label: 'Amount', align: 'right' as const, render: (r: OrderResponse) => <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>{formatCurrency(r.amount)}</Typography> },
     { key: 'paymentMethod', label: 'Payment' },
-    { key: 'customerId', label: 'Customer', render: (r: OrderResponse) => <Typography variant="caption" sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary' }}>{r.customerId.slice(0, 12)}…</Typography> },
+    {
+      key: 'customerId',
+      label: 'Customer',
+      render: (r: OrderResponse) => {
+        const name = [r.customerFirstname, r.customerLastname].filter(Boolean).join(' ');
+        return name ? (
+          <Typography variant="body2">{name}</Typography>
+        ) : (
+          <Typography variant="caption" sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary' }}>{r.customerId.slice(0, 12)}…</Typography>
+        );
+      },
+    },
   ];
 
   return (

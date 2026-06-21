@@ -200,7 +200,9 @@ public class OrderStepDefinitions {
                         .build()
         ).toList();
         when(orderRepository.findAll()).thenReturn(orders);
-        orders.forEach(o -> when(orderMapper.fromOrder(o)).thenReturn(new OrderResponse(
+        // findAllOrders() enriches via the 2-arg fromOrder(order, snapshot); snapshot is null
+        // here (no snapshot stubbed), so match any second argument.
+        orders.forEach(o -> when(orderMapper.fromOrder(eq(o), any())).thenReturn(new OrderResponse(
                 o.getOrderId(), o.getReference(), o.getTotalAmount(), "CREDIT_CARD", o.getCustomerId(), o.getStatus() != null ? o.getStatus().name() : "REQUESTED"
         )));
     }

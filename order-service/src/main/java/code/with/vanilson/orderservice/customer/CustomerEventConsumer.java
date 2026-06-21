@@ -47,6 +47,14 @@ public class CustomerEventConsumer {
         snapshot.setFirstname(event.firstname());
         snapshot.setLastname(event.lastname());
         snapshot.setEmail(event.email());
+        // Shipping address (schemaVersion >= 2). Older v1 events carry null here; we only
+        // overwrite when the event actually supplies a value so a v1 replay can't wipe an
+        // address a later v2 event already populated.
+        if (event.street() != null)      snapshot.setStreet(event.street());
+        if (event.houseNumber() != null) snapshot.setHouseNumber(event.houseNumber());
+        if (event.zipCode() != null)     snapshot.setZipCode(event.zipCode());
+        if (event.city() != null)        snapshot.setCity(event.city());
+        if (event.country() != null)     snapshot.setCountry(event.country());
         snapshot.setLastUpdated(LocalDateTime.now());
 
         snapshotRepository.save(snapshot);

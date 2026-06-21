@@ -48,6 +48,7 @@ const ProductManagement = () => lazy_page(() => import('@pages/seller/ProductMan
 const ProductForm = () => lazy_page(() => import('@pages/seller/ProductForm'));
 const OrderManagement = () => lazy_page(() => import('@pages/seller/OrderManagement'));
 const InventoryPage = () => lazy_page(() => import('@pages/seller/InventoryPage'));
+const SellerSettings = () => lazy_page(() => import('@pages/seller/SellerSettings'));
 
 // ── Admin pages ──
 const AdminDashboard = () => lazy_page(() => import('@pages/admin/AdminDashboard'));
@@ -100,6 +101,7 @@ export const router = createBrowserRouter([
           { path: '/seller/products/:id/edit', element: <ProductForm /> },
           { path: '/seller/orders', element: <OrderManagement /> },
           { path: '/seller/inventory', element: <InventoryPage /> },
+          { path: '/seller/settings', element: <SellerSettings /> },
         ],
       },
     ],
