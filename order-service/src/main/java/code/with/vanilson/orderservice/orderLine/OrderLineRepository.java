@@ -45,9 +45,16 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Integer> {
      *
      * @param sellerId the seller's userId
      * @return distinct parent orders, newest-first
+     *
+     * <p>The order entity ({@code o}) — not {@code ol.order} — is the SELECT target so the
+     * {@code ORDER BY o.orderId} column is part of the selected columns. Selecting
+     * {@code ol.order} made Hibernate emit {@code ORDER BY order_line.order_id} (the FK
+     * column), which is NOT in the {@code SELECT DISTINCT customer_order.*} list — PostgreSQL
+     * rejects that with "for SELECT DISTINCT, ORDER BY expressions must appear in select list".</p>
      */
-    @Query("SELECT DISTINCT ol.order FROM OrderLine ol WHERE ol.sellerId = :sellerId "
-            + "ORDER BY ol.order.orderId DESC")
+    @Query("SELECT DISTINCT o FROM Order o, OrderLine ol "
+            + "WHERE ol.order = o AND ol.sellerId = :sellerId "
+            + "ORDER BY o.orderId DESC")
     List<Order> findDistinctOrdersBySellerId(@Param("sellerId") String sellerId);
 
     /**
