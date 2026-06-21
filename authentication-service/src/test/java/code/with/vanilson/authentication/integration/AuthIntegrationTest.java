@@ -1,6 +1,6 @@
 package code.with.vanilson.authentication.integration;
 
-import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
+import code.with.vanilson.authentication.infrastructure.CustomerRegistrationClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -66,10 +66,10 @@ class AuthIntegrationTest {
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     }
 
-    // Mock Kafka producer — no broker in integration tests; Kafka is tested in unit tests.
+    // Mock the customer-service Feign client — no customer-service in integration tests.
     @MockBean
     @SuppressWarnings("unused")
-    UserRegisteredProducer userRegisteredProducer;
+    CustomerRegistrationClient customerRegistrationClient;
 
     @Autowired MockMvc      mockMvc;
     @Autowired ObjectMapper objectMapper;

@@ -1,6 +1,6 @@
 package code.with.vanilson.authentication.integration;
 
-import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
+import code.with.vanilson.authentication.infrastructure.CustomerRegistrationClient;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -45,10 +45,10 @@ import static org.hamcrest.Matchers.notNullValue;
 @DisplayName("Authentication REST Assured Integration Tests")
 class AuthRestAssuredIT {
 
-    // Kafka is not available in the IT environment — mock the producer so
-    // kafkaTemplate.send() does not block 60 s on localhost:9092 and cause a 500.
+    // customer-service is not available in the IT environment — mock the Feign client so
+    // profile provisioning does not hit the network.
     @MockBean
-    UserRegisteredProducer userRegisteredProducer;
+    CustomerRegistrationClient customerRegistrationClient;
 
     @Container
     static PostgreSQLContainer<?> postgres =
