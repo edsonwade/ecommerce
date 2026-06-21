@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Box, Skeleton, TableCell, TableRow, Typography } from '@mui/material';
 import type { OrderLineResponse, ProductResponse } from '@api/types';
 import { getCategoryFallbackImage } from '@utils/productImages';
+import { formatCurrency } from '@utils/format';
 
 interface OrderItemRowProps {
   line: OrderLineResponse;
@@ -26,6 +27,8 @@ export default function OrderItemRow({ line, product, isLoading }: OrderItemRowP
   const [fallbackError, setFallbackError] = useState(false);
 
   const name = product?.name ?? `Product #${line.productId}`;
+  const unitPrice = product?.price;
+  const lineTotal = unitPrice != null ? unitPrice * line.quantity : undefined;
   const fallbackUrl = getCategoryFallbackImage(product?.categoryName);
   const showImage =
     (product?.imageUrl && !imgError) || (!product?.imageUrl && !fallbackError);
@@ -90,16 +93,37 @@ export default function OrderItemRow({ line, product, isLoading }: OrderItemRowP
                 {name}
               </Typography>
             )}
+            {product?.description && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  lineHeight: 1.35,
+                }}
+              >
+                {product.description}
+              </Typography>
+            )}
             <Typography
               variant="caption"
-              sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', fontSize: '0.7rem' }}
+              sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary', fontSize: '0.7rem', display: 'block' }}
             >
               #{line.productId}
             </Typography>
           </Box>
         </Box>
       </TableCell>
-      <TableCell sx={{ fontFamily: 'var(--font-mono)' }}>{line.quantity}</TableCell>
+      <TableCell align="center" sx={{ fontFamily: 'var(--font-mono)' }}>{line.quantity}</TableCell>
+      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
+        {isLoading ? <Skeleton variant="text" width={50} /> : unitPrice != null ? formatCurrency(unitPrice) : '—'}
+      </TableCell>
+      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+        {isLoading ? <Skeleton variant="text" width={60} /> : lineTotal != null ? formatCurrency(lineTotal) : '—'}
+      </TableCell>
     </TableRow>
   );
 }

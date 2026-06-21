@@ -15,6 +15,11 @@ import java.time.Instant;
  * @param firstname     customer first name
  * @param lastname      customer last name
  * @param email         customer email
+ * @param street        shipping address — street (schemaVersion 2)
+ * @param houseNumber   shipping address — house/door number
+ * @param zipCode       shipping address — postal code
+ * @param city          shipping address — city
+ * @param country       shipping address — country
  * @param eventType     {@code CREATED} or {@code UPDATED}
  * @param occurredAt    wall-clock time of the mutation
  * @param schemaVersion schema version for forward/backward compatibility
@@ -25,6 +30,11 @@ public record CustomerProfileEvent(
         String firstname,
         String lastname,
         String email,
+        String street,
+        String houseNumber,
+        String zipCode,
+        String city,
+        String country,
         String eventType,
         Instant occurredAt,
         int schemaVersion

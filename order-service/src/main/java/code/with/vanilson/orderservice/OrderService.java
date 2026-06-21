@@ -251,12 +251,26 @@ public class OrderService {
 
     public List<OrderResponse> findAllOrders() {
         filterActivator.activateFilter();
-        List<OrderResponse> orders = orderRepository.findAll()
-                .stream()
-                .map(orderMapper::fromOrder)
-                .collect(Collectors.toList());
+        List<OrderResponse> orders = toResponses(orderRepository.findAll());
         log.info(msg("order.log.all.orders.found", orders.size()));
         return orders;
+    }
+
+    /**
+     * Maps orders to invoice responses, enriching each with its customer snapshot.
+     * Snapshots are batch-loaded once (findAllById) to avoid an N+1 query across the list.
+     */
+    private List<OrderResponse> toResponses(List<Order> orders) {
+        java.util.Set<String> customerIds = orders.stream()
+                .map(Order::getCustomerId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        java.util.Map<String, CustomerSnapshot> byId = snapshotRepository.findAllById(customerIds)
+                .stream()
+                .collect(Collectors.toMap(CustomerSnapshot::getCustomerId, s -> s, (a, b) -> a));
+        return orders.stream()
+                .map(o -> orderMapper.fromOrder(o, byId.get(o.getCustomerId())))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -271,10 +285,7 @@ public class OrderService {
             return List.of();
         }
         String sellerId = String.valueOf(principal.userId());
-        List<OrderResponse> orders = orderLineService.findOrdersForSeller(sellerId)
-                .stream()
-                .map(orderMapper::fromOrder)
-                .collect(Collectors.toList());
+        List<OrderResponse> orders = toResponses(orderLineService.findOrdersForSeller(sellerId));
         log.info("[OrderService] Seller orders for sellerId=[{}]: count=[{}]", sellerId, orders.size());
         return orders;
     }
@@ -286,10 +297,7 @@ public class OrderService {
             return List.of();
         }
         String customerId = String.valueOf(principal.userId());
-        List<OrderResponse> orders = orderRepository.findByCustomerId(customerId)
-                .stream()
-                .map(orderMapper::fromOrder)
-                .collect(Collectors.toList());
+        List<OrderResponse> orders = toResponses(orderRepository.findByCustomerId(customerId));
         log.info("[OrderService] My orders for customerId=[{}]: count=[{}]", customerId, orders.size());
         return orders;
     }
@@ -310,7 +318,8 @@ public class OrderService {
         }
 
         log.info(msg("order.log.order.found", id));
-        return orderMapper.fromOrder(order);
+        CustomerSnapshot snapshot = snapshotRepository.findById(order.getCustomerId()).orElse(null);
+        return orderMapper.fromOrder(order, snapshot);
     }
 
     private SecurityPrincipal currentPrincipal() {

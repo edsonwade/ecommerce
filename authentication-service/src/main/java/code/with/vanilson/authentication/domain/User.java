@@ -76,6 +76,29 @@ public class User {
     @Builder.Default
     private String tenantId = "default";
 
+    // -------------------------------------------------------
+    // Seller business profile (nullable) — the legal "sold by" identity shown on invoices.
+    // Filled in by a SELLER via PUT /api/v1/auth/sellers/me; null for users who never set it.
+    // -------------------------------------------------------
+
+    @Column(name = "company_name", length = 255)
+    private String companyName;
+
+    @Column(name = "vat_number", length = 64)
+    private String vatNumber;
+
+    @Column(name = "street", length = 256)
+    private String street;
+
+    @Column(name = "city", length = 128)
+    private String city;
+
+    @Column(name = "country", length = 128)
+    private String country;
+
+    @Column(name = "postal_code", length = 64)
+    private String postalCode;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean accountLocked = false;

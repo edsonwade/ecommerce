@@ -40,7 +40,9 @@ class CustomerEventConsumerTest {
     private CustomerProfileEvent buildEvent(String customerId, String eventType) {
         return new CustomerProfileEvent(
                 "evt-001", customerId, "Maria", "Santos",
-                "maria@example.com", eventType, Instant.now(), 1);
+                "maria@example.com",
+                "Rua das Flores", "42", "1000-001", "Lisboa", "Portugal",
+                eventType, Instant.now(), 2);
     }
 
     @Nested
@@ -63,6 +65,9 @@ class CustomerEventConsumerTest {
             assertThat(snapshot.getFirstname()).isEqualTo("Maria");
             assertThat(snapshot.getLastname()).isEqualTo("Santos");
             assertThat(snapshot.getEmail()).isEqualTo("maria@example.com");
+            assertThat(snapshot.getStreet()).isEqualTo("Rua das Flores");
+            assertThat(snapshot.getCity()).isEqualTo("Lisboa");
+            assertThat(snapshot.getCountry()).isEqualTo("Portugal");
             assertThat(snapshot.getLastUpdated()).isNotNull();
 
             verify(ack).acknowledge();
@@ -83,7 +88,9 @@ class CustomerEventConsumerTest {
 
             CustomerProfileEvent updateEvent = new CustomerProfileEvent(
                     "evt-002", "cust-001", "Maria", "Santos",
-                    "new@example.com", "UPDATED", Instant.now(), 1);
+                    "new@example.com",
+                    "Rua Nova", "7", "4000-002", "Porto", "Portugal",
+                    "UPDATED", Instant.now(), 2);
 
             consumer.onCustomerProfile(updateEvent, ack);
 

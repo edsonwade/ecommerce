@@ -1,5 +1,6 @@
 package code.with.vanilson.customerservice.unit;
 
+import code.with.vanilson.customerservice.Address;
 import code.with.vanilson.customerservice.Customer;
 import code.with.vanilson.customerservice.kafka.CustomerProfileEvent;
 import code.with.vanilson.customerservice.kafka.CustomerProfileProducer;
@@ -53,6 +54,9 @@ class CustomerProfileProducerTest {
                     .firstname("Ana")
                     .lastname("Silva")
                     .email("ana@example.com")
+                    .address(Address.builder()
+                            .street("Rua das Flores").houseNumber("42")
+                            .zipCode("1000-001").city("Lisboa").country("Portugal").build())
                     .build();
 
             producer.publishProfileEvent(customer, "CREATED");
@@ -71,7 +75,12 @@ class CustomerProfileProducerTest {
             assertThat(event.lastname()).isEqualTo("Silva");
             assertThat(event.email()).isEqualTo("ana@example.com");
             assertThat(event.eventType()).isEqualTo("CREATED");
-            assertThat(event.schemaVersion()).isEqualTo(1);
+            assertThat(event.schemaVersion()).isEqualTo(2);
+            assertThat(event.street()).isEqualTo("Rua das Flores");
+            assertThat(event.houseNumber()).isEqualTo("42");
+            assertThat(event.zipCode()).isEqualTo("1000-001");
+            assertThat(event.city()).isEqualTo("Lisboa");
+            assertThat(event.country()).isEqualTo("Portugal");
             assertThat(event.eventId()).isNotBlank();
             assertThat(event.occurredAt()).isNotNull();
         }

@@ -1,5 +1,6 @@
 package code.with.vanilson.customerservice.kafka;
 
+import code.with.vanilson.customerservice.Address;
 import code.with.vanilson.customerservice.Customer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,15 +36,21 @@ public class CustomerProfileProducer {
      * @param eventType {@code "CREATED"} or {@code "UPDATED"}
      */
     public void publishProfileEvent(Customer customer, String eventType) {
+        Address address = customer.getAddress();
         CustomerProfileEvent event = new CustomerProfileEvent(
                 UUID.randomUUID().toString(),
                 customer.getCustomerId(),
                 customer.getFirstname(),
                 customer.getLastname(),
                 customer.getEmail(),
+                address != null ? address.getStreet() : null,
+                address != null ? address.getHouseNumber() : null,
+                address != null ? address.getZipCode() : null,
+                address != null ? address.getCity() : null,
+                address != null ? address.getCountry() : null,
                 eventType,
                 Instant.now(),
-                1
+                2
         );
 
         kafkaTemplate.send(TOPIC, customer.getCustomerId(), event)
