@@ -81,9 +81,13 @@ public class ProductService {
      * @param pageable pagination and sort parameters
      * @return Page of ProductResponse DTOs
      */
-    @Cacheable(value = CACHE_PRODUCT_LIST, key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    @Cacheable(value = CACHE_PRODUCT_LIST,
+            key = "#root.target.catalogScopeKey() + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
-        Page<ProductResponse> page = productRepository.findAll(pageable)
+        String sellerScope = currentSellerScope();
+        Page<ProductResponse> page = (sellerScope != null
+                ? productRepository.findByCreatedBy(sellerScope, pageable)
+                : productRepository.findAll(pageable))
                 .map(productMapper::fromProduct);
         log.info(resolve("product.log.all.found", page.getTotalElements()));
         return page;
@@ -157,6 +161,13 @@ public class ProductService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
         Specification<Product> spec = Specification.where(null);
+
+        // Marketplace isolation: a SELLER may only browse/search their own products.
+        // Customers, guests and ADMIN search the full cross-seller catalogue.
+        String sellerScope = currentSellerScope();
+        if (sellerScope != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("createdBy"), sellerScope));
+        }
 
         if (query != null && !query.isBlank()) {
             String pattern = "%" + query.toLowerCase() + "%";
@@ -334,5 +345,34 @@ public class ProductService {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof SecurityPrincipal sp)) return null;
         return sp;
+    }
+
+    /**
+     * Catalogue scope for the current caller.
+     * <p>
+     * Marketplace rule: a SELLER must only ever see their own products — competing sellers
+     * never see each other's catalogue, and a seller can never reach another seller's product
+     * to view or tamper with its price. This is the read-side counterpart to the write-side
+     * ownership guards in {@link #updateProduct} / {@link #deleteProduct}. Customers, guests
+     * and ADMIN get the full cross-seller catalogue.
+     *
+     * @return the seller's userId (as stored in {@code created_by}) when the caller is a
+     *         SELLER, otherwise {@code null} (no scoping → full catalogue)
+     */
+    private String currentSellerScope() {
+        SecurityPrincipal p = currentPrincipal();
+        return (p != null && p.isSeller()) ? String.valueOf(p.userId()) : null;
+    }
+
+    /**
+     * Cache discriminator for {@link #getAllProducts}: keeps a seller's scoped catalogue page
+     * from colliding with the public (cross-seller) one under the shared {@code product-list}
+     * key. Public so it is reachable from the {@code @Cacheable} SpEL key expression.
+     *
+     * @return {@code "seller:<id>"} for a SELLER caller, otherwise {@code "all"}
+     */
+    public String catalogScopeKey() {
+        String scope = currentSellerScope();
+        return scope == null ? "all" : "seller:" + scope;
     }
 }

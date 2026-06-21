@@ -17,6 +17,9 @@ import org.springframework.context.MessageSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import code.with.vanilson.productservice.category.Category;
 
@@ -29,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,7 +50,9 @@ class ProductServiceOwnershipTest {
 
     @BeforeEach
     void setUp() {
-        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+        // Shared default: echo the message key. lenient() — a few tests (e.g. catalogScopeKey)
+        // exercise paths that resolve no messages, and strict stubbing would flag this as unused.
+        lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -219,6 +226,74 @@ class ProductServiceOwnershipTest {
             productService.deleteProduct(3);
 
             verify(productRepository).deleteById(3);
+        }
+    }
+
+    // -------------------------------------------------------
+    // Catalogue scoping — a SELLER browses only their own products
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("catalogue scoping — SELLER sees only own products")
+    class CatalogScoping {
+
+        private final Pageable pageable = PageRequest.of(0, 20);
+
+        @Test
+        @DisplayName("getAllProducts: SELLER is scoped to their own products (findByCreatedBy)")
+        void seller_catalog_scoped_to_own() {
+            authAs(7L, "SELLER");
+            when(productRepository.findByCreatedBy("7", pageable)).thenReturn(Page.empty(pageable));
+
+            productService.getAllProducts(pageable);
+
+            verify(productRepository).findByCreatedBy("7", pageable);
+            verify(productRepository, never()).findAll(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("getAllProducts: guest (no principal) sees the full catalogue (findAll)")
+        void guest_sees_full_catalog() {
+            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+
+            productService.getAllProducts(pageable);
+
+            verify(productRepository).findAll(pageable);
+            verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("getAllProducts: customer (USER) sees the full catalogue")
+        void customer_sees_full_catalog() {
+            authAs(3L, "USER");
+            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+
+            productService.getAllProducts(pageable);
+
+            verify(productRepository).findAll(pageable);
+            verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("getAllProducts: ADMIN sees the full catalogue")
+        void admin_sees_full_catalog() {
+            authAs(1L, "ADMIN");
+            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+
+            productService.getAllProducts(pageable);
+
+            verify(productRepository).findAll(pageable);
+            verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("catalogScopeKey: 'seller:<id>' for SELLER, 'all' for everyone else")
+        void catalog_scope_key_discriminates_seller() {
+            authAs(7L, "SELLER");
+            assertThat(productService.catalogScopeKey()).isEqualTo("seller:7");
+
+            SecurityContextHolder.clearContext();
+            assertThat(productService.catalogScopeKey()).isEqualTo("all");
         }
     }
 }
