@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
@@ -43,12 +43,12 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { role: 'USER' } });
 
-  const role = watch('role');
+  const role = useWatch({ control, name: 'role' });
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
