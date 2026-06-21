@@ -9,8 +9,6 @@ import code.with.vanilson.customerservice.CustomerService;
 import code.with.vanilson.customerservice.exception.CustomerNotFoundException;
 import code.with.vanilson.customerservice.exception.EmailAlreadyExistsException;
 import code.with.vanilson.customerservice.kafka.CustomerProfileProducer;
-import code.with.vanilson.customerservice.kafka.UserRegisteredConsumer;
-import code.with.vanilson.customerservice.kafka.UserRegisteredEvent;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -19,9 +17,6 @@ import org.mockito.Mockito;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import org.springframework.kafka.support.Acknowledgment;
-
-import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -37,8 +32,6 @@ public class CustomerStepDefinitions {
     private CustomerMapper customerMapper;
     private MessageSource messageSource;
     private CustomerProfileProducer customerProfileProducer;
-    private UserRegisteredConsumer userRegisteredConsumer;
-    private Acknowledgment ack;
 
     private CustomerRequest customerRequest;
     private String savedCustomerId;
@@ -53,11 +46,9 @@ public class CustomerStepDefinitions {
         customerMapper = Mockito.mock(CustomerMapper.class);
         messageSource = Mockito.mock(MessageSource.class);
         customerProfileProducer = Mockito.mock(CustomerProfileProducer.class);
-        ack = Mockito.mock(Acknowledgment.class);
 
         customerService = new CustomerService(customerMapper, customerRepository, messageSource,
                 customerProfileProducer);
-        userRegisteredConsumer = new UserRegisteredConsumer(customerRepository);
 
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -185,23 +176,4 @@ public class CustomerStepDefinitions {
         verify(customerProfileProducer).publishProfileEvent(any(Customer.class), eq("CREATED"));
     }
 
-    @When("a user.registered event is received for {string} with email {string}")
-    public void a_user_registered_event_is_received(String userId, String email) {
-        UserRegisteredEvent event = new UserRegisteredEvent(
-                "evt-bdd-001", userId, "Test", "User", email, "default", Instant.now(), 1);
-        userRegisteredConsumer.onUserRegistered(event, ack);
-    }
-
-    @Then("a customer profile is created for {string}")
-    public void a_customer_profile_is_created_for(String userId) {
-        verify(customerRepository).save(argThat(c ->
-                c instanceof Customer && userId.equals(((Customer) c).getCustomerId())));
-        verify(ack).acknowledge();
-    }
-
-    @Then("no duplicate customer is created for {string}")
-    public void no_duplicate_customer_is_created_for(String userId) {
-        verify(customerRepository, never()).save(any());
-        verify(ack).acknowledge();
-    }
 }

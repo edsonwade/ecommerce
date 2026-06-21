@@ -26,7 +26,7 @@ spring:
           max-active: 16
           max-idle: 8
 
-  # Kafka — customer.profile producer + user.registered consumer
+  # Kafka — customer.profile producer (consumed by order-service for its CustomerSnapshot)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     producer:
@@ -37,15 +37,6 @@ spring:
         acks: all
         retries: 3
         max.in.flight.requests.per.connection: 1
-    consumer:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
-      group-id: customer-user-registration-group
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "code.with.vanilson.*"
         spring.json.use.type.headers: false
 
   cache:

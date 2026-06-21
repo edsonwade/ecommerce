@@ -14,8 +14,7 @@ import java.util.Map;
 
 /**
  * KafkaProducerConfig — configures the generic {@link KafkaTemplate}{@code <String, Object>}
- * used by {@link CustomerProfileProducer} and the DLQ recoverer in
- * {@link KafkaConsumerConfig}.
+ * used by {@link CustomerProfileProducer} to publish customer.profile events.
  *
  * @author vamuhong
  * @version 1.0

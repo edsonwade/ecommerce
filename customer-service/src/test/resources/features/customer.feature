@@ -37,13 +37,3 @@ Feature: Customer Management
     And the email is not already in use
     When the customer is created
     Then a customer.profile CREATED event is published
-
-  Scenario: user.registered event creates a customer profile when user is new
-    Given no customer with ID "user-kafka-001" exists
-    When a user.registered event is received for "user-kafka-001" with email "kafka.user@example.com"
-    Then a customer profile is created for "user-kafka-001"
-
-  Scenario: user.registered event is idempotent for existing customers
-    Given a customer with ID "user-kafka-002" exists
-    When a user.registered event is received for "user-kafka-002" with email "existing.user@example.com"
-    Then no duplicate customer is created for "user-kafka-002"

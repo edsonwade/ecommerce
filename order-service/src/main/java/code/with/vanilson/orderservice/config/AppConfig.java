@@ -1,6 +1,7 @@
 package code.with.vanilson.orderservice.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import feign.RequestInterceptor;
 import io.netty.channel.ChannelOption;
@@ -59,6 +60,13 @@ public class AppConfig {
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
+        // Serialise java.time as ISO-8601 strings, NOT numeric arrays. Because this bean is
+        // @Primary it replaces Spring's auto-configured mapper system-wide, which means the
+        // `spring.jackson.serialization.write-dates-as-timestamps: false` property no longer
+        // applies — we must disable the feature here explicitly. Without this, the order's
+        // LocalDateTime createdDate serialises as [2026,6,21,...] and the frontend's
+        // `new Date([...])` yields an Invalid Date, crashing the order-detail page.
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }
 

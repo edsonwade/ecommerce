@@ -6,9 +6,7 @@ import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
 import code.with.vanilson.authentication.exception.RegistrationException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
-import code.with.vanilson.authentication.infrastructure.CustomerRegistrationClient;
 import code.with.vanilson.authentication.infrastructure.JwtService;
-import code.with.vanilson.authentication.infrastructure.kafka.UserRegisteredProducer;
 import code.with.vanilson.authentication.infrastructure.TokenRepository;
 import code.with.vanilson.authentication.infrastructure.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,8 +44,7 @@ public class AuthService {
     private final AuthenticationManager        authManager;
     private final MessageSource                messageSource;
     private final RefreshTokenService          refreshTokenService;
-    private final CustomerRegistrationClient   customerRegistrationClient;
-    private final UserRegisteredProducer       userRegisteredProducer;
+    private final CustomerProvisioning         customerProvisioning;
 
     public AuthService(UserRepository userRepository,
                        TokenRepository tokenRepository,
@@ -56,8 +53,7 @@ public class AuthService {
                        AuthenticationManager authManager,
                        MessageSource messageSource,
                        RefreshTokenService refreshTokenService,
-                       CustomerRegistrationClient customerRegistrationClient,
-                       UserRegisteredProducer userRegisteredProducer) {
+                       CustomerProvisioning customerProvisioning) {
         this.userRepository             = userRepository;
         this.tokenRepository            = tokenRepository;
         this.jwtService                 = jwtService;
@@ -65,8 +61,7 @@ public class AuthService {
         this.authManager                = authManager;
         this.messageSource              = messageSource;
         this.refreshTokenService        = refreshTokenService;
-        this.customerRegistrationClient = customerRegistrationClient;
-        this.userRegisteredProducer     = userRegisteredProducer;
+        this.customerProvisioning       = customerProvisioning;
     }
 
     // -------------------------------------------------------
@@ -111,10 +106,9 @@ public class AuthService {
         User saved = userRepository.save(user);
         log.info(msg("auth.log.register.success", saved.getId(), saved.getEmail()));
 
-        // Publish event — customer-service will create the profile asynchronously.
-        // Login backfill (below in login()) remains as safety net for the eventual-consistency window.
-        userRegisteredProducer.publishUserRegistered(saved);
-        log.info("[AuthService] Published user.registered event for userId=[{}]", saved.getId());
+        // Fire-and-forget — creates the customer profile off the request thread so register()
+        // returns the JWT immediately instead of blocking on customer-service.
+        customerProvisioning.ensureCustomerProfile(saved);
 
         String accessJwt  = jwtService.generateAccessToken(saved);
         String refreshJwt = jwtService.generateRefreshToken(saved);
@@ -152,18 +146,9 @@ public class AuthService {
         String refreshJwt = jwtService.generateRefreshToken(user);
         refreshTokenService.persistTokenPair(user, accessJwt, refreshJwt);
 
-        // Idempotent backfill — ensures a customer profile exists for users registered
-        // before the customer-registration call was reliable.
-        try {
-            customerRegistrationClient.createCustomer(
-                    new CustomerRegistrationClient.CustomerRegistrationRequest(
-                            String.valueOf(user.getId()),
-                            user.getFirstname(),
-                            user.getLastname(),
-                            user.getEmail()));
-        } catch (Exception ex) {
-            log.warn("Customer profile backfill failed for userId=[{}]: {}", user.getId(), ex.getMessage());
-        }
+        // Idempotent backfill for legacy users — runs off the request thread so login()
+        // never waits on customer-service. Fail-open: login has already succeeded.
+        customerProvisioning.ensureCustomerProfile(user);
 
         log.info(msg("auth.log.login.success", user.getId(), user.getEmail()));
         return AuthResponse.of(accessJwt, refreshJwt,
