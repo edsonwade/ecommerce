@@ -41,6 +41,25 @@ public record OrderRequest(
         @NotNull(message = "{order.validation.products.required}")
         @NotEmpty(message = "{order.validation.products.required}")
         @Valid
-        List<ProductPurchaseRequest> products
+        List<ProductPurchaseRequest> products,
+
+        // ── Shipping address (optional) — the destination the buyer entered at checkout.
+        // Persisted on the order so the invoice shows THIS order's address instead of the
+        // customer's profile address. Nullable so older clients/tests stay valid.
+        String shippingStreet,
+        String shippingHouseNumber,
+        String shippingZipCode,
+        String shippingCity,
+        String shippingCountry
 ) {
+    /**
+     * Backward-compatible constructor without the shipping address (the original v2 shape).
+     * Keeps existing call-sites and tests compiling; shipping fields default to null.
+     */
+    public OrderRequest(Integer id, String reference, BigDecimal amount,
+                        PaymentMethod paymentMethod, String customerId,
+                        List<ProductPurchaseRequest> products) {
+        this(id, reference, amount, paymentMethod, customerId, products,
+                null, null, null, null, null);
+    }
 }

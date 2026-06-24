@@ -322,37 +322,3 @@ jobs:
           else
             echo "No previous version to rollback (current revision is $REVISIONS)"
           fi
-
-  # ============================================================
-  # Deploy to Production (manual approval gate)
-  # ============================================================
-  deploy-prod:
-    needs: staging
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production   # requires manual approval in GitHub Environments settings
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: '3.14.0'
-
-      - name: Set Kubernetes context
-        uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.PROD_KUBECONFIG }}
-
-      - name: Deploy to production
-        run: |
-          helm upgrade --install ecommerce ./helm/ecommerce \
-            --namespace ecommerce \
-            --create-namespace \
-            -f helm/ecommerce/values-production.yaml \
-            --set global.imageRegistry=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }} \
-            --set global.namespace=ecommerce \
-            --timeout 15m \
-            --wait \
-            --atomic   # auto-rollback on failure

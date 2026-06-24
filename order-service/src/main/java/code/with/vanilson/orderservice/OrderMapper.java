@@ -46,6 +46,11 @@ public class OrderMapper {
                 .totalAmount(request.amount())
                 .paymentMethod(request.paymentMethod())
                 .customerId(request.customerId())
+                .shippingStreet(request.shippingStreet())
+                .shippingHouseNumber(request.shippingHouseNumber())
+                .shippingZipCode(request.shippingZipCode())
+                .shippingCity(request.shippingCity())
+                .shippingCountry(request.shippingCountry())
                 .status(OrderStatus.REQUESTED)
                 .build();
     }
@@ -77,6 +82,16 @@ public class OrderMapper {
         BigDecimal discount    = order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
         BigDecimal promoAmount = order.getPromotionAmount() != null ? order.getPromotionAmount() : BigDecimal.ZERO;
 
+        // Shipping address: prefer the per-order address captured at checkout. Fall back to
+        // the customer's profile snapshot only for legacy orders that have none persisted,
+        // so old orders still render an address instead of regressing to "not provided".
+        boolean hasOrderShipping = order.getShippingStreet() != null && !order.getShippingStreet().isBlank();
+        String shipStreet  = hasOrderShipping ? order.getShippingStreet()      : (snapshot != null ? snapshot.getStreet()      : null);
+        String shipHouseNo = hasOrderShipping ? order.getShippingHouseNumber() : (snapshot != null ? snapshot.getHouseNumber() : null);
+        String shipZip     = hasOrderShipping ? order.getShippingZipCode()     : (snapshot != null ? snapshot.getZipCode()     : null);
+        String shipCity    = hasOrderShipping ? order.getShippingCity()        : (snapshot != null ? snapshot.getCity()        : null);
+        String shipCountry = hasOrderShipping ? order.getShippingCountry()     : (snapshot != null ? snapshot.getCountry()     : null);
+
         return new OrderResponse(
                 order.getOrderId(),
                 order.getReference(),
@@ -87,11 +102,11 @@ public class OrderMapper {
                 snapshot != null ? snapshot.getFirstname() : null,
                 snapshot != null ? snapshot.getLastname() : null,
                 snapshot != null ? snapshot.getEmail() : null,
-                snapshot != null ? snapshot.getStreet() : null,
-                snapshot != null ? snapshot.getHouseNumber() : null,
-                snapshot != null ? snapshot.getZipCode() : null,
-                snapshot != null ? snapshot.getCity() : null,
-                snapshot != null ? snapshot.getCountry() : null,
+                shipStreet,
+                shipHouseNo,
+                shipZip,
+                shipCity,
+                shipCountry,
                 order.getCreatedDate(),
                 subtotal,
                 discount,

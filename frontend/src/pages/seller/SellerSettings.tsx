@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, CircularProgress, Container, TextField, Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { authApi } from '@api/auth.api';
-import { QUERY_KEYS } from '@utils/constants';
+import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import type { SellerProfileRequest, SellerProfileResponse } from '@api/types';
@@ -38,8 +39,12 @@ export default function SellerSettings() {
 }
 
 function ProfileForm({ profile }: { profile: SellerProfileResponse }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
+  const EMPTY: SellerProfileRequest = {
+    companyName: '', vatNumber: '', street: '', city: '', country: '', postalCode: '',
+  };
   const [form, setForm] = useState<SellerProfileRequest>({
     companyName: profile.companyName ?? '',
     vatNumber: profile.vatNumber ?? '',
@@ -54,6 +59,10 @@ function ProfileForm({ profile }: { profile: SellerProfileResponse }) {
     onSuccess: () => {
       addToast({ variant: 'success', message: 'Business profile saved' });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.SELLER_PROFILE] });
+      // BUG 3: clear the form and return to the dashboard instead of leaving the
+      // just-saved values sitting in the inputs with the seller stranded on the page.
+      setForm(EMPTY);
+      navigate(ROUTES.SELLER);
     },
     onError: () => addToast({ variant: 'error', message: 'Could not save business profile' }),
   });
