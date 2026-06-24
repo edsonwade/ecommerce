@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Role } from '../api/types';
 
 interface AuthState {
@@ -53,6 +53,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'obsidian-auth',
+      // sessionStorage is tab-scoped: two browser tabs can hold different roles
+      // without poisoning each other via the shared localStorage key.
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
