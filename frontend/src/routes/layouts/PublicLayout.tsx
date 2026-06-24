@@ -12,13 +12,20 @@ import { QUERY_KEYS } from '@utils/constants';
 
 export default function PublicLayout() {
   const [cartOpen, setCartOpen] = useState(false);
-  const { isAuthenticated, userId } = useAuthStore();
+  const { isAuthenticated, userId, role } = useAuthStore();
 
+  // Only buyers (USER) have a cart. Sellers/admins must NOT trigger a cart
+  // fetch — they have no cart, so the call 503s/404s. Swallow those and don't
+  // retry, mirroring CustomerLayout.
   const { data: cart } = useQuery({
     queryKey: [QUERY_KEYS.CART, userId],
-    queryFn: () => cartApi.get(userId!),
-    enabled: isAuthenticated && !!userId,
-    staleTime: 0,
+    queryFn: () => cartApi.get(userId!).catch((err) => {
+      if (err?.response?.status === 404 || err?.response?.status === 503) return null;
+      throw err;
+    }),
+    enabled: isAuthenticated && !!userId && role === 'USER',
+    staleTime: 30 * 1000,
+    retry: false,
   });
 
   const cartItemCount = cart?.itemCount ?? 0;
