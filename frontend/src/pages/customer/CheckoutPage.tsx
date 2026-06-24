@@ -8,6 +8,7 @@ import {
   Container,
   Divider,
   FormControl,
+  FormHelperText,
   InputLabel,
   MenuItem,
   Select,
@@ -64,7 +65,9 @@ export default function CheckoutPage() {
     const saved = sessionStorage.getItem('checkout_step');
     return saved ? parseInt(saved, 10) : 0;
   });
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CREDIT_CARD');
+  // No default — the buyer must explicitly pick a method (BUG 2). '' means "unchosen"
+  // and gates the step-1 → step-2 transition below.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [correlationId, setCorrelationId] = useState<string | null>(null);
   const submittingRef = useRef(false);
 
@@ -116,6 +119,9 @@ export default function CheckoutPage() {
 
   const { mutate: placeOrder, isPending: placingOrder, error: orderError } = useMutation({
     mutationFn: () => {
+      // Step 1 gates this transition, so paymentMethod is always set by now. Guard
+      // anyway to narrow PaymentMethod | '' → PaymentMethod and fail loudly otherwise.
+      if (!paymentMethod) return Promise.reject(new Error('No payment method selected'));
       // The address typed in step 0 is the destination for THIS order. Send it so the
       // invoice shows it instead of "Shipping address not provided".
       const addr = getValues();
@@ -256,9 +262,10 @@ export default function CheckoutPage() {
                 transition={{ duration: 0.25 }}
               >
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>Payment method</InputLabel>
+                  <FormControl fullWidth error={!paymentMethod}>
+                    <InputLabel id="payment-method-label">Payment method</InputLabel>
                     <Select
+                      labelId="payment-method-label"
                       value={paymentMethod}
                       label="Payment method"
                       onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
@@ -269,12 +276,20 @@ export default function CheckoutPage() {
                         </MenuItem>
                       ))}
                     </Select>
+                    <FormHelperText>
+                      {paymentMethod ? ' ' : 'Please select a payment method to continue'}
+                    </FormHelperText>
                   </FormControl>
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button variant="outlined" onClick={() => goToStep(0)}>
                       Back
                     </Button>
-                    <Button variant="contained" size="large" onClick={() => goToStep(2)}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      onClick={() => goToStep(2)}
+                      disabled={!paymentMethod}
+                    >
                       Review order
                     </Button>
                   </Box>

@@ -113,6 +113,27 @@ public class Order {
     @Column(name = "tax_amount")
     private BigDecimal taxAmount;
 
+    // -------------------------------------------------------
+    // Shipping address (nullable — captured from the checkout form at creation).
+    // Legacy orders have none and fall back to the customer snapshot's profile address
+    // on read. This is the destination for THIS order, independent of the buyer's profile.
+    // -------------------------------------------------------
+
+    @Column(name = "shipping_street", length = 256)
+    private String shippingStreet;
+
+    @Column(name = "shipping_house_number", length = 64)
+    private String shippingHouseNumber;
+
+    @Column(name = "shipping_zip_code", length = 64)
+    private String shippingZipCode;
+
+    @Column(name = "shipping_city", length = 128)
+    private String shippingCity;
+
+    @Column(name = "shipping_country", length = 128)
+    private String shippingCountry;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentMethod paymentMethod;
