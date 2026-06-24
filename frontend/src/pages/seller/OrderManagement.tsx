@@ -45,7 +45,7 @@ export default function OrderManagement() {
           <DataTable
             columns={COLUMNS}
             rows={orders ?? []}
-            onView={(row) => navigate(ROUTES.ORDER_DETAIL(row.id))}
+            onView={(row) => navigate(ROUTES.SELLER_ORDER_DETAIL(row.id))}
           />
         )}
       </motion.div>

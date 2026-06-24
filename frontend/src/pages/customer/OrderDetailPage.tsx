@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, CircularProgress, Container, Divider, Typography,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
@@ -22,6 +22,8 @@ function addressLine(...parts: (string | undefined | null)[]): string {
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const backTo = location.pathname.startsWith('/seller') ? ROUTES.SELLER_ORDERS : ROUTES.ORDERS;
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: [QUERY_KEYS.ORDER, id],
@@ -101,7 +103,7 @@ export default function OrderDetailPage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
-      <Button component={Link} to={ROUTES.ORDERS} startIcon={<ArrowBack />} sx={{ mb: 4, color: 'text.secondary' }}>
+      <Button component={Link} to={backTo} startIcon={<ArrowBack />} sx={{ mb: 4, color: 'text.secondary' }}>
         Back to orders
       </Button>
 
