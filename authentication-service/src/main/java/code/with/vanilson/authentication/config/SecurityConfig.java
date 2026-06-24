@@ -69,6 +69,13 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:8080,http://localhost:5173,http://localhost:3000,http://localhost:8222}")
     private List<String> allowedOrigins;
 
+    // BCrypt work factor. Default 10 = Spring Security's own default and OWASP-acceptable.
+    // Cost 12 was ~1.5s PER login on this Docker host (every login pays one BCrypt, even
+    // failures — DaoAuthenticationProvider hashes a dummy password to thwart timing attacks).
+    // Each +1 doubles the work; 12→10 is ~4x faster. Tunable per-environment without a redeploy.
+    @Value("${security.bcrypt.strength:10}")
+    private int bcryptStrength;
+
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
                           UserDetailsServiceImpl userDetailsService,
                           ObjectMapper objectMapper) {
@@ -141,7 +148,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        return new BCryptPasswordEncoder(bcryptStrength);
     }
 
     @Bean
