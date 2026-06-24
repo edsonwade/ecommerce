@@ -108,6 +108,13 @@ export interface OrderRequest {
   paymentMethod: PaymentMethod;
   customerId: string;
   products: ProductPurchaseRequest[];
+  // Shipping destination captured at checkout — persisted on the order so the invoice
+  // shows THIS order's address rather than the buyer's profile address.
+  shippingStreet?: string;
+  shippingHouseNumber?: string;
+  shippingZipCode?: string;
+  shippingCity?: string;
+  shippingCountry?: string;
 }
 
 export interface OrderResponse {

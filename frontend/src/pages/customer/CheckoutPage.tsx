@@ -115,8 +115,11 @@ export default function CheckoutPage() {
   };
 
   const { mutate: placeOrder, isPending: placingOrder, error: orderError } = useMutation({
-    mutationFn: () =>
-      ordersApi.create(
+    mutationFn: () => {
+      // The address typed in step 0 is the destination for THIS order. Send it so the
+      // invoice shows it instead of "Shipping address not provided".
+      const addr = getValues();
+      return ordersApi.create(
         {
           amount: cart!.total,
           paymentMethod,
@@ -125,9 +128,15 @@ export default function CheckoutPage() {
             productId: i.productId,
             quantity: i.quantity,
           })),
+          shippingStreet: addr.street,
+          shippingHouseNumber: addr.houseNumber,
+          shippingZipCode: addr.zipCode,
+          shippingCity: addr.city,
+          shippingCountry: addr.country,
         },
         idempotencyKeyRef.current,
-      ),
+      );
+    },
     onSuccess: (res) => {
       submittingRef.current = false;
       sessionStorage.removeItem('checkout_step');

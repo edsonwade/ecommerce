@@ -49,12 +49,14 @@ async function mockApi(page: import('@playwright/test').Page) {
   });
 }
 
-// Inject auth into localStorage before navigating.
-// Uses addInitScript so the store is populated before React runs — no extra navigation needed.
+// Inject auth into sessionStorage before navigating.
+// The auth store persists to sessionStorage (tab-scoped — prevents cross-tab role
+// poisoning); injecting into localStorage would be ignored and every guarded route
+// would redirect to /login. Uses addInitScript so the store is populated before React runs.
 async function injectAuth(page: import('@playwright/test').Page, role: 'ADMIN' | 'SELLER' | 'USER') {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript((r) => {
-    localStorage.setItem('obsidian-auth', JSON.stringify({
+    sessionStorage.setItem('obsidian-auth', JSON.stringify({
       state: {
         accessToken: 'mock-access-token',
         refreshToken: 'mock-refresh-token',

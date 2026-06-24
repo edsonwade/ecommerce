@@ -72,10 +72,11 @@ test.describe('Checkout flow', () => {
   });
 
   test('checkout page renders stepper with 3 steps when authenticated', async ({ page }) => {
-    // Inject auth into localStorage
+    // Inject auth into sessionStorage — the auth store is tab-scoped (sessionStorage),
+    // so a localStorage value would be ignored and /checkout would redirect to /login.
     await page.goto('/');
     await page.evaluate(() => {
-      localStorage.setItem('obsidian-auth', JSON.stringify({
+      sessionStorage.setItem('obsidian-auth', JSON.stringify({
         state: {
           accessToken: 'mock-access-token',
           refreshToken: 'mock-refresh-token',
