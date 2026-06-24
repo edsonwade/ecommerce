@@ -32,7 +32,7 @@ const DRAWER_WIDTH = 240;
 export default function Sidebar({ items, title, open, onClose }: SidebarProps) {
   const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -84,36 +84,33 @@ export default function Sidebar({ items, title, open, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile: temporary overlay drawer */}
+      {/* Mobile (< md): temporary overlay drawer, toggled by the navbar hamburger */}
       <Drawer
         variant="temporary"
         open={open && isMobile}
         onClose={onClose}
         ModalProps={{ keepMounted: true }}
         sx={{
-          display: { xs: 'block', lg: 'none' },
+          display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': { width: DRAWER_WIDTH, bgcolor: 'background.paper' },
         }}
       >
         {drawerContent}
       </Drawer>
 
-      {/* Desktop: permanent drawer */}
+      {/* Desktop (md+): permanent drawer — always visible */}
       <Drawer
         variant="permanent"
-        open={open}
         sx={{
-          display: { xs: 'none', lg: 'block' },
-          width: open ? DRAWER_WIDTH : 0,
+          display: { xs: 'none', md: 'block' },
+          width: DRAWER_WIDTH,
           flexShrink: 0,
-          transition: 'width 200ms ease',
           '& .MuiDrawer-paper': {
             width: DRAWER_WIDTH,
             bgcolor: 'background.paper',
             borderRight: '1px solid',
             borderColor: 'divider',
             overflowX: 'hidden',
-            transition: 'width 200ms ease',
             position: 'relative',
             height: '100%',
           },
