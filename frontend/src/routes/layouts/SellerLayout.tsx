@@ -22,19 +22,19 @@ const SELLER_NAV = [
 ];
 
 export default function SellerLayout() {
-  const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUIStore();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
     <MotionConfig reducedMotion="user">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Navbar />
+        <Navbar onMenuClick={isMobile ? toggleSidebar : undefined} />
         <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
           <Sidebar
             items={SELLER_NAV}
             title="Seller Hub"
-            open={sidebarOpen && !isMobile}
+            open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
           />
           <Box

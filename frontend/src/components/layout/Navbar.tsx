@@ -25,6 +25,7 @@ import {
   LightMode,
   DarkMode,
   ReceiptLong,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
@@ -34,9 +35,11 @@ import RoleBadge from './RoleBadge';
 interface NavbarProps {
   onCartOpen?: () => void;
   cartItemCount?: number;
+  /** When provided (dashboard layouts on mobile), shows a hamburger that toggles the sidebar. */
+  onMenuClick?: () => void;
 }
 
-export default function Navbar({ onCartOpen, cartItemCount = 0 }: NavbarProps) {
+export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: NavbarProps) {
   const navigate = useNavigate();
   const { isAuthenticated, role, email, clearAuth } = useAuthStore();
   const { themeMode, toggleTheme, addToast } = useUIStore();
@@ -66,6 +69,18 @@ export default function Navbar({ onCartOpen, cartItemCount = 0 }: NavbarProps) {
       }}
     >
       <Toolbar sx={{ gap: 2, px: { xs: 2, md: 4 } }}>
+        {/* Hamburger — only in dashboard layouts below md (toggles the sidebar) */}
+        {onMenuClick && (
+          <IconButton
+            edge="start"
+            onClick={onMenuClick}
+            sx={{ color: 'text.primary', display: { xs: 'inline-flex', md: 'none' } }}
+            aria-label="Open navigation menu"
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
+
         {/* Logo */}
         <Typography
           component={Link}
@@ -116,18 +131,20 @@ export default function Navbar({ onCartOpen, cartItemCount = 0 }: NavbarProps) {
             </IconButton>
           </Tooltip>
 
-          {/* Cart */}
-          <Tooltip title="Cart">
-            <IconButton onClick={onCartOpen} sx={{ color: 'text.primary' }}>
-              <Badge
-                badgeContent={cartItemCount}
-                color="primary"
-                sx={{ '& .MuiBadge-badge': { fontFamily: 'var(--font-mono)', fontSize: '0.65rem' } }}
-              >
-                <ShoppingBag />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          {/* Cart — buyers (USER) and guests only. Sellers/admins do not buy. */}
+          {role !== 'SELLER' && role !== 'ADMIN' && (
+            <Tooltip title="Cart">
+              <IconButton onClick={onCartOpen} sx={{ color: 'text.primary' }}>
+                <Badge
+                  badgeContent={cartItemCount}
+                  color="primary"
+                  sx={{ '& .MuiBadge-badge': { fontFamily: 'var(--font-mono)', fontSize: '0.65rem' } }}
+                >
+                  <ShoppingBag />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* User menu */}
           {isAuthenticated ? (

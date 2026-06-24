@@ -7,6 +7,8 @@ import { ordersApi } from '@api/orders.api';
 import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { StatCardSkeleton } from '@components/feedback/LoadingSkeleton';
 import { formatCurrency } from '@utils/format';
+import { RevenueAreaCard, BreakdownDonutCard } from '@components/data-display/DashboardCharts';
+import { revenueByDay, countByKey, averageOrderValue } from '@utils/analytics';
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -36,7 +38,13 @@ export default function SellerDashboard() {
 
   const isLoading = productsLoading || ordersLoading;
   const totalRevenue = orders?.reduce((s, o) => s + o.amount, 0) ?? 0;
+  const orderCount = orders?.length ?? 0;
+  const aov = averageOrderValue(orders);
   const lowStock = products?.content.filter((p) => p.availableQuantity < 5).length ?? 0;
+
+  const revenueSeries = revenueByDay(orders);
+  const byStatus = countByKey(orders, (o) => o.status as string);
+  const byPaymentMethod = countByKey(orders, (o) => o.paymentMethod);
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
@@ -51,17 +59,38 @@ export default function SellerDashboard() {
           </Button>
         </Box>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2.5, mb: 6 }}>
+        {/* KPI row */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2.5, mb: 4 }}>
           {isLoading ? (
-            [1, 2, 3].map((i) => <StatCardSkeleton key={i} />)
+            [1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
+              <StatCard label="TOTAL REVENUE" value={formatCurrency(totalRevenue)} sub={`${orderCount} orders`} />
+              <StatCard label="AVG ORDER VALUE" value={formatCurrency(aov)} />
               <StatCard label="TOTAL PRODUCTS" value={String(products?.totalElements ?? 0)} />
-              <StatCard label="TOTAL REVENUE" value={formatCurrency(totalRevenue)} />
               <StatCard label="LOW STOCK" value={String(lowStock)} sub="Items below 5 units" />
             </>
           )}
         </Box>
+
+        {/* Hero: revenue over time */}
+        {!isLoading && (
+          <Box sx={{ mb: 4 }}>
+            <RevenueAreaCard
+              title="Revenue over time"
+              subtitle="Daily revenue from your paid orders"
+              data={revenueSeries}
+            />
+          </Box>
+        )}
+
+        {/* Breakdown row */}
+        {!isLoading && (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2.5, mb: 4 }}>
+            <BreakdownDonutCard title="Orders by status" subtitle="Saga lifecycle of your orders" data={byStatus} />
+            <BreakdownDonutCard title="Payment methods" subtitle="How buyers paid" data={byPaymentMethod} />
+          </Box>
+        )}
       </motion.div>
     </Container>
   );

@@ -28,7 +28,10 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       themeMode: 'dark',
-      sidebarOpen: true,
+      // Drives only the mobile (< md) temporary drawer; starts closed so it never
+      // auto-opens on first paint (that open->close race caused the old freeze).
+      // The desktop (md+) permanent sidebar is always visible regardless of this.
+      sidebarOpen: false,
       toastQueue: [],
 
       setThemeMode: (mode) => set({ themeMode: mode }),

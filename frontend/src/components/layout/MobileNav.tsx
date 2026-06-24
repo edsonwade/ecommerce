@@ -16,7 +16,8 @@ interface MobileNavProps {
 
 export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavProps) {
   const location = useLocation();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, role } = useAuthStore();
+  const showCart = role !== 'SELLER' && role !== 'ADMIN';
 
   // Index layout depends on whether the authenticated-only "Orders" action is shown:
   //   authed:     Home(0) Catalog(1) Cart(2) Orders(3) Account(4)
@@ -61,17 +62,19 @@ export default function MobileNav({ onCartOpen, cartItemCount = 0 }: MobileNavPr
           icon={<Explore />}
           sx={{ color: 'text.secondary', '&.Mui-selected': { color: 'primary.main' } }}
         />
-        <BottomNavigationAction
-          value={2}
-          label="Cart"
-          icon={
-            <Badge badgeContent={cartItemCount} color="primary">
-              <ShoppingBag />
-            </Badge>
-          }
-          onClick={onCartOpen}
-          sx={{ color: 'text.secondary' }}
-        />
+        {showCart && (
+          <BottomNavigationAction
+            value={2}
+            label="Cart"
+            icon={
+              <Badge badgeContent={cartItemCount} color="primary">
+                <ShoppingBag />
+              </Badge>
+            }
+            onClick={onCartOpen}
+            sx={{ color: 'text.secondary' }}
+          />
+        )}
         {isAuthenticated && (
           <BottomNavigationAction
             value={3}

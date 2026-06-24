@@ -22,19 +22,19 @@ const ADMIN_NAV = [
 ];
 
 export default function AdminLayout() {
-  const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUIStore();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
     <MotionConfig reducedMotion="user">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Navbar />
+        <Navbar onMenuClick={isMobile ? toggleSidebar : undefined} />
         <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
           <Sidebar
             items={ADMIN_NAV}
             title="Admin"
-            open={sidebarOpen && !isMobile}
+            open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
           />
           <Box

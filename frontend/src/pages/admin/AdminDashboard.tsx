@@ -8,6 +8,8 @@ import { customersApi } from '@api/customers.api';
 import { QUERY_KEYS } from '@utils/constants';
 import { StatCardSkeleton } from '@components/feedback/LoadingSkeleton';
 import { formatCurrency } from '@utils/format';
+import { RevenueAreaCard, BreakdownDonutCard, ActivityBarCard } from '@components/data-display/DashboardCharts';
+import { revenueByDay, countByKey, averageOrderValue } from '@utils/analytics';
 import UserManagement from './UserManagement';
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -42,6 +44,9 @@ export default function AdminDashboard() {
   const isLoading = tenantsLoading || paymentsLoading || customersLoading;
   const totalRevenue = payments?.reduce((s, p) => s + p.amount, 0) ?? 0;
   const activeTenants = tenants?.filter((t) => t.status === 'ACTIVE').length ?? 0;
+  const aov = averageOrderValue(payments);
+  const gmvSeries = revenueByDay(payments);
+  const byMethod = countByKey(payments, (p) => p.paymentMethod);
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
@@ -59,18 +64,37 @@ export default function AdminDashboard() {
         </Tabs>
 
         {tab === 0 && (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2.5, mb: 6 }}>
-            {isLoading ? (
-              [1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)
-            ) : (
-              <>
-                <StatCard label="TOTAL TENANTS" value={String(tenants?.length ?? 0)} sub={`${activeTenants} active`} />
-                <StatCard label="TOTAL REVENUE" value={formatCurrency(totalRevenue)} />
-                <StatCard label="TOTAL CUSTOMERS" value={String(customers?.length ?? 0)} />
-                <StatCard label="TOTAL PAYMENTS" value={String(payments?.length ?? 0)} />
-              </>
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2.5, mb: 4 }}>
+              {isLoading ? (
+                [1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)
+              ) : (
+                <>
+                  <StatCard label="TOTAL GMV" value={formatCurrency(totalRevenue)} sub={`${payments?.length ?? 0} payments`} />
+                  <StatCard label="AVG ORDER VALUE" value={formatCurrency(aov)} />
+                  <StatCard label="TOTAL CUSTOMERS" value={String(customers?.length ?? 0)} />
+                  <StatCard label="TENANTS" value={String(tenants?.length ?? 0)} sub={`${activeTenants} active`} />
+                </>
+              )}
+            </Box>
+
+            {!isLoading && (
+              <Box sx={{ mb: 4 }}>
+                <RevenueAreaCard
+                  title="Platform GMV over time"
+                  subtitle="Daily gross merchandise value across all sellers"
+                  data={gmvSeries}
+                />
+              </Box>
             )}
-          </Box>
+
+            {!isLoading && (
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2.5, mb: 4 }}>
+                <BreakdownDonutCard title="Revenue by payment method" subtitle="Share of payments by method" data={byMethod} />
+                <ActivityBarCard title="Payments per day" subtitle="Platform transaction volume" data={gmvSeries} />
+              </Box>
+            )}
+          </>
         )}
 
         {tab === 1 && <UserManagement />}
