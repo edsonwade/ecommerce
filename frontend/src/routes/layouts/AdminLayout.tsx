@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { MotionConfig } from 'framer-motion';
@@ -27,11 +26,6 @@ export default function AdminLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
-  // Auto-close sidebar on mobile so the overlay drawer doesn't cover content
-  useEffect(() => {
-    if (isMobile) setSidebarOpen(false);
-  }, [isMobile, setSidebarOpen]);
-
   return (
     <MotionConfig reducedMotion="user">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -40,7 +34,7 @@ export default function AdminLayout() {
           <Sidebar
             items={ADMIN_NAV}
             title="Admin"
-            open={sidebarOpen}
+            open={sidebarOpen && !isMobile}
             onClose={() => setSidebarOpen(false)}
           />
           <Box
