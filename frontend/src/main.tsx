@@ -9,6 +9,7 @@ import { createAppTheme } from '@theme/mui-theme';
 import { router } from '@routes/index';
 import ToastStack from '@components/feedback/Toast';
 import ErrorBoundary from '@components/feedback/ErrorBoundary';
+import './i18n/config';
 import './index.css';
 
 const queryClient = new QueryClient({

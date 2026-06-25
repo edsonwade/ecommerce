@@ -52,9 +52,12 @@ export default function ProductPage() {
         availableQuantity: product!.availableQuantity,
       }),
     retry: (count, error) => count <= 1 && (error as unknown as AppError).status === 503,
+    // Optimistic: confirm the instant the user clicks, not after the round-trip.
+    onMutate: () => {
+      addToast({ message: `${product?.name} added to cart`, variant: 'success' });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
-      addToast({ message: `${product?.name} added to cart`, variant: 'success' });
     },
     onError: (error) => {
       const is503 = (error as unknown as AppError).status === 503;

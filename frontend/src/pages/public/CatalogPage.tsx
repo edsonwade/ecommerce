@@ -16,6 +16,7 @@ import {
 import { SearchOff } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { productsApi } from '@api/products.api';
 import { QUERY_KEYS } from '@utils/constants';
@@ -39,6 +40,7 @@ function parseSortParam(sort: string): { sortBy: string; sortDir: 'asc' | 'desc'
 }
 
 export default function CatalogPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const queryParam    = searchParams.get('query') ?? '';
@@ -142,15 +144,15 @@ export default function CatalogPage() {
         {/* Header */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
-            ALL PRODUCTS
+            {t('catalog.eyebrow')}
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <Typography variant="h3" sx={{ fontFamily: 'var(--font-serif)' }}>
-              Catalog
+              {t('catalog.title')}
             </Typography>
             {data && (
               <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'var(--font-mono)' }}>
-                {totalElements} products
+                {t('catalog.productsCount', { count: totalElements })}
               </Typography>
             )}
           </Box>
@@ -167,23 +169,23 @@ export default function CatalogPage() {
           }}
         >
           <TextField
-            label="Search products"
+            label={t('catalog.searchLabel')}
             variant="outlined"
             size="small"
             value={inputValue}
             onChange={(e) => handleSearchChange(e.target.value)}
             sx={{ minWidth: 260, flexGrow: 1 }}
-            slotProps={{ htmlInput: { 'aria-label': 'Search products' } }}
+            slotProps={{ htmlInput: { 'aria-label': t('catalog.searchLabel') } }}
           />
 
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Category</InputLabel>
+            <InputLabel>{t('catalog.category')}</InputLabel>
             <Select
-              label="Category"
+              label={t('catalog.category')}
               value={categoryParam}
               onChange={(e) => handleCategoryChange(e.target.value)}
             >
-              <MenuItem value="">All categories</MenuItem>
+              <MenuItem value="">{t('catalog.allCategories')}</MenuItem>
               {categories?.map((cat) => (
                 <MenuItem key={cat.id} value={String(cat.id)}>
                   {cat.name}
@@ -193,9 +195,9 @@ export default function CatalogPage() {
           </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Sort by</InputLabel>
+            <InputLabel>{t('catalog.sortBy')}</InputLabel>
             <Select
-              label="Sort by"
+              label={t('catalog.sortBy')}
               value={sortParam}
               onChange={(e) => handleSortChange(e.target.value)}
             >
@@ -209,7 +211,7 @@ export default function CatalogPage() {
 
           {hasActiveFilters && (
             <Button variant="outlined" size="small" onClick={clearFilters} color="secondary">
-              Clear filters
+              {t('catalog.clearFilters')}
             </Button>
           )}
         </Box>
