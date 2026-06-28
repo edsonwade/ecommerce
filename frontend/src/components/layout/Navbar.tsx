@@ -27,10 +27,12 @@ import {
   ReceiptLong,
   Menu as MenuIcon,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import RoleBadge from './RoleBadge';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface NavbarProps {
   onCartOpen?: () => void;
@@ -41,6 +43,7 @@ interface NavbarProps {
 
 export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: NavbarProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { isAuthenticated, role, email, clearAuth } = useAuthStore();
   const { themeMode, toggleTheme, addToast } = useUIStore();
   const theme = useTheme();
@@ -49,7 +52,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
 
   const handleLogout = async () => {
     clearAuth();
-    addToast({ message: 'Signed out successfully', variant: 'info' });
+    addToast({ message: t('toast.signedOut'), variant: 'info' });
     navigate(ROUTES.LOGIN);
     setAnchorEl(null);
   };
@@ -106,7 +109,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
               color="inherit"
               sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
             >
-              Catalog
+              {t('nav.catalog')}
             </Button>
             {isAuthenticated && role === 'USER' && (
               <Button
@@ -116,7 +119,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
                 startIcon={<ReceiptLong fontSize="small" />}
                 sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
               >
-                My Orders
+                {t('nav.myOrders')}
               </Button>
             )}
           </Box>
@@ -124,8 +127,11 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
 
         {/* Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Language picker — visible on the initial menu for every visitor */}
+          <LanguageSwitcher />
+
           {/* Theme toggle */}
-          <Tooltip title={themeMode === 'dark' ? 'Light mode' : 'Dark mode'}>
+          <Tooltip title={themeMode === 'dark' ? t('nav.themeLight') : t('nav.themeDark')}>
             <IconButton onClick={toggleTheme} size="small" sx={{ color: 'text.secondary' }}>
               {themeMode === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
             </IconButton>
@@ -133,7 +139,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
 
           {/* Cart — buyers (USER) and guests only. Sellers/admins do not buy. */}
           {role !== 'SELLER' && role !== 'ADMIN' && (
-            <Tooltip title="Cart">
+            <Tooltip title={t('nav.cart')}>
               <IconButton onClick={onCartOpen} sx={{ color: 'text.primary' }}>
                 <Badge
                   badgeContent={cartItemCount}
@@ -190,7 +196,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
                     <Dashboard fontSize="small" />
                   )}
                   <Typography variant="body2">
-                    {role === 'ADMIN' ? 'Admin' : role === 'SELLER' ? 'Seller Hub' : 'My Account'}
+                    {role === 'ADMIN' ? t('nav.admin') : role === 'SELLER' ? t('nav.sellerHub') : t('nav.account')}
                   </Typography>
                 </MenuItem>
                 {role === 'USER' && (
@@ -199,12 +205,12 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
                     sx={{ gap: 1.5 }}
                   >
                     <ReceiptLong fontSize="small" />
-                    <Typography variant="body2">My Orders</Typography>
+                    <Typography variant="body2">{t('nav.myOrders')}</Typography>
                   </MenuItem>
                 )}
                 <MenuItem onClick={handleLogout} sx={{ gap: 1.5, color: 'error.main' }}>
                   <Logout fontSize="small" />
-                  <Typography variant="body2">Sign out</Typography>
+                  <Typography variant="body2">{t('nav.signOut')}</Typography>
                 </MenuItem>
               </Menu>
             </>
@@ -216,7 +222,7 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
               size="small"
               startIcon={<AccountCircle />}
             >
-              Sign in
+              {t('nav.signIn')}
             </Button>
           )}
         </Box>

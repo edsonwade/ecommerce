@@ -11,6 +11,7 @@ import { productsApi } from '@api/products.api';
 import { authApi } from '@api/auth.api';
 import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { formatCurrency, formatDateTime } from '@utils/format';
+import { distinctSellerIds } from '@utils/seller';
 import OrderStatusBadge from '@components/order/OrderStatusBadge';
 import OrderItemRow from '@components/order/OrderItemRow';
 import type { OrderStatus, ProductResponse, SellerProfileResponse } from '@api/types';
@@ -57,11 +58,10 @@ export default function OrderDetailPage() {
 
   // The seller(s) "sold by" block: the distinct owners (product.createdBy) of the order's
   // products. Each seller's public business identity is fetched once from auth-service.
-  const sellerIds = [
-    ...new Set(
-      [...productsById.values()].map((p) => p.createdBy).filter((v): v is string => !!v),
-    ),
-  ];
+  // createdBy is only a numeric user id for real sellers; seed/catalog products are owned by
+  // the "system" sentinel (no business profile), so we skip any non-numeric owner — otherwise
+  // GET /auth/sellers/system hits a Long path variable and 500s.
+  const sellerIds = distinctSellerIds([...productsById.values()].map((p) => p.createdBy));
   const sellerQueries = useQueries({
     queries: sellerIds.map((sellerId) => ({
       queryKey: [QUERY_KEYS.SELLER_PROFILE, sellerId],

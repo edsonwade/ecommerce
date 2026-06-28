@@ -201,6 +201,28 @@ Feature: Authentication Service
     And the error response contains field "path"
 
   # =========================================================
+  # Seller Profile Lookup ("sold by" on order invoices)
+  # =========================================================
+
+  @seller-profile @negative @regression
+  Scenario: Requesting a seller profile with the non-numeric "system" sentinel returns 400 not 500
+    Given a user is registered and logged in with email "bdd.soldby.system@example.com"
+    When I request the seller profile with id "system"
+    Then the response status is 400
+    And the error code is "auth.bad.request"
+
+  @seller-profile @negative
+  Scenario: Requesting a non-existent seller id returns 404 Not Found
+    Given a user is registered and logged in with email "bdd.soldby.missing@example.com"
+    When I request the seller profile with id "999999"
+    Then the response status is 404
+
+  @seller-profile @negative @security
+  Scenario: Anonymous seller profile lookup returns 401 Unauthorized
+    When I request the seller profile with id "1" without any authorization header
+    Then the response status is 401
+
+  # =========================================================
   # Admin Account Bootstrap
   # =========================================================
 

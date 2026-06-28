@@ -31,9 +31,13 @@ export default function ProductGrid({ products }: ProductGridProps) {
         availableQuantity: product.availableQuantity,
       }),
     retry: (count, error) => count <= 1 && (error as unknown as AppError).status === 503,
+    // Optimistic: confirm to the user the instant they click, not after the
+    // server round-trip — the toast must feel immediate (ms, not seconds).
+    onMutate: () => {
+      addToast({ message: 'Item added to cart', variant: 'success' });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CART, userId] });
-      addToast({ message: 'Item added to cart', variant: 'success' });
     },
     onError: (error) => {
       const is503 = (error as unknown as AppError).status === 503;

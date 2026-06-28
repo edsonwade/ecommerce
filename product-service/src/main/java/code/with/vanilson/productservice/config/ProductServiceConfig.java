@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
@@ -59,6 +60,24 @@ import java.util.List;
 @EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 @EnableJpaAuditing
 public class ProductServiceConfig {
+
+    /**
+     * Self-healing Flyway strategy: runs {@code repair()} before every {@code migrate()}.
+     * <p>
+     * {@code repair()} removes any failed-migration markers left in
+     * {@code flyway_schema_history} (PostgreSQL DDL is transactional, so a failed
+     * migration fully rolls back — only the failed history row remains). This makes
+     * a fixed migration re-runnable on the next restart with no manual SQL — fix the
+     * .sql, rebuild, restart, done. It also realigns checksums for already-applied
+     * migrations, so it never re-runs successful ones.
+     */
+    @Bean
+    public FlywayMigrationStrategy repairThenMigrate() {
+        return flyway -> {
+            flyway.repair();
+            flyway.migrate();
+        };
+    }
 
     @Bean
     public MessageSource messageSource() {
