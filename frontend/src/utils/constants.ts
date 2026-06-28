@@ -4,6 +4,8 @@ export const ROUTES = {
   PRODUCT: (id: number | string) => `/catalog/${id}`,
   LOGIN: '/login',
   REGISTER: '/register',
+  FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
   ACCOUNT: '/account',
   ORDERS: '/account/orders',
   ORDER_DETAIL: (id: number | string) => `/account/orders/${id}`,

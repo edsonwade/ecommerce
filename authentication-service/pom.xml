@@ -46,6 +46,12 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- Mail — sends the forgot-password reset link (JavaMailSender → MailHog in Docker) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- JPA + PostgreSQL + Flyway -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

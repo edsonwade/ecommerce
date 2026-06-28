@@ -23,6 +23,18 @@ export const authApi = {
 
   logout: () => apiClient.post('/auth/logout').then(() => undefined),
 
+  // Forgot-password flow (role-agnostic — Customer, Seller, Admin). The request always
+  // resolves 200 with a generic message regardless of whether the email exists.
+  forgotPassword: (email: string) =>
+    apiClient
+      .post<{ message: string }>('/auth/forgot-password', { email })
+      .then((r) => r.data),
+
+  resetPassword: (data: { token: string; newPassword: string; confirmPassword: string }) =>
+    apiClient
+      .post<{ message: string }>('/auth/reset-password', data)
+      .then((r) => r.data),
+
   // Seller business profile ("sold by" identity on invoices).
   // getSeller is readable by any authenticated user (a buyer sees who they bought from).
   getSeller: (sellerId: number | string, signal?: AbortSignal) =>

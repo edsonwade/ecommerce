@@ -492,6 +492,8 @@ services:
         condition: service_healthy
       zipkin:
         condition: service_started
+      mailhog:
+        condition: service_started
     environment:
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
@@ -500,6 +502,17 @@ services:
       EUREKA_HOST: discovery-service
       EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
       EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka-secret-2024}
+      # Forgot-password reset emails — sent via Mailtrap sandbox (testing inbox) by default.
+      # Set MAIL_USERNAME / MAIL_PASSWORD in .env (from your Mailtrap inbox SMTP creds).
+      # To switch back to MailHog: in .env set MAIL_HOST=mailhog MAIL_PORT=1025 MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false.
+      MAIL_HOST: ${MAIL_HOST:-sandbox.smtp.mailtrap.io}
+      MAIL_PORT: ${MAIL_PORT:-2525}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS_ENABLE:-true}
+      MAIL_SMTP_STARTTLS_REQUIRED: ${MAIL_SMTP_STARTTLS_REQUIRED:-true}
+      PASSWORD_RESET_URL_BASE: ${PASSWORD_RESET_URL_BASE:-http://localhost:8080/reset-password}
       POSTGRES_HOST: postgres-auth
       POSTGRES_USERNAME: ${POSTGRES_USERNAME:-vanilson}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vanilson}
@@ -859,13 +872,15 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
-      MAIL_HOST: mailhog
-      MAIL_PORT: 1025
-      MAIL_USERNAME: noreply@vanilsonshop.io
-      MAIL_PASSWORD: unused
-      MAIL_SMTP_AUTH: "false"
-      MAIL_SMTP_STARTTLS_ENABLE: "false"
-      MAIL_SMTP_STARTTLS_REQUIRED: "false"
+      # Email — sent via Mailtrap sandbox (testing inbox) by default; creds from .env.
+      # To switch back to MailHog: in .env set MAIL_HOST=mailhog MAIL_PORT=1025 MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false.
+      MAIL_HOST: ${MAIL_HOST:-sandbox.smtp.mailtrap.io}
+      MAIL_PORT: ${MAIL_PORT:-2525}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS_ENABLE:-true}
+      MAIL_SMTP_STARTTLS_REQUIRED: ${MAIL_SMTP_STARTTLS_REQUIRED:-true}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}

@@ -33,6 +33,8 @@ const CatalogPage = () => lazy_page(() => import('@pages/public/CatalogPage'));
 const ProductPage = () => lazy_page(() => import('@pages/public/ProductPage'));
 const LoginPage = () => lazy_page(() => import('@pages/public/LoginPage'));
 const RegisterPage = () => lazy_page(() => import('@pages/public/RegisterPage'));
+const ForgotPasswordPage = () => lazy_page(() => import('@pages/public/ForgotPasswordPage'));
+const ResetPasswordPage = () => lazy_page(() => import('@pages/public/ResetPasswordPage'));
 const NotFoundPage = () => lazy_page(() => import('@pages/public/NotFoundPage'));
 
 // ── Customer pages ──
@@ -68,6 +70,8 @@ export const router = createBrowserRouter([
       { path: '/catalog/:id', element: <ProductPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/register', element: <RegisterPage /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
     ],
   },
 
