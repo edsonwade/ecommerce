@@ -115,19 +115,41 @@ public class OrderLineService {
                 .orElseThrow(() -> new OrderNotFoundException(
                         msg("order.not.found", orderId), "order.not.found"));
 
-        SecurityPrincipal principal = currentPrincipal();
-        if (principal != null && !"ADMIN".equals(principal.role())
-                && !order.getCustomerId().equals(String.valueOf(principal.userId()))
-                && !(principal.isSeller()
-                     && repository.existsByOrderIdAndSellerId(orderId, String.valueOf(principal.userId())))) {
-            throw new OrderForbiddenException(
-                    msg("order.access.denied"), "order.access.denied");
-        }
-
-        return repository.findAllOrderById(orderId)
+        return authorizeAndScopeLines(order, orderId)
                 .stream()
                 .map(mapper::toOrderLineResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Authorizes the caller against this order and returns ONLY the lines they may see:
+     * <ul>
+     *   <li><b>ADMIN</b> — the whole order (platform oversight; only the admin sees everything).</li>
+     *   <li><b>Customer-owner</b> — the whole order (it is their own purchase).</li>
+     *   <li><b>SELLER</b> — ONLY their own lines ({@code seller_id = userId}). A seller who sold
+     *       one item in a multi-seller basket must never see the other sellers' lines nor the
+     *       platform/"system"-owned catalog lines — that was a cross-seller data leak.</li>
+     *   <li>anyone else — {@link OrderForbiddenException} (403).</li>
+     * </ul>
+     * No security context (trusted internal call) falls back to the full order, preserving prior behaviour.
+     */
+    private List<OrderLine> authorizeAndScopeLines(Order order, Integer orderId) {
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal == null) {
+            return repository.findAllOrderById(orderId);
+        }
+        if (principal.isAdmin()
+                || order.getCustomerId().equals(String.valueOf(principal.userId()))) {
+            return repository.findAllOrderById(orderId);
+        }
+        if (principal.isSeller()) {
+            List<OrderLine> ownLines =
+                    repository.findByOrderIdAndSellerId(orderId, String.valueOf(principal.userId()));
+            if (!ownLines.isEmpty()) {
+                return ownLines;
+            }
+        }
+        throw new OrderForbiddenException(msg("order.access.denied"), "order.access.denied");
     }
 
     private SecurityPrincipal currentPrincipal() {

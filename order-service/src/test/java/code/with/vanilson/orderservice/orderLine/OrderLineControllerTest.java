@@ -1,5 +1,7 @@
 package code.with.vanilson.orderservice.orderLine;
 
+import code.with.vanilson.orderservice.exception.OrderForbiddenException;
+import code.with.vanilson.orderservice.exception.OrderGlobalExceptionHandler;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.context.MessageSource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(OrderLineController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(OrderGlobalExceptionHandler.class)
 @DisplayName("OrderLineController — Web Layer Tests")
 class OrderLineControllerTest {
 
@@ -86,5 +90,31 @@ class OrderLineControllerTest {
                         .header("X-Tenant-ID", "test-tenant-123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("seller: returns exactly the service's seller-scoped lines (other sellers' lines never reach the wire)")
+    void shouldReturnOnlyTheSellerScopedLines() throws Exception {
+        // The service has already filtered to the caller-seller's own lines; the controller
+        // must surface only those — never the rest of the multi-seller basket.
+        when(orderLineService.findAllByOrderId(500))
+                .thenReturn(List.of(new OrderLineResponse(11, 9, 1.0)));
+
+        mockMvc.perform(get("/api/v1/order-lines/{order-id}", 500)
+                        .header("X-Tenant-ID", "test-tenant-123"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].productId", is(9)));
+    }
+
+    @Test
+    @DisplayName("should return 403 when the caller may not view the order's lines")
+    void shouldReturn403WhenForbidden() throws Exception {
+        when(orderLineService.findAllByOrderId(500))
+                .thenThrow(new OrderForbiddenException("order.access.denied", "order.access.denied"));
+
+        mockMvc.perform(get("/api/v1/order-lines/{order-id}", 500)
+                        .header("X-Tenant-ID", "test-tenant-123"))
+                .andExpect(status().isForbidden());
     }
 }

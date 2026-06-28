@@ -49,3 +49,39 @@ Feature: Async Order Creation and Status Polling
       | 2       | ORD-LIST-02 | 250.00 | cust-002   |
     When all orders are requested
     Then the system returns 2 orders
+
+  # ── Seller data-isolation: a seller must see ONLY the lines for their own products,
+  #    never other sellers' lines nor the platform/"system"-owned catalog lines. ──
+  Scenario: Seller sees only their own lines in a multi-seller order
+    Given order 500 owned by customer "cust-9" has the lines:
+      | productId | sellerId |
+      | 10        | 55       |
+      | 20        | 88       |
+      | 30        | system   |
+    When the seller "55" requests the lines of order 500
+    Then exactly 1 order line is returned
+    And the returned order line is for product 10
+
+  Scenario: Seller who sold nothing in the order cannot view it
+    Given order 500 owned by customer "cust-9" has the lines:
+      | productId | sellerId |
+      | 10        | 55       |
+      | 20        | 88       |
+    When the seller "77" requests the lines of order 500
+    Then the order line request is forbidden
+
+  Scenario: Customer-owner sees every line in their own order
+    Given order 500 owned by customer "9" has the lines:
+      | productId | sellerId |
+      | 10        | 55       |
+      | 20        | 88       |
+    When the customer "9" requests the lines of order 500
+    Then exactly 2 order lines are returned
+
+  Scenario: Admin sees every line in any order
+    Given order 500 owned by customer "cust-9" has the lines:
+      | productId | sellerId |
+      | 10        | 55       |
+      | 20        | 88       |
+    When an admin requests the lines of order 500
+    Then exactly 2 order lines are returned

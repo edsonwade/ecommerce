@@ -65,4 +65,20 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Integer> {
             + "WHERE ol.order.orderId = :orderId AND ol.sellerId = :sellerId")
     boolean existsByOrderIdAndSellerId(@Param("orderId") Integer orderId,
                                        @Param("sellerId") String sellerId);
+
+    /**
+     * Returns ONLY the lines of an order that belong to the given seller
+     * ({@code line.sellerId = product.createdBy}). A seller who sold one item in a
+     * multi-seller order must never see the other sellers' (or the platform/"system"-owned)
+     * lines — that is a cross-seller data leak. Customer-owners and ADMINs use
+     * {@link #findAllOrderById(Integer)} instead and see the whole order.
+     *
+     * @param orderId  the parent order ID
+     * @param sellerId the seller's userId (matched against {@code order_line.seller_id})
+     * @return the seller's own lines in that order
+     */
+    @Query("SELECT ol FROM OrderLine ol "
+            + "WHERE ol.order.orderId = :orderId AND ol.sellerId = :sellerId")
+    List<OrderLine> findByOrderIdAndSellerId(@Param("orderId") Integer orderId,
+                                             @Param("sellerId") String sellerId);
 }
