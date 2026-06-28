@@ -12,6 +12,7 @@ import { authApi } from '@api/auth.api';
 import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { formatCurrency, formatDateTime } from '@utils/format';
 import { distinctSellerIds } from '@utils/seller';
+import { deriveSellerSummary } from '@utils/orderSummary';
 import OrderStatusBadge from '@components/order/OrderStatusBadge';
 import OrderItemRow from '@components/order/OrderItemRow';
 import type { OrderStatus, ProductResponse, SellerProfileResponse } from '@api/types';
@@ -24,7 +25,8 @@ function addressLine(...parts: (string | undefined | null)[]): string {
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const backTo = location.pathname.startsWith('/seller') ? ROUTES.SELLER_ORDERS : ROUTES.ORDERS;
+  const isSellerView = location.pathname.startsWith('/seller');
+  const backTo = isSellerView ? ROUTES.SELLER_ORDERS : ROUTES.ORDERS;
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: [QUERY_KEYS.ORDER, id],
@@ -98,8 +100,21 @@ export default function OrderDetailPage() {
     order.shippingCountry,
   );
   const taxPct = order.taxRate != null ? `${(order.taxRate * 100).toFixed(0)}%` : null;
-  const hasDiscount = (order.discountAmount ?? 0) > 0;
-  const hasPromotion = !!order.promotionCode || (order.promotionAmount ?? 0) > 0;
+
+  // SELLER view: the order-level totals describe the WHOLE basket (every seller's money).
+  // The backend already scopes the lines to this seller, so derive the seller's own
+  // Subtotal/IVA/Total from those visible lines — never expose other sellers' revenue.
+  // Customer/admin keep the authoritative order-level figures.
+  const sellerSummary = isSellerView
+    ? deriveSellerSummary(lines ?? [], productsById, order.taxRate ?? 0)
+    : null;
+  const summarySubtotal = sellerSummary ? sellerSummary.subtotal : order.subtotal ?? 0;
+  const summaryTax = sellerSummary ? sellerSummary.tax : order.taxAmount ?? 0;
+  const summaryTotal = sellerSummary ? sellerSummary.total : order.amount;
+
+  // Discounts/promotions are basket-level (customer-facing), not a seller's revenue line.
+  const hasDiscount = !isSellerView && (order.discountAmount ?? 0) > 0;
+  const hasPromotion = !isSellerView && (!!order.promotionCode || (order.promotionAmount ?? 0) > 0);
 
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
@@ -227,7 +242,7 @@ export default function OrderDetailPage() {
               Summary
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-              <Row label="Subtotal" value={formatCurrency(order.subtotal ?? 0)} />
+              <Row label="Subtotal" value={formatCurrency(summarySubtotal)} />
               {hasDiscount && <Row label="Discount" value={`− ${formatCurrency(order.discountAmount ?? 0)}`} />}
               {hasPromotion && (
                 <Row
@@ -235,7 +250,7 @@ export default function OrderDetailPage() {
                   value={`− ${formatCurrency(order.promotionAmount ?? 0)}`}
                 />
               )}
-              <Row label={`IVA${taxPct ? ` (${taxPct})` : ''}`} value={formatCurrency(order.taxAmount ?? 0)} />
+              <Row label={`IVA${taxPct ? ` (${taxPct})` : ''}`} value={formatCurrency(summaryTax)} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">Payment</Typography>
                 <Typography variant="body2">{order.paymentMethod}</Typography>
@@ -245,7 +260,7 @@ export default function OrderDetailPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>Total</Typography>
               <Typography variant="h6" sx={{ fontFamily: 'var(--font-mono)', color: 'primary.main' }}>
-                {formatCurrency(order.amount)}
+                {formatCurrency(summaryTotal)}
               </Typography>
             </Box>
           </Box>
