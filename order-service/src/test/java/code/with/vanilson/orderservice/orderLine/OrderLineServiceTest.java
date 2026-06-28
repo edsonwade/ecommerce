@@ -203,6 +203,44 @@ class OrderLineServiceTest {
         }
 
         @Test
+        @DisplayName("seller: receives ONLY their own lines, never the full order (no cross-seller leak)")
+        void sellerGetsOnlyOwnLines() {
+            authenticateAs(55L, "SELLER");
+            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(orderOwnedBy(OWNER_ID)));
+
+            OrderLine sellerLine = OrderLine.builder()
+                    .id(11)
+                    .order(Order.builder().orderId(ORDER_ID).build())
+                    .productId(9)
+                    .quantity(1.0)
+                    .sellerId("55")
+                    .build();
+            when(repository.findByOrderIdAndSellerId(ORDER_ID, "55")).thenReturn(List.of(sellerLine));
+            when(mapper.toOrderLineResponse(sellerLine)).thenReturn(new OrderLineResponse(11, 9, 1.0));
+
+            List<OrderLineResponse> result = orderLineService.findAllByOrderId(ORDER_ID);
+
+            assertThat(result).hasSize(1)
+                    .first()
+                    .satisfies(r -> assertThat(r.productId()).isEqualTo(9));
+            // The seller path must NOT read the whole order — that is the leak being fixed.
+            verify(repository, never()).findAllOrderById(any());
+        }
+
+        @Test
+        @DisplayName("seller owning no line in the order: 403 (cannot view a basket they didn't sell into)")
+        void sellerWithNoOwnLinesForbidden() {
+            authenticateAs(77L, "SELLER");
+            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(orderOwnedBy(OWNER_ID)));
+            when(repository.findByOrderIdAndSellerId(ORDER_ID, "77")).thenReturn(List.of());
+
+            assertThatThrownBy(() -> orderLineService.findAllByOrderId(ORDER_ID))
+                    .isInstanceOf(OrderForbiddenException.class);
+
+            verify(repository, never()).findAllOrderById(any());
+        }
+
+        @Test
         @DisplayName("missing order: should throw OrderNotFoundException (404)")
         void missingOrder() {
             authenticateAs(7L, "USER");
