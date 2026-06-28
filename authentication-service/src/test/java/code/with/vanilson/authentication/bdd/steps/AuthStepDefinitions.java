@@ -325,6 +325,33 @@ public class AuthStepDefinitions {
                     .extract().response();
     }
 
+    @When("I request a password reset for email {string}")
+    public void iRequestAPasswordResetForEmail(String seed) {
+        // uniqueEmail(seed) returns the same address a prior Given registered (known case);
+        // for an unregistered seed it still produces a (unknown) address → constant 200.
+        String email = uniqueEmail(seed);
+        lastResponse = given()
+                .contentType(ContentType.JSON)
+                .body(String.format("{\"email\":\"%s\"}", email))
+                .when()
+                    .post(BASE + "/forgot-password")
+                .then()
+                    .extract().response();
+    }
+
+    @When("I reset the password with token {string} and new password {string} confirmed as {string}")
+    public void iResetThePasswordWithToken(String token, String newPassword, String confirmPassword) {
+        lastResponse = given()
+                .contentType(ContentType.JSON)
+                .body(String.format(
+                        "{\"token\":\"%s\",\"newPassword\":\"%s\",\"confirmPassword\":\"%s\"}",
+                        token, newPassword, confirmPassword))
+                .when()
+                    .post(BASE + "/reset-password")
+                .then()
+                    .extract().response();
+    }
+
     @When("I complete the full auth lifecycle for {string}")
     public void iCompleteTheFullAuthLifecycleFor(String seed) {
         String email = uniqueEmail(seed);
@@ -438,6 +465,13 @@ public class AuthStepDefinitions {
     @And("the error message contains {string}")
     public void theErrorMessageContains(String expected) {
         assertThat(lastResponse.jsonPath().getString("message")).contains(expected);
+    }
+
+    @And("the response message contains {string}")
+    public void theResponseMessageContains(String expected) {
+        assertThat(lastResponse.jsonPath().getString("message"))
+                .as("response message should contain '%s'. Body: %s", expected, lastResponse.asString())
+                .contains(expected);
     }
 
     @And("the field error {string} is present")

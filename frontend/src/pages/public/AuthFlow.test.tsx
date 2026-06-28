@@ -7,6 +7,8 @@ import userEvent from '@testing-library/user-event';
 import { createAppTheme } from '@theme/mui-theme';
 import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
+import ForgotPasswordPage from './ForgotPasswordPage';
+import ResetPasswordPage from './ResetPasswordPage';
 
 const theme = createAppTheme('dark');
 
@@ -26,6 +28,8 @@ function renderAt(initialEntries: Array<string | { pathname: string; state?: unk
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/seller" element={<div>seller-dashboard</div>} />
             <Route path="/account" element={<div>account-dashboard</div>} />
           </Routes>
@@ -51,7 +55,8 @@ describe('RegisterPage — both roles must sign in after registering', () => {
     await user.type(screen.getByLabelText(/first name/i), 'Ada');
     await user.type(screen.getByLabelText(/last name/i), 'Lovelace');
     await user.type(screen.getByLabelText(/email/i), 'ada@example.com');
-    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'password123');
+    await user.type(screen.getByLabelText('Password', { selector: 'input' }), 'password123');
+    await user.type(screen.getByLabelText('Confirm password', { selector: 'input' }), 'password123');
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
     // findByText waits for LoginPage's subtitle to appear in the DOM — this is
@@ -72,10 +77,85 @@ describe('RegisterPage — both roles must sign in after registering', () => {
     await user.type(screen.getByLabelText(/first name/i), 'Sam');
     await user.type(screen.getByLabelText(/last name/i), 'Seller');
     await user.type(screen.getByLabelText(/email/i), 'sam@shop.example');
-    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'password123');
+    await user.type(screen.getByLabelText('Password', { selector: 'input' }), 'password123');
+    await user.type(screen.getByLabelText('Confirm password', { selector: 'input' }), 'password123');
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => expect(path).toBe('/login'));
     expect(screen.queryByText('seller-dashboard')).not.toBeInTheDocument();
+  });
+
+  it('blocks submission and shows an error when passwords do not match', async () => {
+    const user = userEvent.setup();
+    let path = '/register';
+    renderAt(['/register'], (p) => { path = p; });
+
+    await user.type(screen.getByLabelText(/first name/i), 'Ada');
+    await user.type(screen.getByLabelText(/last name/i), 'Lovelace');
+    await user.type(screen.getByLabelText(/email/i), 'ada@example.com');
+    await user.type(screen.getByLabelText('Password', { selector: 'input' }), 'password123');
+    await user.type(screen.getByLabelText('Confirm password', { selector: 'input' }), 'different999');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await screen.findByText(/passwords do not match/i);
+    expect(path).toBe('/register');
+  });
+});
+
+describe('ForgotPasswordPage — enumeration-safe request flow', () => {
+  it('shows the neutral confirmation after submitting an email', async () => {
+    const user = userEvent.setup();
+    renderAt(['/forgot-password']);
+
+    await user.type(screen.getByLabelText(/email/i), 'someone@example.com');
+    await user.click(screen.getByRole('button', { name: /send reset link/i }));
+
+    // The success copy is identical whether or not the account exists.
+    await screen.findByText(/a reset link has been sent/i);
+  });
+
+  it('blocks submission and shows a validation error for an invalid email', async () => {
+    const user = userEvent.setup();
+    renderAt(['/forgot-password']);
+
+    await user.type(screen.getByLabelText(/email/i), 'not-an-email');
+    await user.click(screen.getByRole('button', { name: /send reset link/i }));
+
+    await screen.findByText(/enter a valid email/i);
+    // Still on the form — no confirmation shown.
+    expect(screen.queryByText(/a reset link has been sent/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('ResetPasswordPage — token-gated reset flow', () => {
+  it('shows the missing-token error and no form when no token is present', () => {
+    renderAt(['/reset-password']);
+    expect(screen.getByText(/missing its token/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
+  });
+
+  it('resets the password and navigates to /login when the token is valid', async () => {
+    const user = userEvent.setup();
+    let path = '';
+    renderAt(['/reset-password?token=valid-token'], (p) => { path = p; });
+
+    await user.type(screen.getByLabelText(/new password/i), 'newpassword123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'newpassword123');
+    await user.click(screen.getByRole('button', { name: /reset password/i }));
+
+    await waitFor(() => expect(path).toBe('/login'));
+  });
+
+  it('blocks submission and shows an error when passwords do not match', async () => {
+    const user = userEvent.setup();
+    let path = '/reset-password';
+    renderAt(['/reset-password?token=valid-token'], (p) => { path = p; });
+
+    await user.type(screen.getByLabelText(/new password/i), 'newpassword123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'different999');
+    await user.click(screen.getByRole('button', { name: /reset password/i }));
+
+    await screen.findByText(/passwords do not match/i);
+    expect(path).toBe('/reset-password');
   });
 });

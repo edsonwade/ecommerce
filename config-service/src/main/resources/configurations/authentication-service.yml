@@ -35,6 +35,25 @@ spring:
     baseline-version: 0
     repair: true
 
+  # Mail — forgot-password reset link. In Docker, MAIL_* default to the Mailtrap sandbox
+  # inbox (sandbox.smtp.mailtrap.io:2525, auth + STARTTLS); set creds in .env. Switch back
+  # to MailHog by setting MAIL_HOST=mailhog MAIL_PORT=1025 MAIL_SMTP_AUTH=false. The bare
+  # defaults below target localhost MailHog for non-Docker local runs.
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:false}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:false}
+        transport:
+          protocol: smtp
+
 eureka:
   client:
     service-url:
@@ -68,6 +87,13 @@ feign:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080,http://localhost:5173,http://localhost:3000,http://localhost:8222}
+  # Forgot-password flow
+  email:
+    provider: ${EMAIL_PROVIDER:smtp}        # 'smtp' (MailHog/SMTP) today; swap for a real API sender later
+    from: ${EMAIL_FROM:noreply@vanilsonshop.io}
+  password-reset:
+    token-ttl: ${PASSWORD_RESET_TTL:PT30M}  # ISO-8601 duration — link valid for 30 minutes
+    reset-url-base: ${PASSWORD_RESET_URL_BASE:http://localhost:8080/reset-password}
 
 # JWT configuration — secret must match the Gateway's JWT secret exactly
 application:

@@ -2,8 +2,11 @@ package code.with.vanilson.authentication.presentation;
 
 import code.with.vanilson.authentication.application.AuthResponse;
 import code.with.vanilson.authentication.application.AuthService;
+import code.with.vanilson.authentication.application.ForgotPasswordRequest;
 import code.with.vanilson.authentication.application.LoginRequest;
+import code.with.vanilson.authentication.application.PasswordResetService;
 import code.with.vanilson.authentication.application.RegisterRequest;
+import code.with.vanilson.authentication.application.ResetPasswordRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -18,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
  * AuthController — Presentation Layer
  * <p>
@@ -29,6 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
  * POST /api/v1/auth/login     → authenticate + receive JWT pair (public)
  * POST /api/v1/auth/refresh   → refresh access token using refresh token (requires Bearer)
  * POST /api/v1/auth/logout    → revoke current token (requires Bearer)
+ * POST /api/v1/auth/forgot-password → email a reset link (public, role-agnostic)
+ * POST /api/v1/auth/reset-password  → set a new password from a reset token (public)
  * </p>
  *
  * @author vamuhong
@@ -40,7 +47,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Authentication API", description = "JWT-based authentication and authorisation")
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthService          authService;
+    private final PasswordResetService passwordResetService;
 
     @Operation(summary = "Register a new user",
                description = "Creates a new user account and returns a JWT access + refresh token pair.")
@@ -83,5 +91,33 @@ public class AuthController {
     public ResponseEntity<Void> logout(HttpServletRequest request) {
         authService.logout(request);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Request a password reset",
+               description = "Emails a single-use reset link if the account exists. Always returns 200 "
+                       + "regardless of whether the email is registered (no user enumeration). "
+                       + "Role-agnostic — works for Customer, Seller, and Admin accounts.")
+    @ApiResponse(responseCode = "200", description = "Request accepted (link sent if the account exists)")
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @RequestBody @Valid ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
+        return ResponseEntity.ok(Map.of(
+                "message", "If an account exists for that email, a reset link has been sent."));
+    }
+
+    @Operation(summary = "Reset the password",
+               description = "Sets a new password using a valid reset token and revokes all existing sessions.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Password updated"),
+        @ApiResponse(responseCode = "400", description = "Invalid/expired token or passwords do not match")
+    })
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @RequestBody @Valid ResetPasswordRequest request) {
+        passwordResetService.resetPassword(
+                request.token(), request.newPassword(), request.confirmPassword());
+        return ResponseEntity.ok(Map.of(
+                "message", "Your password has been reset. Please sign in with your new password."));
     }
 }

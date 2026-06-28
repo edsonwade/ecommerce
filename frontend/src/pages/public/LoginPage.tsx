@@ -159,6 +159,19 @@ export default function LoginPage() {
             }}
           />
 
+          <Box sx={{ textAlign: 'right', mt: -1 }}>
+            <Link
+              to={ROUTES.FORGOT_PASSWORD}
+              style={{
+                color: 'var(--accent-primary)',
+                textDecoration: 'none',
+                fontSize: '0.875rem',
+              }}
+            >
+              Forgot password?
+            </Link>
+          </Box>
+
           <Button
             type="submit"
             variant="contained"

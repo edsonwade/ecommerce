@@ -102,6 +102,11 @@ public class SecurityConfig {
                     // "auth.token.refresh.invalid" error code. JwtAuthFilter handles
                     // cryptographically invalid / expired tokens before the controller.
                     "/api/v1/auth/refresh",
+                    // Forgot/reset password are public: a user who cannot log in must still
+                    // be able to start and complete the reset flow. Token validity is enforced
+                    // in PasswordResetService, not by the security layer.
+                    "/api/v1/auth/forgot-password",
+                    "/api/v1/auth/reset-password",
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/api-docs/**",

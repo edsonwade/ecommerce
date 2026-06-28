@@ -131,6 +131,13 @@ export const handlers = [
   http.post('/api/v1/auth/register', () => HttpResponse.json(AUTH_RESPONSE, { status: 201 })),
   http.post('/api/v1/auth/refresh', () => HttpResponse.json(AUTH_RESPONSE)),
   http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+  // Forgot-password always returns the same neutral message (enumeration-safe).
+  http.post('/api/v1/auth/forgot-password', () =>
+    HttpResponse.json({ message: 'If an account exists for that email, a reset link has been sent.' }),
+  ),
+  http.post('/api/v1/auth/reset-password', () =>
+    HttpResponse.json({ message: 'Password has been reset successfully.' }),
+  ),
 
   // Products
   http.get('/api/v1/products', () => HttpResponse.json(PRODUCTS_PAGE)),

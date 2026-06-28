@@ -2,9 +2,11 @@ package code.with.vanilson.authentication.controller;
 
 import code.with.vanilson.authentication.application.AuthResponse;
 import code.with.vanilson.authentication.application.AuthService;
+import code.with.vanilson.authentication.application.PasswordResetService;
 import code.with.vanilson.authentication.config.JwtAuthFilter;
 import code.with.vanilson.authentication.config.SecurityConfig;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
+import code.with.vanilson.authentication.exception.InvalidPasswordResetTokenException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
 import code.with.vanilson.authentication.exception.RegistrationException;
 import code.with.vanilson.authentication.exception.TokenRevokedException;
@@ -78,6 +80,7 @@ class AuthControllerTest {
     @Autowired ObjectMapper  objectMapper;
 
     @MockBean AuthService            authService;
+    @MockBean PasswordResetService   passwordResetService;
     @MockBean JwtService             jwtService;
     @MockBean TokenRepository        tokenRepository;
     @MockBean UserDetailsServiceImpl userDetailsService;
@@ -428,6 +431,115 @@ class AuthControllerTest {
                     .with(csrf())
                     .header("Authorization", "Bearer valid.access.jwt"))
                     .andExpect(status().isNoContent());
+        }
+    }
+
+    // -------------------------------------------------------
+    // POST /forgot-password
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("POST /forgot-password")
+    class ForgotPassword {
+
+        @Test
+        @DisplayName("200 OK with generic message for a known email")
+        void knownEmailReturns200() throws Exception {
+            doNothing().when(passwordResetService).requestReset(any());
+
+            mockMvc.perform(post(BASE + "/forgot-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("email", "user@example.com")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message", containsString("reset link")));
+        }
+
+        @Test
+        @DisplayName("200 OK with the SAME message for an unknown email (no enumeration)")
+        void unknownEmailReturns200() throws Exception {
+            doNothing().when(passwordResetService).requestReset(any());
+
+            mockMvc.perform(post(BASE + "/forgot-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("email", "ghost@nowhere.com")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message", containsString("reset link")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when email is malformed")
+        void invalidEmailReturns400() throws Exception {
+            mockMvc.perform(post(BASE + "/forgot-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("email", "not-an-email")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.email", notNullValue()));
+        }
+    }
+
+    // -------------------------------------------------------
+    // POST /reset-password
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("POST /reset-password")
+    class ResetPassword {
+
+        @Test
+        @DisplayName("200 OK when the token is valid")
+        void validResetReturns200() throws Exception {
+            doNothing().when(passwordResetService).resetPassword(any(), any(), any());
+
+            mockMvc.perform(post(BASE + "/reset-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("token", "raw-token", "newPassword", "password123",
+                            "confirmPassword", "password123")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message", containsString("reset")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when the token is invalid or expired")
+        void invalidTokenReturns400() throws Exception {
+            doThrow(new InvalidPasswordResetTokenException(
+                    "This password reset link is invalid or has expired. Please request a new one.",
+                    "auth.reset.token.invalid"))
+                    .when(passwordResetService).resetPassword(any(), any(), any());
+
+            mockMvc.perform(post(BASE + "/reset-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("token", "bad-token", "newPassword", "password123",
+                            "confirmPassword", "password123")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status", is(400)))
+                    .andExpect(jsonPath("$.errorCode", is("auth.reset.token.invalid")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when the new password is too short")
+        void shortPasswordReturns400() throws Exception {
+            mockMvc.perform(post(BASE + "/reset-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("token", "raw-token", "newPassword", "short",
+                            "confirmPassword", "short")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.newPassword", notNullValue()));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when the token is blank")
+        void blankTokenReturns400() throws Exception {
+            mockMvc.perform(post(BASE + "/reset-password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json("token", "", "newPassword", "password123",
+                            "confirmPassword", "password123")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.token", notNullValue()));
         }
     }
 

@@ -105,6 +105,13 @@ public class AuthGlobalExceptionHandler {
         return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
     }
 
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidPasswordResetToken(
+            InvalidPasswordResetTokenException ex, WebRequest req) {
+        log.warn("[AuthHandler] Invalid password-reset token: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(
             AccessDeniedException ex, WebRequest req) {

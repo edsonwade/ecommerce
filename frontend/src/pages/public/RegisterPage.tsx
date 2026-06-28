@@ -23,13 +23,19 @@ import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import { normalizeError } from '@api/client';
 
-const schema = z.object({
-  firstname: z.string().min(1, 'First name is required'),
-  lastname: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['USER', 'SELLER']),
-});
+const schema = z
+  .object({
+    firstname: z.string().min(1, 'First name is required'),
+    lastname: z.string().min(1, 'Last name is required'),
+    email: z.string().email('Enter a valid email'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    role: z.enum(['USER', 'SELLER']),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -52,8 +58,15 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
+    // confirmPassword is a client-side-only guard; the backend never receives it.
     try {
-      await authApi.register(values);
+      await authApi.register({
+        firstname: values.firstname,
+        lastname: values.lastname,
+        email: values.email,
+        password: values.password,
+        role: values.role,
+      });
       const message =
         values.role === 'SELLER'
           ? 'Seller account created — please sign in to access your store'
@@ -193,6 +206,16 @@ export default function RegisterPage() {
                 ),
               },
             }}
+          />
+
+          <TextField
+            {...register('confirmPassword')}
+            label="Confirm password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            fullWidth
+            error={!!errors.confirmPassword}
+            helperText={errors.confirmPassword?.message ?? 'Re-enter your password'}
           />
 
           <Button

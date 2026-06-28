@@ -223,6 +223,41 @@ Feature: Authentication Service
     Then the response status is 401
 
   # =========================================================
+  # Forgot / Reset Password (all roles — keys off email)
+  # =========================================================
+
+  @password-reset @happy-path
+  Scenario: Requesting a reset for a registered account returns 200 with a generic message
+    Given a user is registered and logged in with email "bdd.reset.known@example.com"
+    When I request a password reset for email "bdd.reset.known@example.com"
+    Then the response status is 200
+    And the response message contains "reset link"
+
+  @password-reset @security
+  Scenario: Requesting a reset for an unknown email also returns 200 (no user enumeration)
+    When I request a password reset for email "bdd.reset.ghost@nowhere.com"
+    Then the response status is 200
+    And the response message contains "reset link"
+
+  @password-reset @negative
+  Scenario: Requesting a reset with a malformed email returns 400 Bad Request
+    When I request a password reset for email "not-an-email"
+    Then the response status is 400
+    And the field error "email" is present
+
+  @password-reset @negative
+  Scenario: Resetting with an invalid token returns 400 Bad Request
+    When I reset the password with token "garbage-token" and new password "NewSecure123" confirmed as "NewSecure123"
+    Then the response status is 400
+    And the error code is "auth.reset.token.invalid"
+
+  @password-reset @negative
+  Scenario: Resetting with mismatched passwords returns 400 Bad Request
+    When I reset the password with token "any-token" and new password "NewSecure123" confirmed as "Different456"
+    Then the response status is 400
+    And the error code is "auth.reset.password.mismatch"
+
+  # =========================================================
   # Admin Account Bootstrap
   # =========================================================
 
