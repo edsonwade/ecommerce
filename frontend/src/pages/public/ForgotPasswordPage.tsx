@@ -128,8 +128,9 @@ export default function ForgotPasswordPage() {
             <TextField
               {...register('email', { onChange: () => setServerError(null) })}
               label="Email"
-              type="email"
+              type="text"
               autoComplete="email"
+              inputMode="email"
               autoFocus
               fullWidth
               error={!!errors.email}

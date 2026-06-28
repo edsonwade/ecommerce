@@ -18,6 +18,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Duration;
+
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -55,7 +57,12 @@ class AuthRestAssuredIT {
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("auth_it")
                     .withUsername("it_user")
-                    .withPassword("it_pass");
+                    .withPassword("it_pass")
+                    // Full-reactor `mvn install` runs several services' Testcontainers in sequence on
+                    // a saturated host; the default 60s wait can lapse before Postgres emits its
+                    // "database system is ready to accept connections" log. Give it room.
+                    .withStartupTimeout(Duration.ofMinutes(3))
+                    .withStartupAttempts(2);
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {

@@ -110,3 +110,4 @@ Use Kafka's transactional producer API with `isolation.level=read_committed` on 
 | Scheduler / publisher | `order-service/.../outbox/OutboxEventPublisher.java` |
 | Repository | `order-service/.../outbox/OutboxRepository.java` |
 | Consumer idempotency | `notification-service/.../ProcessedEvent.java` |
+
