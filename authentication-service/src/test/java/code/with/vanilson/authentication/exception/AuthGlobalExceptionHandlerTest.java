@@ -11,6 +11,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Locale;
 import java.util.Map;
@@ -89,5 +90,34 @@ class AuthGlobalExceptionHandlerTest {
         assertThat(body).containsKeys("timestamp", "status", "error", "errorCode", "message", "path");
         assertThat(body).doesNotContainKey("requestId");
         assertThat(body).doesNotContainKey("reference");
+    }
+
+    @Test
+    @DisplayName("handleTypeMismatch should return 400 for a non-numeric path id (e.g. /sellers/system)")
+    void handleTypeMismatch_shouldReturn400() {
+        // GET /api/v1/auth/sellers/system — "system" cannot bind to @PathVariable Long id
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "system", Long.class, "id", null, new NumberFormatException("For input string: \"system\""));
+
+        ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex, webRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        Map<String, Object> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.get("errorCode")).isEqualTo("auth.bad.request");
+        assertThat((String) body.get("message")).contains("id");
+        assertThat(body.get("status")).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("handleTypeMismatch should NOT fall through to the 500 generic handler")
+    void handleTypeMismatch_isNotInternalError() {
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "abc", Long.class, "id", null, new NumberFormatException());
+
+        ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex, webRequest);
+
+        assertThat(response.getStatusCode()).isNotEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).extractingByKey("errorCode").isNotEqualTo("auth.error.internal");
     }
 }

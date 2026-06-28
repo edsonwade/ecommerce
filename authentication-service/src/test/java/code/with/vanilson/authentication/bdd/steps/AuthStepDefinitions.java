@@ -306,6 +306,25 @@ public class AuthStepDefinitions {
                     .extract().response();
     }
 
+    @When("I request the seller profile with id {string}")
+    public void iRequestTheSellerProfileWithId(String id) {
+        lastResponse = given()
+                .header("Authorization", "Bearer " + currentAccessToken)
+                .when()
+                    .get(BASE + "/sellers/" + id)
+                .then()
+                    .extract().response();
+    }
+
+    @When("I request the seller profile with id {string} without any authorization header")
+    public void iRequestTheSellerProfileWithoutAuth(String id) {
+        lastResponse = given()
+                .when()
+                    .get(BASE + "/sellers/" + id)
+                .then()
+                    .extract().response();
+    }
+
     @When("I complete the full auth lifecycle for {string}")
     public void iCompleteTheFullAuthLifecycleFor(String seed) {
         String email = uniqueEmail(seed);

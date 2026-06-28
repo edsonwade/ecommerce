@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -116,6 +117,18 @@ public class AuthGlobalExceptionHandler {
             IllegalArgumentException ex, WebRequest req) {
         log.warn("[AuthHandler] Bad argument: {}", ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), "auth.bad.request", req);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex, WebRequest req) {
+        // e.g. GET /api/v1/auth/sellers/system where {id} binds to Long — a malformed path id
+        // is a client error (400), never an internal failure (500).
+        log.warn("[AuthHandler] Type mismatch for parameter [{}]: value=[{}]",
+                ex.getName(), ex.getValue());
+        return build(HttpStatus.BAD_REQUEST,
+                "Invalid value for parameter '" + ex.getName() + "'",
+                "auth.bad.request", req);
     }
 
     @ExceptionHandler(Exception.class)
