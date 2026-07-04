@@ -66,6 +66,15 @@ management:
       show-components: always
     prometheus:
       enabled: true
+  health:
+    # Both mail health probes authenticate against the SMTP relay on every poll. Against the
+    # rate-limited Mailtrap sandbox this floods login and triggers "535 Too many failed login
+    # attempts", which then blocks real password-reset delivery. Keep OFF in dev; re-enable
+    # with a real relay. (smtp = custom SmtpHealthIndicator; mail = Spring Boot's built-in.)
+    mail:
+      enabled: false
+    smtp:
+      enabled: false
   metrics:
     export:
       prometheus:
