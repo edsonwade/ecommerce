@@ -25,6 +25,34 @@ export interface AuthResponse {
   tenantId: string;
 }
 
+export interface AccountResponse {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+}
+
+export interface UpdateAccountRequest {
+  firstname: string;
+  lastname: string;
+  email: string;
+  currentPassword?: string;
+}
+
+export interface AccountUpdateResponse {
+  account: AccountResponse;
+  // Present ONLY when the email changed — the caller must swap these into the auth store.
+  tokens?: AuthResponse;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 // ── Category ──
 export interface CategoryResponse {
   id: number;

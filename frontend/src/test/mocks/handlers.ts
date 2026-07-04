@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import type {
+  AccountResponse,
   AuthResponse,
   CartResponse,
   CustomerResponse,
@@ -23,6 +24,15 @@ const AUTH_RESPONSE: AuthResponse = {
   email: 'test@example.com',
   role: 'USER',
   tenantId: 'tenant-001',
+};
+
+const ACCOUNT: AccountResponse = {
+  id: 1,
+  firstname: 'Jane',
+  lastname: 'Doe',
+  email: 'test@example.com',
+  role: 'USER',
+  createdAt: '2024-01-01T00:00:00Z',
 };
 
 const PRODUCT: ProductResponse = {
@@ -138,6 +148,14 @@ export const handlers = [
   http.post('/api/v1/auth/reset-password', () =>
     HttpResponse.json({ message: 'Password has been reset successfully.' }),
   ),
+
+  // Account settings — the LOGIN identity (auth-service), not the customer profile.
+  http.get('/api/v1/auth/account/me', () => HttpResponse.json(ACCOUNT)),
+  http.patch('/api/v1/auth/account/me', () =>
+    HttpResponse.json({ account: ACCOUNT, tokens: null }),
+  ),
+  http.post('/api/v1/auth/account/change-password', () => HttpResponse.json(AUTH_RESPONSE)),
+  http.delete('/api/v1/auth/account/me', () => new HttpResponse(null, { status: 204 })),
 
   // Products
   http.get('/api/v1/products', () => HttpResponse.json(PRODUCTS_PAGE)),

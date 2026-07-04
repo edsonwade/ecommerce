@@ -11,6 +11,7 @@ import {
   People,
   CreditCard,
   BarChart,
+  ManageAccounts,
 } from '@mui/icons-material';
 
 const ADMIN_NAV = [
@@ -19,6 +20,7 @@ const ADMIN_NAV = [
   { label: 'Users', to: ROUTES.ADMIN_USERS, Icon: People },
   { label: 'Payments', to: ROUTES.ADMIN_PAYMENTS, Icon: CreditCard },
   { label: 'Analytics', to: ROUTES.ADMIN_ANALYTICS, Icon: BarChart },
+  { label: 'Account', to: ROUTES.ADMIN_ACCOUNT, Icon: ManageAccounts },
 ];
 
 export default function AdminLayout() {

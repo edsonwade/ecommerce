@@ -221,6 +221,36 @@ public class CustomerService {
         log.info(msg("customer.log.deleted", customerId));
     }
 
+    /**
+     * Internal idempotent identity sync from auth-service (name/email only — address is
+     * owned by the customer profile). No-op when the profile does not exist: provisioning
+     * will create it on the user's next login, already carrying the new identity.
+     */
+    @Caching(evict = {
+            @CacheEvict(value = CACHE_CUSTOMERS,     key = "#customerId"),
+            @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
+    })
+    public void syncCustomerInternal(String customerId, CustomerRequest request) {
+        customerRepository.findById(customerId).ifPresentOrElse(existing -> {
+            mergeFields(existing, request);
+            Customer saved = customerRepository.save(existing);
+            customerProfileProducer.publishProfileEvent(saved, "UPDATED");
+            log.info("[CustomerService] internal sync applied id=[{}]", customerId);
+        }, () -> log.info("[CustomerService] internal sync no-op — id=[{}] not found", customerId));
+    }
+
+    /** Internal idempotent delete from auth-service account deletion. 204 semantics: always succeeds. */
+    @Caching(evict = {
+            @CacheEvict(value = CACHE_CUSTOMERS,     key = "#customerId"),
+            @CacheEvict(value = CACHE_CUSTOMER_LIST, allEntries = true)
+    })
+    public void deleteCustomerInternal(String customerId) {
+        customerRepository.findById(customerId).ifPresentOrElse(existing -> {
+            customerRepository.deleteById(existing.getCustomerId());
+            log.info("[CustomerService] internal delete applied id=[{}]", customerId);
+        }, () -> log.info("[CustomerService] internal delete no-op — id=[{}] not found", customerId));
+    }
+
     // -------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------

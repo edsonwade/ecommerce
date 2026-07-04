@@ -25,6 +25,7 @@ import {
   LightMode,
   DarkMode,
   ReceiptLong,
+  Settings,
   Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -206,6 +207,15 @@ export default function Navbar({ onCartOpen, cartItemCount = 0, onMenuClick }: N
                   >
                     <ReceiptLong fontSize="small" />
                     <Typography variant="body2">{t('nav.myOrders')}</Typography>
+                  </MenuItem>
+                )}
+                {role === 'USER' && (
+                  <MenuItem
+                    onClick={() => { navigate(ROUTES.ACCOUNT_SETTINGS); setAnchorEl(null); }}
+                    sx={{ gap: 1.5 }}
+                  >
+                    <Settings fontSize="small" />
+                    <Typography variant="body2">{t('nav.settings')}</Typography>
                   </MenuItem>
                 )}
                 <MenuItem onClick={handleLogout} sx={{ gap: 1.5, color: 'error.main' }}>

@@ -42,6 +42,7 @@ const DashboardPage = () => lazy_page(() => import('@pages/customer/DashboardPag
 const OrdersPage = () => lazy_page(() => import('@pages/customer/OrdersPage'));
 const OrderDetailPage = () => lazy_page(() => import('@pages/customer/OrderDetailPage'));
 const ProfilePage = () => lazy_page(() => import('@pages/customer/ProfilePage'));
+const AccountSettingsPage = () => lazy_page(() => import('@pages/customer/AccountSettingsPage'));
 const CheckoutPage = () => lazy_page(() => import('@pages/customer/CheckoutPage'));
 
 // ── Seller pages ──
@@ -86,6 +87,7 @@ export const router = createBrowserRouter([
           { path: '/account/orders', element: <OrdersPage /> },
           { path: '/account/orders/:id', element: <OrderDetailPage /> },
           { path: '/account/profile', element: <ProfilePage /> },
+          { path: '/account/settings', element: <AccountSettingsPage /> },
           { path: '/checkout', element: <CheckoutPage /> },
         ],
       },
@@ -107,6 +109,7 @@ export const router = createBrowserRouter([
           { path: '/seller/orders/:id', element: <OrderDetailPage /> },
           { path: '/seller/inventory', element: <InventoryPage /> },
           { path: '/seller/settings', element: <SellerSettings /> },
+          { path: '/seller/account', element: <AccountSettingsPage /> },
         ],
       },
     ],
@@ -125,6 +128,7 @@ export const router = createBrowserRouter([
           { path: '/admin/users', element: <UsersPage /> },
           { path: '/admin/payments', element: <PaymentsPage /> },
           { path: '/admin/analytics', element: <AnalyticsPage /> },
+          { path: '/admin/account', element: <AccountSettingsPage /> },
         ],
       },
     ],

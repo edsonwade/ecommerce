@@ -10,6 +10,7 @@ export const ROUTES = {
   ORDERS: '/account/orders',
   ORDER_DETAIL: (id: number | string) => `/account/orders/${id}`,
   PROFILE: '/account/profile',
+  ACCOUNT_SETTINGS: '/account/settings',
   CHECKOUT: '/checkout',
   SELLER: '/seller',
   SELLER_PRODUCTS: '/seller/products',
@@ -19,12 +20,14 @@ export const ROUTES = {
   SELLER_ORDER_DETAIL: (id: number | string) => `/seller/orders/${id}`,
   SELLER_INVENTORY: '/seller/inventory',
   SELLER_SETTINGS: '/seller/settings',
+  SELLER_ACCOUNT: '/seller/account',
   ADMIN: '/admin',
   ADMIN_TENANTS: '/admin/tenants',
   ADMIN_TENANT: (id: string) => `/admin/tenants/${id}`,
   ADMIN_USERS: '/admin/users',
   ADMIN_PAYMENTS: '/admin/payments',
   ADMIN_ANALYTICS: '/admin/analytics',
+  ADMIN_ACCOUNT: '/admin/account',
 } as const;
 
 export const QUERY_KEYS = {
@@ -46,4 +49,5 @@ export const QUERY_KEYS = {
   TENANT: 'tenant',
   TENANT_FLAGS: 'tenant-flags',
   TENANT_USAGE: 'tenant-usage',
+  ACCOUNT: 'account',
 } as const;

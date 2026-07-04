@@ -40,6 +40,11 @@ public class CustomerStepDefinitions {
     private Customer mockedCustomer;
     private boolean duplicateScenario;
 
+    // Internal sync/delete scenario state
+    private final java.util.Map<String, Customer> internalProfiles = new java.util.HashMap<>();
+    private String internalCallProfileId;
+    private int internalCallStatus;
+
     @Before
     public void setUp() {
         customerRepository = Mockito.mock(CustomerRepository.class);
@@ -174,6 +179,70 @@ public class CustomerStepDefinitions {
     @Then("a customer.profile CREATED event is published")
     public void a_customer_profile_created_event_is_published() {
         verify(customerProfileProducer).publishProfileEvent(any(Customer.class), eq("CREATED"));
+    }
+
+    // -------------------------------------------------------
+    // Internal identity sync / delete (Task 6) step definitions
+    // -------------------------------------------------------
+
+    @Given("a customer profile exists with id {string} and email {string}")
+    public void a_customer_profile_exists_with_id_and_email(String id, String email) {
+        Customer existing = Customer.builder()
+                .customerId(id)
+                .firstname("Before")
+                .lastname("Bdd")
+                .email(email)
+                .build();
+        internalProfiles.put(id, existing);
+        lenient().when(customerRepository.findById(id))
+                .thenAnswer(inv -> Optional.ofNullable(internalProfiles.get(id)));
+        lenient().when(customerRepository.save(any(Customer.class)))
+                .thenAnswer(inv -> {
+                    Customer saved = inv.getArgument(0);
+                    internalProfiles.put(saved.getCustomerId(), saved);
+                    return saved;
+                });
+    }
+
+    @When("the internal sync updates id {string} to name {string} {string} email {string}")
+    public void the_internal_sync_updates_id_to_name_email(String id, String firstname, String lastname, String email) {
+        if (!internalProfiles.containsKey(id)) {
+            lenient().when(customerRepository.findById(id)).thenReturn(Optional.empty());
+        }
+        internalCallProfileId = id;
+        try {
+            customerService.syncCustomerInternal(id, new CustomerRequest(id, firstname, lastname, email, null));
+            internalCallStatus = 204;
+        } catch (Exception e) {
+            caughtException = e;
+        }
+    }
+
+    @Then("the profile {string} has firstname {string} and email {string}")
+    public void the_profile_has_firstname_and_email(String id, String firstname, String email) {
+        Customer updated = internalProfiles.get(id);
+        assertThat(updated).isNotNull();
+        assertThat(updated.getFirstname()).isEqualTo(firstname);
+        assertThat(updated.getEmail()).isEqualTo(email);
+    }
+
+    @Then("the internal call succeeded with status {int}")
+    public void the_internal_call_succeeded_with_status(int expectedStatus) {
+        assertThat(caughtException).isNull();
+        assertThat(internalCallStatus).isEqualTo(expectedStatus);
+    }
+
+    @When("the internal delete removes id {string}")
+    public void the_internal_delete_removes_id(String id) {
+        internalCallProfileId = id;
+        try {
+            customerService.deleteCustomerInternal(id);
+            internalProfiles.remove(id);
+            lenient().when(customerRepository.findById(id)).thenReturn(Optional.empty());
+            internalCallStatus = 204;
+        } catch (Exception e) {
+            caughtException = e;
+        }
     }
 
 }

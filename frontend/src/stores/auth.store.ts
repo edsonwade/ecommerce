@@ -20,6 +20,7 @@ interface AuthState {
     tenantId: string;
   }) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
+  setEmail: (email: string) => void;
   clearAuth: () => void;
 }
 
@@ -39,6 +40,8 @@ export const useAuthStore = create<AuthState>()(
 
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }),
+
+      setEmail: (email) => set({ email }),
 
       clearAuth: () =>
         set({

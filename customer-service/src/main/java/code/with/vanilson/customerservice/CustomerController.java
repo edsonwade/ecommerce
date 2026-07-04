@@ -139,6 +139,29 @@ public class CustomerController {
                 .body(customerService.ensureCustomer(request));
     }
 
+    /**
+     * Internal idempotent identity sync (auth-service → customer profile). 204 even when the
+     * profile is missing. Unauthenticated by design — /internal/** is not routed by the gateway.
+     */
+    @Operation(summary = "Internal: idempotent identity sync (service-to-service)")
+    @PutMapping("/internal/{id}")
+    public ResponseEntity<Void> syncInternal(
+            @PathVariable String id,
+            @RequestBody @Valid CustomerRequest request) {
+        log.info("PUT /api/v1/customers/internal/{} — sync identity", id);
+        customerService.syncCustomerInternal(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Internal idempotent profile delete (auth-service account deletion). 204 always. */
+    @Operation(summary = "Internal: idempotent profile delete (service-to-service)")
+    @DeleteMapping("/internal/{id}")
+    public ResponseEntity<Void> deleteInternal(@PathVariable String id) {
+        log.info("DELETE /api/v1/customers/internal/{} — delete profile", id);
+        customerService.deleteCustomerInternal(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // -------------------------------------------------------
     // PUT — full update
     // -------------------------------------------------------
