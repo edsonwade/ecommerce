@@ -15,9 +15,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.MessageSource;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @SpringBootTest(properties = {
-        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration"
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration,org.springframework.boot.actuate.autoconfigure.data.redis.RedisReactiveHealthContributorAutoConfiguration",
+        "management.health.redis.enabled=false"
 })
 @CucumberContextConfiguration
 @SuppressWarnings("unused")
@@ -34,5 +37,14 @@ public class CucumberSpringConfiguration {
 
     @MockBean
     private MessageSource messageSource;
+
+    // No live Redis in the Cucumber context — CustomerServiceConfig.flushStaleCustomerCache()
+    // needs a StringRedisTemplate at startup; mock both it and the connection factory so the
+    // full Spring context can load without a broker.
+    @MockBean
+    private RedisConnectionFactory redisConnectionFactory;
+
+    @MockBean
+    private StringRedisTemplate stringRedisTemplate;
 
 }

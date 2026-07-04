@@ -1,10 +1,14 @@
 import apiClient from './client';
 import type {
+  AccountResponse,
+  AccountUpdateResponse,
   AuthResponse,
+  ChangePasswordRequest,
   LoginRequest,
   RegisterRequest,
   SellerProfileRequest,
   SellerProfileResponse,
+  UpdateAccountRequest,
 } from './types';
 
 export const authApi = {
@@ -34,6 +38,21 @@ export const authApi = {
     apiClient
       .post<{ message: string }>('/auth/reset-password', data)
       .then((r) => r.data),
+
+  // Account settings — the LOGIN identity (auth-service), not the customer profile.
+  getAccount: () =>
+    apiClient.get<AccountResponse>('/auth/account/me').then((r) => r.data),
+
+  updateAccount: (data: UpdateAccountRequest) =>
+    apiClient.patch<AccountUpdateResponse>('/auth/account/me', data).then((r) => r.data),
+
+  changePassword: (data: ChangePasswordRequest) =>
+    apiClient
+      .post<AuthResponse>('/auth/account/change-password', data)
+      .then((r) => r.data),
+
+  deleteAccount: (password: string) =>
+    apiClient.delete('/auth/account/me', { data: { password } }).then(() => undefined),
 
   // Seller business profile ("sold by" identity on invoices).
   // getSeller is readable by any authenticated user (a buyer sees who they bought from).

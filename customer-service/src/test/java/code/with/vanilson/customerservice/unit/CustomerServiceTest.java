@@ -26,6 +26,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -359,6 +360,80 @@ class CustomerServiceTest {
             assertThatThrownBy(() -> customerService.deleteCustomer("ghost-id"))
                     .isInstanceOf(CustomerNotFoundException.class)
                     .hasMessageContaining("customer.not.found.by.id");
+
+            verify(customerRepository, never()).deleteById(any());
+        }
+    }
+
+    // -------------------------------------------------------
+    // syncCustomerInternal
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("SyncInternal")
+    class SyncInternal {
+
+        @Test
+        @DisplayName("should merge identity fields and save when profile exists")
+        void merges_identity_when_profile_exists() {
+            Customer existing = Customer.builder()
+                    .customerId("9")
+                    .firstname("Old")
+                    .lastname("Name")
+                    .email("old@x.com")
+                    .build();
+            when(customerRepository.findById("9")).thenReturn(Optional.of(existing));
+            when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            customerService.syncCustomerInternal("9",
+                    new CustomerRequest("9", "New", "Name", "new@x.com", null));
+
+            assertThat(existing.getFirstname()).isEqualTo("New");
+            assertThat(existing.getEmail()).isEqualTo("new@x.com");
+            verify(customerRepository).save(existing);
+        }
+
+        @Test
+        @DisplayName("should be a no-op when profile is missing")
+        void is_a_noop_when_profile_missing() {
+            when(customerRepository.findById("404")).thenReturn(Optional.empty());
+
+            assertThatCode(() -> customerService.syncCustomerInternal("404",
+                    new CustomerRequest("404", "X", "Y", "x@y.com", null)))
+                    .doesNotThrowAnyException();
+
+            verify(customerRepository, never()).save(any());
+        }
+    }
+
+    // -------------------------------------------------------
+    // deleteCustomerInternal
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("DeleteInternal")
+    class DeleteInternal {
+
+        @Test
+        @DisplayName("should delete when profile is present")
+        void deletes_when_present() {
+            Customer existing = Customer.builder()
+                    .customerId("9")
+                    .build();
+            when(customerRepository.findById("9")).thenReturn(Optional.of(existing));
+
+            customerService.deleteCustomerInternal("9");
+
+            verify(customerRepository).deleteById("9");
+        }
+
+        @Test
+        @DisplayName("should be a no-op when profile is already gone")
+        void is_a_noop_when_already_gone() {
+            when(customerRepository.findById("404")).thenReturn(Optional.empty());
+
+            assertThatCode(() -> customerService.deleteCustomerInternal("404"))
+                    .doesNotThrowAnyException();
 
             verify(customerRepository, never()).deleteById(any());
         }

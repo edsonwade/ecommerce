@@ -266,6 +266,70 @@ class CustomerControllerTest {
     }
 
     // =============================================================
+    // PUT /api/v1/customers/internal/{id} (syncCustomerInternal)
+    // =============================================================
+    @Nested
+    @DisplayName("PUT /api/v1/customers/internal/{id}")
+    class SyncInternal {
+
+        @Test
+        @DisplayName("given_existing_profile_when_syncInternal_then_return_204")
+        void given_existing_profile_when_syncInternal_then_return_204() throws Exception {
+            doNothing().when(customerService).syncCustomerInternal(eq("9"), any(CustomerRequest.class));
+
+            mockMvc.perform(put("/api/v1/customers/internal/{id}", "9")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isNoContent());
+
+            verify(customerService).syncCustomerInternal(eq("9"), any(CustomerRequest.class));
+        }
+
+        @Test
+        @DisplayName("given_missing_profile_when_syncInternal_then_still_return_204")
+        void given_missing_profile_when_syncInternal_then_still_return_204() throws Exception {
+            doNothing().when(customerService).syncCustomerInternal(eq("404"), any(CustomerRequest.class));
+
+            mockMvc.perform(put("/api/v1/customers/internal/{id}", "404")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isNoContent());
+
+            verify(customerService).syncCustomerInternal(eq("404"), any(CustomerRequest.class));
+        }
+    }
+
+    // =============================================================
+    // DELETE /api/v1/customers/internal/{id} (deleteCustomerInternal)
+    // =============================================================
+    @Nested
+    @DisplayName("DELETE /api/v1/customers/internal/{id}")
+    class DeleteInternal {
+
+        @Test
+        @DisplayName("given_existing_profile_when_deleteInternal_then_return_204")
+        void given_existing_profile_when_deleteInternal_then_return_204() throws Exception {
+            doNothing().when(customerService).deleteCustomerInternal("9");
+
+            mockMvc.perform(delete("/api/v1/customers/internal/{id}", "9"))
+                    .andExpect(status().isNoContent());
+
+            verify(customerService).deleteCustomerInternal("9");
+        }
+
+        @Test
+        @DisplayName("given_missing_profile_when_deleteInternal_then_still_return_204")
+        void given_missing_profile_when_deleteInternal_then_still_return_204() throws Exception {
+            doNothing().when(customerService).deleteCustomerInternal("404");
+
+            mockMvc.perform(delete("/api/v1/customers/internal/{id}", "404"))
+                    .andExpect(status().isNoContent());
+
+            verify(customerService).deleteCustomerInternal("404");
+        }
+    }
+
+    // =============================================================
     // PUT /api/v1/customers/{id}
     // =============================================================
     @Nested

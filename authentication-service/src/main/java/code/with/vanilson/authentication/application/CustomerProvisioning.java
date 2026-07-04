@@ -49,4 +49,42 @@ public class CustomerProvisioning {
                     user.getId(), ex.getMessage());
         }
     }
+
+    /**
+     * Pushes the user's current display identity (name/email) to the customer profile,
+     * OFF the request thread. Fail-open + idempotent: the internal endpoint no-ops when
+     * the profile doesn't exist, and a missed sync self-heals on the next settings save.
+     */
+    @Async(AsyncConfig.AUTH_SIDE_EFFECTS_EXECUTOR)
+    public void syncCustomerProfile(User user) {
+        try {
+            customerRegistrationClient.updateCustomer(
+                    String.valueOf(user.getId()),
+                    new CustomerRegistrationClient.CustomerRegistrationRequest(
+                            String.valueOf(user.getId()),
+                            user.getFirstname(),
+                            user.getLastname(),
+                            user.getEmail()));
+            log.info("[CustomerProvisioning] Synced customer profile for userId=[{}]", user.getId());
+        } catch (Exception ex) {
+            log.warn("[CustomerProvisioning] Customer profile sync failed for userId=[{}]: {}",
+                    user.getId(), ex.getMessage());
+        }
+    }
+
+    /**
+     * Deletes the customer profile after an account soft-delete, OFF the request thread.
+     * Fail-open: the auth-side delete already succeeded; an orphaned profile is harmless
+     * and the internal endpoint is idempotent (204 even when already gone).
+     */
+    @Async(AsyncConfig.AUTH_SIDE_EFFECTS_EXECUTOR)
+    public void deleteCustomerProfile(Long userId) {
+        try {
+            customerRegistrationClient.deleteCustomer(String.valueOf(userId));
+            log.info("[CustomerProvisioning] Deleted customer profile for userId=[{}]", userId);
+        } catch (Exception ex) {
+            log.warn("[CustomerProvisioning] Customer profile delete failed for userId=[{}]: {}",
+                    userId, ex.getMessage());
+        }
+    }
 }

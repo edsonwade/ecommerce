@@ -9,6 +9,7 @@ import {
   Dashboard,
   Inventory2,
   ListAlt,
+  ManageAccounts,
   Settings,
   Store,
 } from '@mui/icons-material';
@@ -19,6 +20,7 @@ const SELLER_NAV = [
   { label: 'Orders', to: ROUTES.SELLER_ORDERS, Icon: ListAlt },
   { label: 'Inventory', to: ROUTES.SELLER_INVENTORY, Icon: Inventory2 },
   { label: 'Business profile', to: ROUTES.SELLER_SETTINGS, Icon: Settings },
+  { label: 'Account', to: ROUTES.SELLER_ACCOUNT, Icon: ManageAccounts },
 ];
 
 export default function SellerLayout() {

@@ -1,18 +1,16 @@
 import { useEffect } from 'react';
-import { Box, Button, CircularProgress, Container, TextField, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Container, Paper, TextField, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersApi } from '@api/customers.api';
-import { QUERY_KEYS } from '@utils/constants';
+import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 
 const schema = z.object({
-  firstname: z.string().min(1, 'Required'),
-  lastname: z.string().min(1, 'Required'),
-  email: z.string().email('Invalid email'),
   street: z.string().min(1, 'Required'),
   houseNumber: z.string().min(1, 'Required'),
   city: z.string().min(1, 'Required'),
@@ -39,9 +37,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (customer) {
       reset({
-        firstname: customer.firstname,
-        lastname: customer.lastname,
-        email: customer.email,
         street: customer.address.street,
         houseNumber: customer.address.houseNumber,
         city: customer.address.city,
@@ -54,9 +49,9 @@ export default function ProfilePage() {
   const { mutateAsync: updateCustomer } = useMutation({
     mutationFn: (values: FormValues) =>
       customersApi.update(userId!, {
-        firstname: values.firstname,
-        lastname: values.lastname,
-        email: values.email,
+        firstname: customer!.firstname,
+        lastname: customer!.lastname,
+        email: customer!.email,
         address: {
           street: values.street,
           houseNumber: values.houseNumber,
@@ -84,13 +79,17 @@ export default function ProfilePage() {
         Profile
       </Typography>
 
-      <Box component="form" onSubmit={handleSubmit((v) => updateCustomer(v))} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <TextField {...register('firstname')} label="First name" error={!!errors.firstname} helperText={errors.firstname?.message} fullWidth />
-          <TextField {...register('lastname')} label="Last name" error={!!errors.lastname} helperText={errors.lastname?.message} fullWidth />
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography variant="body1">{customer?.firstname} {customer?.lastname}</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{customer?.email}</Typography>
         </Box>
-        <TextField {...register('email')} label="Email" type="email" error={!!errors.email} helperText={errors.email?.message} fullWidth />
+        <Button component={RouterLink} to={ROUTES.ACCOUNT_SETTINGS} size="small">
+          Edit in account settings
+        </Button>
+      </Paper>
 
+      <Box component="form" onSubmit={handleSubmit((v) => updateCustomer(v))} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1 }}>
           DELIVERY ADDRESS
         </Typography>

@@ -20,6 +20,7 @@ const resources = {
       nav: {
         catalog: 'Catalog',
         myOrders: 'My Orders',
+        settings: 'Settings',
         signIn: 'Sign in',
         signOut: 'Sign out',
         account: 'My Account',
@@ -49,6 +50,7 @@ const resources = {
       nav: {
         catalog: 'Catalogue',
         myOrders: 'Mes commandes',
+        settings: 'Paramètres',
         signIn: 'Se connecter',
         signOut: 'Se déconnecter',
         account: 'Mon compte',
@@ -78,6 +80,7 @@ const resources = {
       nav: {
         catalog: 'Catálogo',
         myOrders: 'Minhas encomendas',
+        settings: 'Definições',
         signIn: 'Entrar',
         signOut: 'Terminar sessão',
         account: 'Minha conta',
@@ -107,6 +110,7 @@ const resources = {
       nav: {
         catalog: 'Catálogo',
         myOrders: 'Mis pedidos',
+        settings: 'Configuración',
         signIn: 'Iniciar sesión',
         signOut: 'Cerrar sesión',
         account: 'Mi cuenta',
