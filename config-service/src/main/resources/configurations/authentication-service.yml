@@ -121,6 +121,13 @@ management:
       show-details: when-authorized
     prometheus:
       enabled: true
+  health:
+    # Do NOT ping the SMTP relay on every health poll — testConnection() authenticates
+    # against Mailtrap on each check and burns through its auth rate limit, causing
+    # "535 Too many failed login attempts" lockouts. Delivery failures are already
+    # handled fail-open in SmtpEmailSender; the health of mail is not request-critical.
+    mail:
+      enabled: false
   metrics:
     export:
       prometheus:
