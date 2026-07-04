@@ -154,6 +154,7 @@ export default function AccountSettingsPage() {
               label="First name"
               error={!!identityForm.formState.errors.firstname}
               helperText={identityForm.formState.errors.firstname?.message}
+              slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
             <TextField
@@ -161,6 +162,7 @@ export default function AccountSettingsPage() {
               label="Last name"
               error={!!identityForm.formState.errors.lastname}
               helperText={identityForm.formState.errors.lastname?.message}
+              slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
           </Box>
@@ -170,6 +172,7 @@ export default function AccountSettingsPage() {
             type="email"
             error={!!identityForm.formState.errors.email}
             helperText={identityForm.formState.errors.email?.message}
+            slotProps={{ inputLabel: { shrink: true } }}
             fullWidth
           />
           {emailChanged && (
@@ -178,6 +181,7 @@ export default function AccountSettingsPage() {
               label="Current password (required to change email)"
               type="password"
               helperText="Changing your sign-in email requires your current password."
+              slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
           )}
@@ -209,6 +213,7 @@ export default function AccountSettingsPage() {
             helperText={passwordForm.formState.errors.currentPassword?.message}
             fullWidth
             slotProps={{
+              inputLabel: { shrink: true },
               input: {
                 endAdornment: (
                   <InputAdornment position="end">
@@ -226,6 +231,7 @@ export default function AccountSettingsPage() {
             type={showPw ? 'text' : 'password'}
             error={!!passwordForm.formState.errors.newPassword}
             helperText={passwordForm.formState.errors.newPassword?.message}
+            slotProps={{ inputLabel: { shrink: true } }}
             fullWidth
           />
           <TextField
@@ -234,6 +240,7 @@ export default function AccountSettingsPage() {
             type={showPw ? 'text' : 'password'}
             error={!!passwordForm.formState.errors.confirmPassword}
             helperText={passwordForm.formState.errors.confirmPassword?.message}
+            slotProps={{ inputLabel: { shrink: true } }}
             fullWidth
           />
           <Button
@@ -271,6 +278,7 @@ export default function AccountSettingsPage() {
                 type="password"
                 value={deletePassword}
                 onChange={(e) => setDeletePassword(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
             </DialogContent>
