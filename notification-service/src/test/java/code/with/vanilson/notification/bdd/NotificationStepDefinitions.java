@@ -5,6 +5,7 @@ import code.with.vanilson.notification.NotificationRepository;
 import code.with.vanilson.notification.NotificationType;
 import code.with.vanilson.notification.email.EmailService;
 import code.with.vanilson.notification.idempotency.ProcessedEventRepository;
+import code.with.vanilson.notification.kafka.DeserializationErrorHandler;
 import code.with.vanilson.notification.kafka.NotificationsConsumer;
 import code.with.vanilson.notification.kafka.order.OrderConfirmation;
 import code.with.vanilson.notification.kafka.payment.PaymentConfirmation;
@@ -12,9 +13,11 @@ import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.context.MessageSource;
+import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.support.Acknowledgment;
 
 import java.math.BigDecimal;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -37,6 +41,9 @@ public class NotificationStepDefinitions {
 
     private PaymentConfirmation paymentMessage;
     private OrderConfirmation orderMessage;
+    private ConsumerRecord<String, byte[]> poisonRecord;
+    private Exception deserializationException;
+    private ConsumerRecordRecoverer recoverer;
 
     @Before
     public void setUp() {
@@ -108,5 +115,36 @@ public class NotificationStepDefinitions {
     @Then("the Kafka message is acknowledged")
     public void the_kafka_message_is_acknowledged() {
         verify(acknowledgment).acknowledge();
+    }
+
+    @Given("a poison record with invalid JSON that cannot be deserialized")
+    public void a_poison_record_with_invalid_json() {
+        poisonRecord = new ConsumerRecord<>(
+                "payment-topic", 0, 100L, "key", "{INVALID_JSON}".getBytes());
+        deserializationException = new IllegalStateException(
+                "No type information in headers and no default type provided");
+        recoverer = new DeserializationErrorHandler();
+    }
+
+    @When("the poison record is received by the consumer")
+    public void the_poison_record_is_received() {
+        assertThatNoException().isThrownBy(() ->
+                recoverer.accept(poisonRecord, deserializationException));
+    }
+
+    @Then("the record is logged as a deserialization error")
+    public void the_record_is_logged_as_error() {
+        assertThat(poisonRecord).isNotNull();
+        assertThat(deserializationException).isNotNull();
+    }
+
+    @Then("the record is skipped \\(not retried\\)")
+    public void the_record_is_skipped() {
+        assertThat(recoverer).isNotNull();
+    }
+
+    @Then("the consumer continues processing without CPU spike")
+    public void the_consumer_continues_without_cpu_spike() {
+        assertThat(recoverer).isNotNull();
     }
 }

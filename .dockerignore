@@ -26,3 +26,11 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Ops files — volume-mounted ou host-only; nunca copiados nos builds.
+# Sem isto, qualquer mudança aqui invalida COPY . . => rebuild maven completo.
+scripts/
+config/
+docker-compose*.yml
+*.md
+deploy-proof*

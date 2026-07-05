@@ -1,0 +1,190 @@
+###############################################################
+# docker-compose.scale.yml — Application HA overlay
+# 2ª instância do caminho crítico de compra + nginx-edge (LB)
+# Spec: .claude/docs/2026-07-05-ha-zero-downtime-architecture.md
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+#   HA total: ... -f docker-compose.ha.yml -f docker-compose.scale.yml up -d
+###############################################################
+
+# Tuning zero-downtime (spec §5.1.4): encurta a janela em que o gateway
+# ainda roteia para uma instância morta (default ~60-90s → ~15s)
+x-zdt-env: &zdt-env
+  SPRING_CLOUD_LOADBALANCER_CACHE_TTL: 5s
+  EUREKA_CLIENT_REGISTRYFETCHINTERVALSECONDS: "5"
+  EUREKA_INSTANCE_LEASERENEWALINTERVALINSECONDS: "5"
+  EUREKA_INSTANCE_LEASEEXPIRATIONDURATIONINSECONDS: "15"
+
+# Host tem só 4 CPUs (Docker VM): sem cap, UMA JVM em boot esfomeia todos os
+# serviços a servir → gateway TimeLimiter (10s) → 503 falsos durante rollings.
+# Provado 2026-07-05 01:35Z: cart 503 com ambas instâncias healthy durante boot
+# do order-service-2. Cap 1.5 CPU ⇒ boot ≤37% do host, serving nunca esfomeado.
+x-cpu-cap: &cpu-cap
+  resources:
+    limits:
+      cpus: "1.5"
+
+services:
+
+  # ── Edge load balancer — novo único ponto de entrada ──
+  nginx-edge:
+    image: nginx:1.25-alpine
+    container_name: nginx-edge
+    ports:
+      - "8080:80"           # a porta do browser migra do frontend para aqui
+    volumes:
+      - ./config/nginx-edge/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [ services-net ]
+    depends_on:
+      frontend:
+        condition: service_started
+    healthcheck:
+      # 127.0.0.1, não localhost: busybox wget resolve localhost→[::1] e o
+      # nginx só escuta IPv4 (mesmo motivo do healthcheck do frontend/Dockerfile)
+      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Frontend: porta migra para o edge; 2ª instância ──
+  frontend:
+    image: ecommerce-frontend:local   # tag partilhada com frontend-2 (build único)
+    ports: !reset []
+
+  frontend-2:
+    extends:
+      file: docker-compose.yml
+      service: frontend
+    container_name: frontend-2
+    image: ecommerce-frontend:local
+    ports: !override []
+
+  # ── Gateway: mantém :8222 (debug/testes diretos); 2ª instância interna ──
+  gateway-api-service:
+    image: ecommerce-gateway:local
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+      # PASSO 0 (diagnóstico, 2026-07-05): desliga o tracing/export Zipkin no
+      # gateway reativo para isolar a causa das estolas de 5-8s. Zipkin não
+      # absorve spans (log: "Dropped spans ... 35000ms") e o sender bloqueia o
+      # event-loop Netty. Se o loop de prova passar a 0 FAIL com isto, Zipkin
+      # está confirmado como driver → Passo 1 torna-o permanente-mas-seguro.
+      MANAGEMENT_TRACING_ENABLED: "false"
+
+  gateway-api-service-2:
+    extends:
+      file: docker-compose.yml
+      service: gateway-api-service
+    container_name: gateway-api-service-2
+    image: ecommerce-gateway:local
+    ports: !override []
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+      MANAGEMENT_TRACING_ENABLED: "false"
+
+  # ── Eureka server: cache de resposta mais fresca (spec Z2) ──
+  discovery-service:
+    environment:
+      EUREKA_SERVER_RESPONSECACHEUPDATEINTERVALMS: "5000"
+
+  # ── Réplicas backend do caminho crítico (F2) ──
+  authentication-service:
+    image: ecommerce-auth:local
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  authentication-service-2:
+    extends:
+      file: docker-compose.yml
+      service: authentication-service
+    container_name: authentication-service-2
+    image: ecommerce-auth:local
+    ports: !override []
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  product-service:
+    image: ecommerce-product:local
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  product-service-2:
+    extends:
+      file: docker-compose.yml
+      service: product-service
+    container_name: product-service-2
+    image: ecommerce-product:local
+    ports: !override []
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  cart-service:
+    image: ecommerce-cart:local
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  cart-service-2:
+    extends:
+      file: docker-compose.yml
+      service: cart-service
+    container_name: cart-service-2
+    image: ecommerce-cart:local
+    ports: !override []
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  order-service:
+    image: ecommerce-order:local
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  order-service-2:
+    extends:
+      file: docker-compose.yml
+      service: order-service
+    container_name: order-service-2
+    image: ecommerce-order:local
+    ports: !override []
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  payment-service:
+    image: ecommerce-payment:local
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env
+
+  payment-service-2:
+    extends:
+      file: docker-compose.yml
+      service: payment-service
+    container_name: payment-service-2
+    image: ecommerce-payment:local
+    ports: !override []
+    deploy:
+      <<: *cpu-cap
+    environment:
+      <<: *zdt-env

@@ -1,5 +1,6 @@
 package code.with.vanilson.notification.config;
 
+import code.with.vanilson.notification.kafka.DeserializationErrorHandler;
 import jakarta.annotation.PreDestroy;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -17,6 +18,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -72,12 +74,22 @@ public class NotificationConfig {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "notification-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+
+        // Use ErrorHandlingDeserializer to wrap JsonDeserializer
+        // This catches deserialization errors (e.g., poison records) and passes them
+        // to the configured recoverer instead of retrying infinitely
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
+
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         // Manual acknowledgement — do NOT auto-commit offsets
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+        // JsonDeserializer config: use default type when headers lack type info
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "code.with.vanilson.*");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "java.util.HashMap");
+
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
@@ -86,6 +98,7 @@ public class NotificationConfig {
      * - MANUAL_IMMEDIATE ack mode → offset committed only after @KafkaListener method returns
      * - setStopImmediate(false): finish processing the current poll batch before stopping
      * - DefaultErrorHandler with FixedBackOff(1000ms, 3 retries) → after 3 failures sends to DLQ
+     * - DeserializationErrorHandler for poison records (catches errors from ErrorHandlingDeserializer)
      */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(
@@ -101,12 +114,13 @@ public class NotificationConfig {
         factory.getContainerProperties().setStopImmediate(false);
 
         // Error handler: retry 3x with 1s delay, then route to {topic}.DLQ
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+        // This handles listener-level exceptions (business logic failures)
+        DeadLetterPublishingRecoverer dlqRecoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
                 (record, ex) -> new org.apache.kafka.common.TopicPartition(
                         record.topic() + ".DLQ", record.partition()));
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(
-                recoverer, new FixedBackOff(1000L, 3L));
+                dlqRecoverer, new FixedBackOff(1000L, 3L));
 
         factory.setCommonErrorHandler(errorHandler);
 

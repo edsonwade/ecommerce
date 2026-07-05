@@ -10,12 +10,8 @@
 services:
 
   # ============================================================
-  # Disable single-broker Kafka + Zookeeper (replaced by KRaft cluster)
+  # Disable single-broker Kafka (replaced by KRaft cluster)
   # ============================================================
-  zookeeper:
-    deploy:
-      replicas: 0
-
   kafka:
     deploy:
       replicas: 0
