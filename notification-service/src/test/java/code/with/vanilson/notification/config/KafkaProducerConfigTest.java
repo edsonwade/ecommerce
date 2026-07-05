@@ -14,10 +14,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class KafkaProducerConfigTest {
 
     @Test
-    void producerFactory_disablesTypeInfoHeaders() {
+    void producerFactory_enablesTypeInfoHeaders() {
         KafkaProducerConfig config = new KafkaProducerConfig("localhost:9092");
         Map<String, Object> props = ((DefaultKafkaProducerFactory<?, ?>) config.producerFactory()).getConfigurationProperties();
-        assertThat(props.get(JsonSerializer.ADD_TYPE_INFO_HEADERS)).isEqualTo(false);
+        // Type headers enable consumers to deserialize records without requiring a default type fallback
+        assertThat(props.get(JsonSerializer.ADD_TYPE_INFO_HEADERS)).isEqualTo(true);
     }
 
     @Test

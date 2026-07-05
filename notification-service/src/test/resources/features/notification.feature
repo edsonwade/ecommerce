@@ -16,3 +16,10 @@ Feature: Notification Processing
     Then an ORDER_CONFIRMATION notification is saved to the database
     And an email with a PDF invoice is sent to the customer
     And the Kafka message is acknowledged
+
+  Scenario: Handle poison record without hot retry loop
+    Given a poison record with invalid JSON that cannot be deserialized
+    When the poison record is received by the consumer
+    Then the record is logged as a deserialization error
+    And the record is skipped (not retried)
+    And the consumer continues processing without CPU spike

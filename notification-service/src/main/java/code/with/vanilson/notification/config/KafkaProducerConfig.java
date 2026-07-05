@@ -31,7 +31,11 @@ public class KafkaProducerConfig {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        // ADD_TYPE_INFO_HEADERS=true ensures all produced records include type metadata in headers.
+        // This allows consumers to deserialize records without requiring a default type fallback.
+        // If records lack type headers, the consumer's ErrorHandlingDeserializer + default type
+        // fallback will gracefully handle them.
+        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, true);
         return new DefaultKafkaProducerFactory<>(props);
     }
 
