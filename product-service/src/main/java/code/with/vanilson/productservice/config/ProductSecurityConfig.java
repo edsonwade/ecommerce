@@ -24,19 +24,27 @@ public class ProductSecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    // Infrastructure endpoints opened without authentication: health probes,
+    // Prometheus scrape and API docs. Only specific actuator endpoints are
+    // listed — never /actuator/** (env/heapdump stay protected). Prometheus
+    // scrapes /actuator/prometheus without credentials, so it must be public
+    // or every scrape fails with 401.
+    static final String[] PUBLIC_ENDPOINTS = {
+        "/actuator/health/**",
+        "/actuator/prometheus",
+        "/swagger-ui/**",
+        "/swagger-ui.html",
+        "/v3/api-docs/**",
+        "/api-docs/**"
+    };
+
     @Bean
     public SecurityFilterChain productSecurityChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/actuator/health/**",
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**",
-                    "/api-docs/**"
-                ).permitAll()
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 // Seller's own catalogue must be authenticated — matched BEFORE the public
                 // GET /** rule below (first match wins). Role is enforced via @PreAuthorize.
                 .requestMatchers(HttpMethod.GET, "/api/v1/products/mine").authenticated()

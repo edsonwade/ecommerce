@@ -348,6 +348,12 @@ All services export via `/actuator/prometheus`:
 - Kafka consumer lag metrics
 - Application-specific metrics via Micrometer
 
+### Scrape Endpoint Security
+
+Every service (authentication, cart, customer, order, payment, product, config, discovery) exposes `/actuator/prometheus` as a **public endpoint** so Prometheus can scrape without credentials. The allowlist is deliberate and narrow — each `SecurityConfig` permits only `/actuator/health`, `/actuator/health/**`, and `/actuator/prometheus` (declared in a unit-tested `PUBLIC_ACTUATOR_ENDPOINTS` array), **never** `/actuator/**`: sensitive endpoints (`env`, `heapdump`, `beans`) remain authenticated. Config-service and discovery-service additionally ship the `micrometer-registry-prometheus` dependency so the endpoint exists on infrastructure servers too.
+
+> Without this allowlist every scrape returns 401/404, all targets show as `down`, and AlertManager fires permanent false `ServiceDown` alerts. Verify at `http://localhost:9090/targets` — all targets must report `UP`.
+
 </details>
 
 ---
@@ -431,7 +437,17 @@ Each service exposes **Swagger UI** for interactive API exploration:
 | Tenant | `http://localhost:8095/swagger-ui.html` | `http://localhost:8095/actuator/health` |
 | **Gateway** | — | `http://localhost:8222/actuator/health` |
 
-All `api-docs` and `actuator/health` endpoints are public (`permitAll`).
+All `api-docs`, `actuator/health`, and `actuator/prometheus` endpoints are public (`permitAll`) — the latter so Prometheus can scrape metrics without credentials. All other actuator endpoints stay authenticated.
+
+Key self-service auth APIs (full reference in [docs/api/API.md](docs/api/API.md)):
+
+| Endpoint | Method | Purpose |
+|:---|:---:|:---|
+| `/api/v1/auth/forgot-password` | POST | Request a password-reset email (public, no user enumeration) |
+| `/api/v1/auth/reset-password` | POST | Set a new password with a single-use token (public) |
+| `/api/v1/auth/account/me` | GET / PATCH | Read or update the authenticated user's identity (email change returns fresh tokens) |
+| `/api/v1/auth/account/change-password` | POST | Change password — revokes all sessions, returns fresh tokens |
+| `/api/v1/auth/account/me` | DELETE | Soft-delete + anonymize own account (USER role only) |
 
 ---
 
@@ -573,8 +589,31 @@ Location: `helm/ecommerce/`
 | File | Purpose |
 |:---|:---|
 | `docker-compose.yml` | Standard development environment |
-| `docker-compose.ha.yml` | High availability (Kafka brokers, Redis Sentinel, Eureka cluster) |
+| `docker-compose.ha.yml` | Infrastructure HA (Kafka brokers, Redis Sentinel, Eureka cluster) |
+| `docker-compose.scale.yml` | Application HA overlay — second instances of the critical purchase path + `nginx-edge` load balancer |
 | `docker-compose.prod.yml` | Production hardened (minimal logging, TLS, external network policies) |
+
+### Application HA Overlay (`docker-compose.scale.yml`)
+
+Adds a second instance of every service on the critical purchase path plus an Nginx edge load balancer, enabling zero-downtime rolling restarts:
+
+```bash
+# Application HA (base + scale overlay)
+docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+
+# Full HA (infrastructure + application)
+docker compose -f docker-compose.yml -f docker-compose.ha.yml -f docker-compose.scale.yml up -d
+```
+
+| Component | Detail |
+|:---|:---|
+| `nginx-edge` | New single entry point on `:8080` (browser port migrates from the frontend container); load-balances `frontend` / `frontend-2` with failover |
+| Second instances | `frontend-2`, `gateway-api-service-2`, `authentication-service-2`, `product-service-2`, `cart-service-2`, `order-service-2`, `payment-service-2` — no host ports (internal only, discovered via Eureka) |
+| Zero-downtime tuning | Eureka lease renewal/expiration 5s/15s, registry fetch 5s, load-balancer cache TTL 5s — shrinks the dead-instance routing window from ~60-90s to ~15s |
+| CPU caps | Each replica capped at 1.5 CPUs so a booting JVM cannot starve serving instances (prevents false gateway 503s during rolling restarts) |
+| Gateway tracing | Zipkin span export disabled in the overlay (`MANAGEMENT_TRACING_ENABLED=false`) — the blocking exporter stalled the reactive event loop under load |
+
+**Rolling restart procedure** (per service): restart instance 2, wait for `healthy` + Eureka registration, then restart instance 1. Validated with 348/348 requests succeeding across consecutive gateway restarts (see `docs/deploy-proof-f2.log`). For unchanged configs use `docker restart <container>` — not `--force-recreate`.
 
 ### Environment Variables
 
@@ -599,10 +638,17 @@ Copy `.env.example` to `.env` and configure:
 
 | Document | Description |
 |:---|:---|
-| [API Versioning Strategy](docs/api-versioning-strategy.md) | Path-based v1/v2 versioning, deprecation policy, 6-month sunset window |
-| [JWT Rotation Strategy](docs/jwt-rotation-strategy.md) | RS256 key rotation, grace period handling, client migration |
-| [Secret Rotation Runbook](docs/secret-rotation-runbook.md) | Vault credential rotation for Kafka, Redis, PostgreSQL, MongoDB |
-| [Disaster Recovery Runbook](docs/disaster-recovery-runbook.md) | Backup/restore procedures, failover steps, RTO/RPO targets |
+| [API Reference](docs/api/API.md) | Complete REST API reference — endpoints, request/response schemas, error codes, conventions |
+| [Architecture Documents](docs/architecture/architecture-documents.md) | System architecture deep dive |
+| [Technical Documents](docs/techinical/Technical-documents.md) | Technical decisions and implementation notes |
+| [ADR Index](docs/adr/README.md) | Architecture Decision Records — choreography saga, transactional outbox, polyglot persistence, multi-tenant ThreadLocal/Hibernate |
+| [Development History & Incident Log](docs/engineering/01-development-history.md) | Chronological build phases + every non-trivial production incident per service, with root cause and fix |
+| [Architecture Trade-offs & Critique](docs/engineering/02-architecture-tradeoffs.md) | Honest assessment of what's not production-ready yet — multi-tenancy, secrets, saga observability, infra duality, testing, alerting, idempotency |
+| [SaaS Engineering Playbook](docs/engineering/03-saas-engineering-playbook.md) | Where to start, what to always keep in mind, anti-patterns to avoid, day-1 and pre-production checklists |
+| [Release Notes v2.0.0](docs/releases/RELEASE_NOTES_v2.0.0.md) | Latest release changelog |
+| [HA Zero-Downtime Deploy Runbook](docs/runbooks/ha-zero-downtime-deploy.md) | Rolling-update procedure for the HA compose stack (gates, proof protocol, troubleshooting) |
+| [Monitoring & Alerting Runbook](docs/runbooks/monitoring-runbook.md) | Scrape security model, verification procedure, alert rules, real incident case studies |
+| [HA Deploy Proof (F2)](docs/deploy-proof-f2.log) | Zero-downtime rolling-restart validation log (348/348 requests OK) |
 
 ### Utility Scripts
 
@@ -633,6 +679,8 @@ e-commerce-microservice/
 ├── cart-service/               # Redis cart sessions (:8091)
 ├── notification-service/       # Kafka consumer + email (:8040)
 ├── gateway-api-service/        # API gateway (:8222)
+├── frontend/                   # React 19 + Vite SPA (:8080 via nginx, talks to gateway :8222)
+├── config/                     # Container configs (nginx-edge load balancer)
 ├── helm/                       # Helm charts (dev / staging / production)
 ├── k8s/                        # K8s manifests, Istio, network policies
 ├── vault/                      # Vault config, policies, init scripts
@@ -646,7 +694,8 @@ e-commerce-microservice/
 ├── diagramas/                  # Architecture diagrams (Draw.io)
 ├── .github/workflows/          # CI/CD pipelines
 ├── docker-compose.yml          # Dev environment
-├── docker-compose.ha.yml       # High availability variant
+├── docker-compose.ha.yml       # Infrastructure HA variant
+├── docker-compose.scale.yml    # Application HA overlay (2nd instances + nginx-edge)
 └── docker-compose.prod.yml     # Production variant
 ```
 

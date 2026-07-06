@@ -22,22 +22,28 @@ public class CustomerSecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    // Unauthenticated endpoints: health probes, Prometheus scrape, API docs and the
+    // internal service-to-service sync API. Only specific actuator endpoints are
+    // opened — never /actuator/** (env/heapdump stay protected).
+    static final String[] PUBLIC_ENDPOINTS = {
+        "/actuator/health/**",
+        "/actuator/info",
+        "/actuator/prometheus",
+        "/swagger-ui/**",
+        "/swagger-ui.html",
+        "/v3/api-docs/**",
+        "/api-docs/**",
+        "/api/v1/customers/internal",
+        "/api/v1/customers/internal/**"
+    };
+
     @Bean
     public SecurityFilterChain customerSecurityChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/actuator/health/**",
-                    "/actuator/info",
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**",
-                    "/api-docs/**",
-                    "/api/v1/customers/internal",
-                    "/api/v1/customers/internal/**"
-                ).permitAll()
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));

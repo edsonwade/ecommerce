@@ -64,6 +64,17 @@ public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
     private final ObjectMapper           objectMapper;
 
+    // Infrastructure endpoints opened without authentication. Only specific
+    // actuator endpoints are exposed — never /actuator/** (env/heapdump/beans
+    // stay protected). /actuator/prometheus MUST be public so Prometheus can
+    // scrape metrics; otherwise every scrape returns 401 and the service is
+    // reported as down.
+    static final String[] PUBLIC_ACTUATOR_ENDPOINTS = {
+        "/actuator/health",
+        "/actuator/health/**",
+        "/actuator/prometheus"
+    };
+
     // Explicit allowlist — a wildcard origin combined with allowCredentials(true)
     // would let any site make credentialed requests (CSRF-equivalent exposure).
     @Value("${app.cors.allowed-origins:http://localhost:8080,http://localhost:5173,http://localhost:3000,http://localhost:8222}")
@@ -109,10 +120,9 @@ public class SecurityConfig {
                     "/api/v1/auth/reset-password",
                     "/swagger-ui/**",
                     "/swagger-ui.html",
-                    "/api-docs/**",
-                    "/actuator/health",
-                    "/actuator/health/**"
+                    "/api-docs/**"
                 ).permitAll()
+                .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

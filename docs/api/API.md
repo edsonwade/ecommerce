@@ -74,12 +74,17 @@ All API requests (except public endpoints) require a valid JWT Bearer token in t
 POST   /api/v1/auth/register
 POST   /api/v1/auth/login
 POST   /api/v1/auth/refresh
+POST   /api/v1/auth/forgot-password
+POST   /api/v1/auth/reset-password
 GET    /actuator/health
+GET    /actuator/prometheus
 GET    /actuator/info
 GET    /swagger-ui/**
 GET    /api-docs/**
 GET    /fallback/**
 ```
+
+> `/actuator/prometheus` is public on every service so Prometheus can scrape metrics without credentials. Only `health`, `health/**`, and `prometheus` are exposed — all other actuator endpoints (`env`, `heapdump`, `beans`, ...) require authentication.
 
 ### CORS Policy
 
@@ -304,6 +309,16 @@ When a circuit breaker opens, the gateway returns:
 | `POST` | `/api/v1/auth/login` | Authenticate and get tokens | Public |
 | `POST` | `/api/v1/auth/refresh` | Refresh token pair | Public |
 | `POST` | `/api/v1/auth/logout` | Revoke all user tokens | Bearer |
+| `POST` | `/api/v1/auth/forgot-password` | Request a password-reset email | Public |
+| `POST` | `/api/v1/auth/reset-password` | Set a new password with a reset token | Public |
+| `GET` | `/api/v1/auth/account/me` | Get my account (login identity) | Bearer |
+| `PATCH` | `/api/v1/auth/account/me` | Update my name/email | Bearer |
+| `POST` | `/api/v1/auth/account/change-password` | Change my password | Bearer |
+| `DELETE` | `/api/v1/auth/account/me` | Delete my account (soft delete) | Bearer (USER only) |
+| `GET` | `/api/v1/auth/sellers/{id}` | Get a seller's public business profile | Bearer |
+| `PUT` | `/api/v1/auth/sellers/me` | Update my seller business profile | Bearer |
+| `GET` | `/api/v1/auth/users` | List all users (paginated) | Bearer (ADMIN only) |
+| `PATCH` | `/api/v1/auth/users/{userId}/role` | Promote/demote a user's role | Bearer (ADMIN only) |
 
 ---
 
@@ -520,6 +535,324 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiJ9...
 **Success Response — `204 No Content`:**
 
 _(empty body)_
+
+---
+
+### POST /api/v1/auth/forgot-password
+
+Emails a single-use password-reset link if the account exists. Always returns `200` regardless of whether the email is registered (prevents user enumeration). Role-agnostic — works for Customer, Seller, and Admin accounts.
+
+**Auth:** None (public)
+
+**Request Body:**
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `email` | `string` | Yes | `@NotBlank`, `@Email` | Account email address |
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "message": "If an account exists for that email, a reset link has been sent."
+}
+```
+
+---
+
+### POST /api/v1/auth/reset-password
+
+Sets a new password using a valid reset token and revokes all existing sessions for the user.
+
+**Auth:** None (public)
+
+**Request Body:**
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `token` | `string` | Yes | `@NotBlank` | Single-use reset token from the email link |
+| `newPassword` | `string` | Yes | `@NotBlank`, `@Size(min=8)` | New password |
+| `confirmPassword` | `string` | Yes | `@NotBlank` | Must match `newPassword` |
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "message": "Your password has been reset. Please sign in with your new password."
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Invalid/expired token or passwords do not match |
+
+---
+
+### GET /api/v1/auth/account/me
+
+Returns the authenticated user's login identity. Always operates on the principal's own id — there is no path id to tamper with.
+
+**Auth:** Required — `Bearer <accessToken>`
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "id": 42,
+  "firstname": "John",
+  "lastname": "Doe",
+  "email": "john.doe@example.com",
+  "role": "USER",
+  "createdAt": "2026-04-08T12:00:00"
+}
+```
+
+---
+
+### PATCH /api/v1/auth/account/me
+
+Updates the authenticated user's name and/or email. `currentPassword` is required when the email changes. An email change returns a **fresh token pair** (the JWT subject is the email) — clients must replace their stored tokens.
+
+**Auth:** Required — `Bearer <accessToken>`
+
+**Request Body:**
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `firstname` | `string` | Yes | `@NotBlank` | First name |
+| `lastname` | `string` | Yes | `@NotBlank` | Last name |
+| `email` | `string` | Yes | `@NotBlank`, `@Email` | Email (login identity) |
+| `currentPassword` | `string` | Conditional | — | Required when `email` changes |
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "account": {
+    "id": 42,
+    "firstname": "John",
+    "lastname": "Doe",
+    "email": "new.email@example.com",
+    "role": "USER",
+    "createdAt": "2026-04-08T12:00:00"
+  },
+  "tokens": {
+    "accessToken": "eyJhbGciOiJSUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJSUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "userId": "42",
+    "email": "new.email@example.com",
+    "role": "USER",
+    "tenantId": "default"
+  }
+}
+```
+
+> `tokens` is `null` when the email did not change.
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Wrong/missing `currentPassword` or invalid payload |
+| `409` | Email already in use |
+
+---
+
+### POST /api/v1/auth/account/change-password
+
+Changes the authenticated user's password. Revokes **every session** and returns a fresh token pair.
+
+**Auth:** Required — `Bearer <accessToken>`
+
+**Request Body:**
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `currentPassword` | `string` | Yes | `@NotBlank` | Current password |
+| `newPassword` | `string` | Yes | `@NotBlank`, `@Size(min=8)` | New password |
+| `confirmPassword` | `string` | Yes | `@NotBlank` | Must match `newPassword` |
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJSUzI1NiJ9...",
+  "refreshToken": "eyJhbGciOiJSUzI1NiJ9...",
+  "tokenType": "Bearer",
+  "userId": "42",
+  "email": "john.doe@example.com",
+  "role": "USER",
+  "tenantId": "default"
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Wrong current password or `newPassword`/`confirmPassword` mismatch |
+
+---
+
+### DELETE /api/v1/auth/account/me
+
+Soft-deletes and anonymizes the authenticated user's account, freeing the email for re-registration. **USER role only** — SELLER/ADMIN self-deletion has platform implications (live products, admin lockout) and receives `403`; their deletion is an admin operation. The customer profile is removed asynchronously in customer-service.
+
+**Auth:** Required — `Bearer <accessToken>`, role `USER`
+
+**Request Body:**
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `password` | `string` | Yes | `@NotBlank` | Current password (confirmation) |
+
+**Success Response — `204 No Content`:**
+
+_(empty body)_
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Wrong password |
+| `403` | Not a USER-role account |
+
+---
+
+### GET /api/v1/auth/sellers/{id}
+
+Returns a seller's public business profile — the "sold by" identity shown on an invoice. Any authenticated user can read it (a buyer must see who they bought from on their order detail).
+
+**Auth:** Required — `Bearer <accessToken>`
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | `long` | Seller's user id (numeric). Non-numeric values (e.g. the `system` seed sentinel) return `400` |
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "id": 7,
+  "fullName": "Maria Silva",
+  "firstname": "Maria",
+  "lastname": "Silva",
+  "email": "maria@techstore.pt",
+  "companyName": "TechStore Lda",
+  "vatNumber": "PT509876543",
+  "street": "Rua do Comércio 12",
+  "city": "Lisboa",
+  "country": "Portugal",
+  "postalCode": "1100-150"
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | `id` is not numeric |
+| `404` | Seller not found |
+
+---
+
+### PUT /api/v1/auth/sellers/me
+
+Updates the authenticated user's own seller business profile. All fields are optional — send only what changes.
+
+**Auth:** Required — `Bearer <accessToken>`
+
+**Request Body:**
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `companyName` | `string` | No | `@Size(max=255)` |
+| `vatNumber` | `string` | No | `@Size(max=64)` |
+| `street` | `string` | No | `@Size(max=256)` |
+| `city` | `string` | No | `@Size(max=128)` |
+| `country` | `string` | No | `@Size(max=128)` |
+| `postalCode` | `string` | No | `@Size(max=64)` |
+
+**Success Response — `200 OK`:** the updated `SellerProfileResponse` (same shape as `GET /sellers/{id}`).
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Invalid payload (field exceeds max length) |
+
+---
+
+### GET /api/v1/auth/users
+
+Lists all users on the platform, paginated. **ADMIN only.**
+
+**Auth:** Required — `Bearer <accessToken>`, role `ADMIN`
+
+**Query Parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `page` | `0` | Page index |
+| `size` | `25` | Page size |
+| `sort` | — | e.g. `email,asc` |
+
+**Success Response — `200 OK`** (Spring `Page` envelope):
+
+```json
+{
+  "content": [
+    {
+      "id": 42,
+      "email": "john.doe@example.com",
+      "firstname": "John",
+      "lastname": "Doe",
+      "role": "USER",
+      "tenantId": "default",
+      "accountEnabled": true
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "number": 0,
+  "size": 25
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `403` | Caller is not `ADMIN` |
+
+---
+
+### PATCH /api/v1/auth/users/{userId}/role
+
+Promotes or demotes a user's role. **ADMIN only.** An admin cannot change their **own** role (`400`). Every role change is persisted to an audit log (actor, target, previous role, new role).
+
+**Auth:** Required — `Bearer <accessToken>`, role `ADMIN`
+
+**Request Body:**
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `role` | `string` | Yes | `@NotNull`, one of `USER` / `SELLER` / `ADMIN` | New role |
+
+**Success Response — `200 OK`:** the updated `UserSummaryResponse` (same shape as a `GET /users` row).
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Missing/invalid role, or admin attempting to change their own role |
+| `403` | Caller is not `ADMIN` |
+| `404` | Target user not found |
 
 ---
 
@@ -1188,6 +1521,11 @@ GET /api/v1/tenants/f47ac10b-.../usage/sum?metricName=api-calls&startDate=2026-0
 | `POST` | `/api/v1/customers` | Create a customer | Bearer |
 | `PUT` | `/api/v1/customers/{id}` | Update a customer | Bearer |
 | `DELETE` | `/api/v1/customers/{id}` | Delete a customer | Bearer |
+| `POST` | `/api/v1/customers/internal` | Internal: idempotent customer registration | Internal (not gateway-routed) |
+| `PUT` | `/api/v1/customers/internal/{id}` | Internal: idempotent identity sync | Internal (not gateway-routed) |
+| `DELETE` | `/api/v1/customers/internal/{id}` | Internal: idempotent profile delete | Internal (not gateway-routed) |
+
+> **Internal endpoints (`/internal/**`):** service-to-service only, called by authentication-service — `POST` provisions the customer profile after registration (`@Async`, fail-open, no-ops if the profile exists), `PUT` syncs name/email after an account update, `DELETE` removes the profile after account deletion. They are unauthenticated **by design**: the gateway does not route `/internal/**`, so they are reachable only inside `services-net`. All three are idempotent; sync/delete return `204` even when the profile is missing.
 
 ---
 
@@ -1432,12 +1770,17 @@ Deletes a customer profile.
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
 | `GET` | `/api/v1/products` | List all products (paginated) | Bearer |
+| `GET` | `/api/v1/products/mine` | List only the caller's own products (seller catalogue) | Bearer |
+| `GET` | `/api/v1/products/search` | Search/filter by name, description, category | Bearer |
+| `GET` | `/api/v1/products/categories` | List all categories | Bearer |
 | `GET` | `/api/v1/products/{id}` | Get product by ID | Bearer |
 | `POST` | `/api/v1/products/create` | Create a product | Bearer |
 | `POST` | `/api/v1/products/batch` | Batch create products | Bearer |
 | `PUT` | `/api/v1/products/update/{id}` | Update a product | Bearer |
 | `DELETE` | `/api/v1/products/delete/{id}` | Delete a product | Bearer |
 | `POST` | `/api/v1/products/purchase` | Reserve stock (saga) | Bearer |
+
+> **Seller isolation:** all UI users share `tenantId = default`, so tenant filters do **not** scope sellers. Seller scoping keys off `Product.createdBy`: `GET /products/mine` returns only products created by the caller (newest-first) — competing sellers never see each other's catalogue. `GET /products` remains the full cross-seller catalogue (the storefront). Ownership of update/delete is enforced in the service layer.
 
 ---
 
@@ -2022,8 +2365,15 @@ Client                Order Service        Product Service       Payment Service
 |--------|------|-------------|------|
 | `POST` | `/api/v1/orders` | Create order (async) | Bearer |
 | `GET` | `/api/v1/orders/status/{correlationId}` | Poll order status | Bearer |
-| `GET` | `/api/v1/orders` | List all orders | Bearer |
+| `GET` | `/api/v1/orders/{correlationId}/events` | Stream order status via Server-Sent Events | Bearer |
+| `GET` | `/api/v1/orders` | List ALL orders across the platform | Bearer (ADMIN only) |
+| `GET` | `/api/v1/orders/seller` | List orders containing the caller's products | Bearer (SELLER/ADMIN) |
+| `GET` | `/api/v1/orders/my` | List the authenticated user's own orders | Bearer |
 | `GET` | `/api/v1/orders/{order-id}` | Get order by ID | Bearer |
+
+> **Seller isolation:** `GET /orders` is deliberately **ADMIN-only** — it returns every order regardless of seller. Sellers use `GET /orders/seller`, which returns only orders containing at least one product they own (ownership = the `seller_id` stamped on each order line at creation). Competing sellers never see each other's orders, and on a shared order each seller sees only their own lines.
+
+> **Real-time status (SSE):** `GET /orders/{correlationId}/events` opens a `text/event-stream` that emits `status-update` events as the saga progresses and closes automatically on terminal states (`CONFIRMED`, `CANCELLED`, `TIMEOUT`); stream timeout is 5 minutes. If SSE is unavailable, fall back to polling `GET /orders/status/{correlationId}`.
 | `GET` | `/api/v1/order-lines/{order-id}` | Get order line items | Bearer |
 
 ---
@@ -2205,7 +2555,14 @@ Returns an order by ID.
 
 ### GET /api/v1/order-lines/{order-id}
 
-Returns order line items for a given order.
+Returns order line items for a given order. The response is **scoped to what the caller may see**:
+
+| Caller | Lines returned |
+|--------|----------------|
+| `ADMIN` | The whole order (platform oversight) |
+| Customer who owns the order | The whole order (their own purchase) |
+| `SELLER` (not the owner) | **Only their own lines** (`seller_id = userId`) — in a multi-seller basket a seller never sees other sellers' lines |
+| Anyone else | `403 Forbidden` |
 
 **Auth:** Required
 
