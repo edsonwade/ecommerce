@@ -40,6 +40,15 @@ endpoints/
 # Ignore sheets directory
 sheets/
 
+# Deploy proof / stack logs — never commit
+deploy-proof*.log
+**/deploy-proof*.log
+*.deploy.log
+
+# Documentation directory — internal only
+docs/
+/docs/**
+
 # Documentation and AI-related files
 .claude/
 CLAUDE.md
