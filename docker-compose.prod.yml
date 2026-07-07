@@ -10,6 +10,11 @@
 #   - Sets restart: unless-stopped for all services
 #   - Adds read_only + tmpfs for stateless app containers
 #   - Removes MailHog (use real SMTP in prod)
+#   - Fails fast on missing secrets: every sensitive env var is overridden with the
+#     ${VAR:?message} form, so `config`/`up` refuse to run unless a real value is set.
+#     Dev (base compose) keeps the ${VAR:-default} fallbacks and is unaffected.
+#     Required vars are listed in .env.example. Verify with:
+#       pwsh scripts/verify-prod-secrets-failfast.ps1
 ###############################################################
 
 services:
@@ -19,20 +24,10 @@ services:
   # ============================================================
 
   vault:
+    environment:
+      # Fail-fast: no committed dev token in production
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []        # remove 8200 exposure in prod
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-          cpus: "0.5"
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
-
-  zookeeper:
     restart: unless-stopped
     deploy:
       resources:
@@ -87,6 +82,9 @@ services:
         max-file: "3"
 
   postgres-product:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
     restart: unless-stopped
     deploy:
       resources:
@@ -100,6 +98,9 @@ services:
         max-file: "3"
 
   postgres-payment:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
     restart: unless-stopped
     deploy:
       resources:
@@ -113,6 +114,9 @@ services:
         max-file: "3"
 
   postgres-auth:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
     restart: unless-stopped
     deploy:
       resources:
@@ -126,6 +130,9 @@ services:
         max-file: "3"
 
   postgres-tenant:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
     restart: unless-stopped
     deploy:
       resources:
@@ -139,6 +146,9 @@ services:
         max-file: "3"
 
   mongodb:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:?MONGO_USERNAME must be set in production}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD must be set in production}
     restart: unless-stopped
     deploy:
       resources:
@@ -225,6 +235,8 @@ services:
         max-file: "3"
 
   grafana:
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set in production}
     # Keep :3000 for dashboards — accessible only through VPN/firewall rule in prod
     restart: unless-stopped
     deploy:
@@ -248,6 +260,9 @@ services:
   # ============================================================
 
   config-service:
+    environment:
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []        # internal only — services access via service name
     restart: unless-stopped
     read_only: true
@@ -265,6 +280,14 @@ services:
         max-file: "3"
 
   discovery-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
+    healthcheck:
+      # Override base healthcheck: base hardcodes eureka-secret-2024 in the URL, which
+      # breaks in prod with a real EUREKA_PASSWORD. Interpolate the real creds instead.
+      test: [ "CMD-SHELL", "wget -qO- 'http://${EUREKA_USERNAME:-eureka}:${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}@localhost:8761/actuator/health' | grep -q '\"status\":\"UP\"' || exit 1" ]
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -286,6 +309,13 @@ services:
   # ============================================================
 
   gateway-api-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     # Keep :8222 — external entry point
     restart: unless-stopped
     read_only: true
@@ -303,6 +333,14 @@ services:
         max-file: "3"
 
   authentication-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?APP_ADMIN_PASSWORD must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -320,6 +358,13 @@ services:
         max-file: "3"
 
   tenant-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -337,6 +382,14 @@ services:
         max-file: "3"
 
   customer-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      MONGO_USERNAME: ${MONGO_USERNAME:?MONGO_USERNAME must be set in production}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD must be set in production}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -354,6 +407,15 @@ services:
         max-file: "3"
 
   product-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -371,6 +433,14 @@ services:
         max-file: "3"
 
   order-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -388,6 +458,14 @@ services:
         max-file: "3"
 
   payment-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:?POSTGRES_USERNAME must be set in production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -405,6 +483,13 @@ services:
         max-file: "3"
 
   cart-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
@@ -422,6 +507,14 @@ services:
         max-file: "3"
 
   notification-service:
+    environment:
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD must be set in production}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?EUREKA_PASSWORD must be set in production}
+      MONGO_USERNAME: ${MONGO_USERNAME:?MONGO_USERNAME must be set in production}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD must be set in production}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?MAIL_PASSWORD must be set in production}
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
     read_only: true
