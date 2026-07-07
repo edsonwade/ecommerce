@@ -12,6 +12,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -123,14 +124,16 @@ public class AuthGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleAccessDenied(
             AccessDeniedException ex, WebRequest req) {
         log.warn("[AuthHandler] Access denied: {}", req.getDescription(false));
-        return build(HttpStatus.FORBIDDEN, "Access denied", "auth.access.denied", req);
+        String msg = messageSource.getMessage("auth.access.denied", null, LocaleContextHolder.getLocale());
+        return build(HttpStatus.FORBIDDEN, msg, "auth.access.denied", req);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleBadArgument(
             IllegalArgumentException ex, WebRequest req) {
         log.warn("[AuthHandler] Bad argument: {}", ex.getMessage());
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), "auth.bad.request", req);
+        String msg = messageSource.getMessage("auth.bad.request", null, LocaleContextHolder.getLocale());
+        return build(HttpStatus.BAD_REQUEST, msg, "auth.bad.request", req);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -140,20 +143,24 @@ public class AuthGlobalExceptionHandler {
         // is a client error (400), never an internal failure (500).
         log.warn("[AuthHandler] Type mismatch for parameter [{}]: value=[{}]",
                 ex.getName(), ex.getValue());
-        return build(HttpStatus.BAD_REQUEST,
-                "Invalid value for parameter '" + ex.getName() + "'",
-                "auth.bad.request", req);
+        String msg = messageSource.getMessage("auth.bad.request.type.mismatch", new Object[]{ex.getName()}, LocaleContextHolder.getLocale());
+        return build(HttpStatus.BAD_REQUEST, msg, "auth.bad.request", req);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            NoResourceFoundException ex, WebRequest req) {
+        log.debug("[AuthHandler] Resource not found: {}", ex.getMessage());
+        String msg = messageSource.getMessage("error.resource.not.found", null, LocaleContextHolder.getLocale());
+        return build(HttpStatus.NOT_FOUND, msg, "error.resource.not.found", req);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest req) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
-            log.error("[AuthHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
-        } else {
-            log.error("[AuthHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
-        }
+        log.error("[AuthHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        log.debug("[AuthHandler] Unhandled exception ref=[{}] stacktrace:", ref, ex);
 
         // User-facing message WITHOUT the reference
         String msg = messageSource.getMessage("auth.error.internal.user",

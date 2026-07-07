@@ -12,6 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.context.request.WebRequest;
 
+import org.springframework.http.HttpMethod;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
 import java.util.Locale;
 import java.util.Map;
 
@@ -89,5 +92,23 @@ class CustomerGlobalExceptionHandlerTest {
         assertThat(body).containsKeys("timestamp", "status", "error", "errorCode", "message", "path");
         assertThat(body).doesNotContainKey("requestId");
         assertThat(body).doesNotContainKey("reference");
+    }
+
+    @Test
+    @DisplayName("handleNoResourceFound should return 404 with clean message")
+    void handleNoResourceFound_shouldReturn404() {
+        String notFoundMessage = "The requested resource was not found.";
+        when(messageSource.getMessage(eq("error.resource.not.found"), isNull(), any(Locale.class)))
+                .thenReturn(notFoundMessage);
+
+        NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/api/v1/customers/invalid");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleNoResourceFound(ex, webRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        Map<String, Object> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.get("message")).isEqualTo(notFoundMessage);
+        assertThat(body.get("errorCode")).isEqualTo("error.resource.not.found");
     }
 }

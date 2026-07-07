@@ -13,6 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import org.springframework.http.HttpMethod;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
 import java.util.Locale;
 import java.util.Map;
 
@@ -99,6 +102,9 @@ class AuthGlobalExceptionHandlerTest {
         MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
                 "system", Long.class, "id", null, new NumberFormatException("For input string: \"system\""));
 
+        when(messageSource.getMessage(eq("auth.bad.request.type.mismatch"), any(), any(Locale.class)))
+                .thenReturn("Invalid value for parameter 'id'");
+
         ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex, webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -115,9 +121,30 @@ class AuthGlobalExceptionHandlerTest {
         MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
                 "abc", Long.class, "id", null, new NumberFormatException());
 
+        when(messageSource.getMessage(eq("auth.bad.request.type.mismatch"), any(), any(Locale.class)))
+                .thenReturn("Invalid value for parameter 'id'");
+
         ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex, webRequest);
 
         assertThat(response.getStatusCode()).isNotEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody()).extractingByKey("errorCode").isNotEqualTo("auth.error.internal");
+    }
+
+    @Test
+    @DisplayName("handleNoResourceFound should return 404 with clean message")
+    void handleNoResourceFound_shouldReturn404() {
+        String notFoundMessage = "The requested resource was not found.";
+        when(messageSource.getMessage(eq("error.resource.not.found"), isNull(), any(Locale.class)))
+                .thenReturn(notFoundMessage);
+
+        NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/api/v1/auth/invalid");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleNoResourceFound(ex, webRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        Map<String, Object> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.get("message")).isEqualTo(notFoundMessage);
+        assertThat(body.get("errorCode")).isEqualTo("error.resource.not.found");
     }
 }

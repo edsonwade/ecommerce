@@ -78,8 +78,16 @@ public class CustomerGlobalExceptionHandler {
     @ExceptionHandler(CustomerBaseException.class)
     public ResponseEntity<Map<String, Object>> handleCustomerBase(
             CustomerBaseException ex, WebRequest request) {
-        log.error("[CustomerExceptionHandler] Base exception: key=[{}]", ex.getMessageKey(), ex);
+        log.warn("[CustomerExceptionHandler] Base exception: key=[{}]", ex.getMessageKey());
         return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex, WebRequest request) {
+        log.debug("[CustomerExceptionHandler] Resource not found: {}", ex.getMessage());
+        String msg = messageSource.getMessage("error.resource.not.found", null, LocaleContextHolder.getLocale());
+        return build(HttpStatus.NOT_FOUND, msg, "error.resource.not.found", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -116,11 +124,8 @@ public class CustomerGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
-            log.error("[CustomerExceptionHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage());
-        } else {
-            log.error("[CustomerExceptionHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage(), ex);
-        }
+        log.error("[CustomerExceptionHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage());
+        log.debug("[CustomerExceptionHandler] Unhandled ref=[{}] stacktrace:", ref, ex);
 
         // User-facing message WITHOUT the reference
         String msg = messageSource.getMessage("customer.error.internal.user",

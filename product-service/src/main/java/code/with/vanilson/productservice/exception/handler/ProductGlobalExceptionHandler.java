@@ -13,6 +13,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -86,8 +87,17 @@ public class ProductGlobalExceptionHandler {
     @ExceptionHandler(ProductBaseException.class)
     public ResponseEntity<Map<String, Object>> handleProductBase(
             ProductBaseException ex, WebRequest request) {
-        log.error("[ProductExceptionHandler] Base exception: key=[{}] msg=[{}]", ex.getMessageKey(), ex.getMessage());
+        log.warn("[ProductExceptionHandler] Base exception: key=[{}] msg=[{}]", ex.getMessageKey(), ex.getMessage());
         return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            NoResourceFoundException ex, WebRequest request) {
+        log.debug("[ProductExceptionHandler] Resource not found: {}", ex.getMessage());
+        String message = messageSource.getMessage(
+                "error.resource.not.found", null, LocaleContextHolder.getLocale());
+        return buildResponse(HttpStatus.NOT_FOUND, message, "error.resource.not.found", request);
     }
 
     /** Bean Validation (@Valid) field errors. */
@@ -118,11 +128,8 @@ public class ProductGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && (ex.getMessage().contains("test") || ex.getMessage().contains("Simulated"))) {
-            log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
-        } else {
-            log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
-        }
+        log.error("[ProductExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        log.debug("[ProductExceptionHandler] Unhandled exception ref=[{}] stacktrace:", ref, ex);
 
         // User-facing message WITHOUT the reference
         String message = messageSource.getMessage(

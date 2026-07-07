@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -65,8 +66,15 @@ public class CartGlobalExceptionHandler {
 
     @ExceptionHandler(CartBaseException.class)
     public ResponseEntity<Map<String, Object>> handleBase(CartBaseException ex, WebRequest req) {
-        log.error("[CartHandler] Base exception: key=[{}]", ex.getMessageKey(), ex);
+        log.warn("[CartHandler] Base exception: key=[{}]", ex.getMessageKey());
         return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException ex, WebRequest req) {
+        log.debug("[CartHandler] Resource not found: {}", ex.getMessage());
+        String msg = messageSource.getMessage("error.resource.not.found", null, LocaleContextHolder.getLocale());
+        return build(HttpStatus.NOT_FOUND, msg, "error.resource.not.found", req);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -98,11 +106,8 @@ public class CartGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest req) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
-            log.error("[CartHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage());
-        } else {
-            log.error("[CartHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage(), ex);
-        }
+        log.error("[CartHandler] Unhandled ref=[{}]: {}", ref, ex.getMessage());
+        log.debug("[CartHandler] Unhandled ref=[{}] stacktrace:", ref, ex);
 
         // User-facing message WITHOUT the reference
         String msg = messageSource.getMessage("cart.error.internal.user",
