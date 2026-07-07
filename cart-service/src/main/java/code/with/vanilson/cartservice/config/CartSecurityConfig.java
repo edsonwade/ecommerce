@@ -22,20 +22,25 @@ public class CartSecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    // Unauthenticated endpoints: health probes, monitoring scrapes and API docs.
+    // Only specific actuator endpoints — never /actuator/** (env/heapdump stay protected).
+    static final String[] PUBLIC_ENDPOINTS = {
+        "/actuator/health/**",
+        "/actuator/info",
+        "/actuator/prometheus",
+        "/swagger-ui/**",
+        "/swagger-ui.html",
+        "/v3/api-docs/**",
+        "/api-docs/**"
+    };
+
     @Bean
     public SecurityFilterChain cartSecurityChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/actuator/health/**",
-                    "/actuator/info",
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**",
-                    "/api-docs/**"
-                ).permitAll()
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));

@@ -9,8 +9,10 @@ global:
   smtp_from: 'alertmanager@vanilsonshop.io'
   smtp_require_tls: false
 
-  # Slack default URL — set SLACK_WEBHOOK_URL env var for real Slack integration
-  slack_api_url: 'https://hooks.slack.com/services/placeholder'
+  # Slack integration is DISABLED: the previous placeholder URL made every failed
+  # notify log the full Slack HTML error page (189 MB log -> promtail 100%+ CPU).
+  # To enable for real, restore slack_api_url with a genuine webhook AND re-add
+  # slack_configs to the receivers below.
 
 route:
   group_by: ['alertname', 'job', 'service']
@@ -42,36 +44,12 @@ receivers:
           Subject: '[eCommerce] Alert: {{ .GroupLabels.alertname }}'
 
   - name: 'critical-alerts'
-    slack_configs:
-      - channel: '#incidents'
-        send_resolved: true
-        title: ':fire: CRITICAL: {{ .GroupLabels.alertname }}'
-        title_link: 'http://grafana:3000'
-        text: |
-          *Service:* {{ .GroupLabels.job }}
-          {{ range .Alerts }}
-          *Summary:* {{ .Annotations.summary }}
-          *Description:* {{ .Annotations.description }}
-          {{ end }}
-        color: 'danger'
     email_configs:
       - to: 'oncall@vanilsonshop.io'
         headers:
           Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
 
   - name: 'warning-alerts'
-    slack_configs:
-      - channel: '#alerts'
-        send_resolved: true
-        title: ':warning: WARNING: {{ .GroupLabels.alertname }}'
-        title_link: 'http://grafana:3000'
-        text: |
-          *Service:* {{ .GroupLabels.job }}
-          {{ range .Alerts }}
-          *Summary:* {{ .Annotations.summary }}
-          *Description:* {{ .Annotations.description }}
-          {{ end }}
-        color: 'warning'
     email_configs:
       - to: 'ops@vanilsonshop.io'
         headers:

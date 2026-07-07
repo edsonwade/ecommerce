@@ -39,6 +39,14 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!-- Prometheus registry — exposes /actuator/prometheus so the metrics
+         endpoint exists and can be scraped. Without this the endpoint 404s
+         even when exposure + security allow it. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

@@ -33,12 +33,21 @@ public class ConfigServerSecurityConfig {
     @Value("${CONFIG_SERVER_PASSWORD:changeme-set-in-env}")
     private String password;
 
+    // Unauthenticated actuator endpoints: health/info probes plus the Prometheus
+    // scrape. Config properties themselves stay behind basic auth. Only these
+    // specific endpoints are opened — never /actuator/** (env/heapdump protected).
+    static final String[] PUBLIC_ACTUATOR_ENDPOINTS = {
+        "/actuator/health",
+        "/actuator/info",
+        "/actuator/prometheus"
+    };
+
     @Bean
     public SecurityFilterChain configServerSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults())

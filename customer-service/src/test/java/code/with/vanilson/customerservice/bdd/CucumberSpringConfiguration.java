@@ -11,6 +11,8 @@ package code.with.vanilson.customerservice.bdd;
 import code.with.vanilson.customerservice.CustomerMapper;
 import code.with.vanilson.customerservice.CustomerRepository;
 import io.cucumber.spring.CucumberContextConfiguration;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.MessageSource;
@@ -20,8 +22,13 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 @SpringBootTest(properties = {
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration,org.springframework.boot.actuate.autoconfigure.data.redis.RedisReactiveHealthContributorAutoConfiguration",
-        "management.health.redis.enabled=false"
+        "management.health.redis.enabled=false",
+        "management.endpoints.web.exposure.include=health,prometheus"
 })
+@AutoConfigureMockMvc
+// Metrics exporters are disabled by default in Spring Boot tests; needed so the
+// @monitoring scenarios can hit a real /actuator/prometheus endpoint.
+@AutoConfigureObservability(tracing = false)
 @CucumberContextConfiguration
 @SuppressWarnings("unused")
 public class CucumberSpringConfiguration {
