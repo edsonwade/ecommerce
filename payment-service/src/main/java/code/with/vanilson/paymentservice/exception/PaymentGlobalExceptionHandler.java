@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -93,10 +94,23 @@ public class PaymentGlobalExceptionHandler {
             fieldErrors.put(error.getField(), error.getDefaultMessage());
         }
         log.warn("[PaymentExceptionHandler] Bean validation failed: fields={}", fieldErrors.keySet());
+        
+        String msg = messageSource.getMessage("payment.validation.failed", null, LocaleContextHolder.getLocale());
         Map<String, Object> body = buildBaseBody(HttpStatus.BAD_REQUEST,
-                "Dados inválidos na requisição.", "payment.validation.failed", request);
+                msg, "payment.validation.failed", request);
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Handles NoResourceFoundException specifically (framework 404s).
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            NoResourceFoundException ex, WebRequest request) {
+        log.debug("[PaymentExceptionHandler] Resource not found: {}", ex.getMessage());
+        String msg = messageSource.getMessage("error.resource.not.found", null, LocaleContextHolder.getLocale());
+        return buildResponse(HttpStatus.NOT_FOUND, msg, "error.resource.not.found", request);
     }
 
     /**
@@ -121,11 +135,8 @@ public class PaymentGlobalExceptionHandler {
             Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (ex.getMessage() != null && ex.getMessage().contains("test")) {
-            log.error("[PaymentExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
-        } else {
-            log.error("[PaymentExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
-        }
+        log.error("[PaymentExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        log.debug("[PaymentExceptionHandler] Unhandled exception ref=[{}] stacktrace:", ref, ex);
 
         // User-facing message WITHOUT the reference
         String message = messageSource.getMessage(

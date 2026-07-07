@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import code.with.vanilson.tenantcontext.exception.MissingTenantException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -117,10 +119,37 @@ public class OrderGlobalExceptionHandler {
         }
         log.warn("[OrderExceptionHandler] Bean validation failed: fields={}", fieldErrors.keySet());
 
+        String message = messageSource.getMessage(
+                "order.validation.failed",
+                null,
+                LocaleContextHolder.getLocale());
+
         Map<String, Object> body = buildBaseBody(HttpStatus.BAD_REQUEST,
-                "Dados inválidos na requisição.", "order.validation.failed", request);
+                message, "order.validation.failed", request);
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Handles NoResourceFoundException specifically (framework 404s).
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            NoResourceFoundException ex, WebRequest request) {
+        log.debug("[OrderExceptionHandler] Resource not found: {}", ex.getMessage());
+
+        String message = messageSource.getMessage(
+                "error.resource.not.found",
+                null,
+                LocaleContextHolder.getLocale());
+        return buildResponse(HttpStatus.NOT_FOUND, message, "error.resource.not.found", request);
+    }
+
+    @ExceptionHandler(MissingTenantException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingTenant(
+            MissingTenantException ex, WebRequest request) {
+        log.warn("[OrderExceptionHandler] Missing tenant: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), "order.tenant.missing", request);
     }
 
     /**
@@ -132,13 +161,9 @@ public class OrderGlobalExceptionHandler {
             NullPointerException ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        if (isTestMessage(ex.getMessage())) {
-            log.error("[OrderExceptionHandler] BUG DETECTED (TEST) - NullPointerException ref=[{}]: {}",
-                    ref, ex.getMessage());
-        } else {
-            log.error("[OrderExceptionHandler] BUG DETECTED - NullPointerException ref=[{}]: {}",
-                    ref, ex.getMessage(), ex);
-        }
+        log.error("[OrderExceptionHandler] BUG DETECTED - NullPointerException ref=[{}]: {}",
+                ref, ex.getMessage());
+        log.debug("[OrderExceptionHandler] BUG DETECTED - NullPointerException ref=[{}] stacktrace:", ref, ex);
 
         String message = messageSource.getMessage(
                 "order.error.internal.user",
@@ -155,13 +180,8 @@ public class OrderGlobalExceptionHandler {
             Exception ex, WebRequest request) {
         String ref = UUID.randomUUID().toString();
 
-        boolean isInternalOrTest = ex instanceof OrderInternalServiceException || isTestMessage(ex.getMessage());
-
-        if (isInternalOrTest) {
-            log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
-        } else {
-            log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage(), ex);
-        }
+        log.error("[OrderExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+        log.debug("[OrderExceptionHandler] Unhandled exception ref=[{}] stacktrace:", ref, ex);
 
         // User-facing message WITHOUT the reference
         String message = messageSource.getMessage(
@@ -169,14 +189,6 @@ public class OrderGlobalExceptionHandler {
                 null,
                 LocaleContextHolder.getLocale());
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, "order.error.internal", request);
-    }
-
-    private boolean isTestMessage(String message) {
-        if (message == null) {
-            return false;
-        }
-        String lower = message.toLowerCase();
-        return lower.contains("test") || lower.contains("simulated") || lower.contains("mock");
     }
 
     // -------------------------------------------------------

@@ -97,13 +97,8 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
             String ref = UUID.randomUUID().toString();
 
-            if (ex.getMessage() != null && ex.getMessage().contains("test")) {
-                log.error("[GatewayExceptionHandler] Unhandled exception ref=[{}]: {}",
-                        ref, ex.getMessage());
-            } else {
-                log.error("[GatewayExceptionHandler] Unhandled exception ref=[{}]: {}",
-                        ref, ex.getMessage(), ex);
-            }
+            log.error("[GatewayExceptionHandler] Unhandled exception ref=[{}]: {}", ref, ex.getMessage());
+            log.debug("[GatewayExceptionHandler] Unhandled exception ref=[{}] stacktrace:", ref, ex);
 
             // User-facing message WITHOUT the reference
             message = messageSource.getMessage(
