@@ -85,3 +85,15 @@ Feature: Async Order Creation and Status Polling
       | 20        | 88       |
     When an admin requests the lines of order 500
     Then exactly 2 order lines are returned
+
+  # ── Tenant isolation (B3 Fase 1b): a by-id order read is scoped to the caller's tenant.
+  #    The caller is bound to tenant "test-tenant" for these scenarios. ──
+  Scenario: A tenant reads its own order by id
+    Given an order 700 tagged with tenant "test-tenant" exists
+    When order 700 is requested by id
+    Then the order by id is returned
+
+  Scenario: A tenant cannot read another tenant's order by id
+    Given an order 700 tagged with tenant "other-tenant" exists
+    When order 700 is requested by id
+    Then the order by id is not found

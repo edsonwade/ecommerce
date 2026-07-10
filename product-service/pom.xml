@@ -15,7 +15,7 @@
         <spring-cloud.version>2023.0.1</spring-cloud.version>
         <cucumber.version>7.18.0</cucumber.version>
         <springdoc-openapi.version>2.3.0</springdoc-openapi.version>
-        <testcontainers.version>1.19.7</testcontainers.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <mockito.version>5.12.0</mockito.version>
     </properties>
 

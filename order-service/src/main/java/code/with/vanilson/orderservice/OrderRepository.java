@@ -32,6 +32,18 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
      */
     Optional<Order> findByCorrelationIdAndTenantId(String correlationId, String tenantId);
 
+    /**
+     * Tenant-scoped lookup by primary key.
+     * <p>
+     * A by-id read via {@link #findById} resolves to {@code EntityManager.find}, which the
+     * Hibernate {@code tenantFilter} does not apply to — so activating the filter cannot make
+     * a by-id read tenant-safe. {@code OrderService.findById} uses this query when a tenant is
+     * bound so a caller of tenant A reading tenant B's order by id gets an empty result (404)
+     * rather than a cross-tenant leak; the pre-existing ownership guard checks the principal,
+     * not the tenant, so it cannot close this gap on its own.
+     */
+    Optional<Order> findByOrderIdAndTenantId(Integer orderId, String tenantId);
+
     /** Returns all orders belonging to a specific customer. Hibernate tenant filter is active at call site. */
     java.util.List<Order> findByCustomerId(String customerId);
 

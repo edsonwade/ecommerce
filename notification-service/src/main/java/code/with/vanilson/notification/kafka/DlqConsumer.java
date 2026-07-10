@@ -36,7 +36,7 @@ public class DlqConsumer {
     }
 
     private static void dqlEventLog(ConsumerRecord<String, Object> record) {
-        log.error("DLQ event received — topic={}, partition={}, offset={}, payload={}",
+        log.warn("DLQ event received — topic={}, partition={}, offset={}, payload={}",
                 record.topic(), record.partition(), record.offset(), record.value());
     }
 }

@@ -7,6 +7,7 @@ import org.junit.platform.suite.api.Suite;
 
 import static io.cucumber.junit.platform.engine.Constants.GLUE_PROPERTY_NAME;
 import static io.cucumber.junit.platform.engine.Constants.FILTER_TAGS_PROPERTY_NAME;
+import static io.cucumber.junit.platform.engine.Constants.OBJECT_FACTORY_PROPERTY_NAME;
 import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
 
 /**
@@ -25,5 +26,9 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
         value = "code.with.vanilson.orderservice.bdd")
 @ConfigurationParameter(key = PLUGIN_PROPERTY_NAME,
         value = "pretty, html:target/cucumber-reports/order-saga-bdd-report.html")
+// POJO + Mockito glue; pin the default factory so the cucumber-spring
+// SpringFactory (present for the monitoring suite) is not auto-selected.
+@ConfigurationParameter(key = OBJECT_FACTORY_PROPERTY_NAME,
+        value = "io.cucumber.core.backend.DefaultObjectFactory")
 public class CucumberSagaIntegrationTest {
 }

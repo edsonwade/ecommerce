@@ -106,6 +106,17 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.3.0</version>
                 <configuration>
+                    <!-- Explicit includes: surefire's defaults never match the
+                         Cucumber @Suite runners (they end in "Runner"), so the
+                         BDD suites were silently skipped. Defaults re-listed
+                         because <includes> replaces them. -->
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/CucumberTestRunner.java</include>
+                    </includes>
                     <excludes>
                         <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
@@ -120,6 +131,24 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>3.2.5</version>
+                <configuration>
+                    <!-- Failsafe's defaults (IT*, *IT, *ITCase) never match our
+                         *IntegrationTest naming convention, so integration and
+                         Testcontainers-backed Cucumber suites were silently
+                         skipped on mvn verify. -->
+                    <includes>
+                        <include>**/IT*.java</include>
+                        <include>**/*IT.java</include>
+                        <include>**/*ITCase.java</include>
+                        <include>**/*IntegrationTest.java</include>
+                        <include>**/MonitoringCucumberRunner.java</include>
+                    </includes>
+                    <properties>
+                        <configurationParameters>
+                            cucumber.junit-platform.naming-strategy=long
+                        </configurationParameters>
+                    </properties>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

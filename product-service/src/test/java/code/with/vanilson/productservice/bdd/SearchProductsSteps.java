@@ -60,8 +60,12 @@ public class SearchProductsSteps {
         // Use real ProductMapper — fromProduct() is package-private and is invoked
         // internally by ProductService (same package), so the real mapper works fine.
         ProductMapper realMapper = new ProductMapper(mockMessageSource);
+        // Filter activation is a no-op here (no tenant bound in these BDD scenarios); mock it
+        // so searchProducts()'s activateFilter() call has a collaborator.
+        var mockFilterActivator =
+                Mockito.mock(code.with.vanilson.tenantcontext.TenantHibernateFilterActivator.class);
         productService = new ProductService(mockRepo, realMapper, mockMessageSource, mockCategoryRepo,
-                new InventoryReservationService(mockRepo, mockMessageSource));
+                new InventoryReservationService(mockRepo, mockMessageSource), mockFilterActivator);
         searchResult = null;
         catalogProducts = null;
     }
