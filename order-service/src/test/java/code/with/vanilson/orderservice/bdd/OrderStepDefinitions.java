@@ -62,6 +62,7 @@ public class OrderStepDefinitions {
     private Exception caughtException;
     private OrderRequest orderRequest;
     private List<OrderResponse> orderList;
+    private OrderResponse orderByIdResponse;
 
     @Before
     public void setUp() {
@@ -96,6 +97,7 @@ public class OrderStepDefinitions {
         caughtException = null;
         orderRequest = null;
         orderList = null;
+        orderByIdResponse = null;
     }
 
     @After
@@ -268,6 +270,45 @@ public class OrderStepDefinitions {
     @Then("the system returns {int} orders")
     public void the_system_returns_n_orders(int count) {
         assertThat(orderList).isNotNull().hasSize(count);
+    }
+
+    // ---- Tenant-scoped by-id read (B3 Fase 1b) ----
+
+    @Given("an order {int} tagged with tenant {string} exists")
+    public void an_order_tagged_with_tenant(int id, String owningTenant) {
+        Order order = Order.builder()
+                .orderId(id).correlationId("corr-" + id).reference("ORD-" + id)
+                .totalAmount(BigDecimal.valueOf(50)).status(OrderStatus.REQUESTED)
+                .customerId("42").paymentMethod(PaymentMethod.CREDIT_CARD)
+                .tenantId(owningTenant).build();
+        // Tenant-scoped query returns the order only to its owning tenant, exactly as the real
+        // WHERE tenant_id = :tenantId would; the caller here is bound to "test-tenant".
+        when(orderRepository.findByOrderIdAndTenantId(eq(id), anyString())).thenAnswer(inv ->
+                owningTenant.equals(inv.getArgument(1)) ? Optional.of(order) : Optional.empty());
+        lenient().when(orderMapper.fromOrder(eq(order), any())).thenReturn(new OrderResponse(
+                id, "ORD-" + id, BigDecimal.valueOf(50), "CREDIT_CARD", "42", "REQUESTED"));
+    }
+
+    @When("order {int} is requested by id")
+    public void order_is_requested_by_id(int id) {
+        try {
+            orderByIdResponse = orderService.findById(id);
+        } catch (Exception e) {
+            caughtException = e;
+        }
+    }
+
+    @Then("the order by id is returned")
+    public void the_order_by_id_is_returned() {
+        assertThat(caughtException).as("a same-tenant read must not error").isNull();
+        assertThat(orderByIdResponse).isNotNull();
+        assertThat(orderByIdResponse.reference()).isEqualTo("ORD-700");
+    }
+
+    @Then("the order by id is not found")
+    public void the_order_by_id_is_not_found() {
+        assertThat(orderByIdResponse).as("no order should be returned across tenants").isNull();
+        assertThat(caughtException).isInstanceOf(OrderNotFoundException.class);
     }
 
     // ---- Helpers ----

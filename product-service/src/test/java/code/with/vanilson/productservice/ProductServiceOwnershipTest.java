@@ -44,6 +44,7 @@ class ProductServiceOwnershipTest {
     @Mock private ProductRepository productRepository;
     @Mock private ProductMapper     productMapper;
     @Mock private MessageSource     messageSource;
+    @Mock private code.with.vanilson.tenantcontext.TenantHibernateFilterActivator filterActivator;
 
     @InjectMocks
     private ProductService productService;

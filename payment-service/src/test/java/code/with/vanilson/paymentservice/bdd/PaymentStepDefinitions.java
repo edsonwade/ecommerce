@@ -79,6 +79,7 @@ public class PaymentStepDefinitions {
                 .paymentId(1)
                 .orderReference(orderRef)
                 .amount(BigDecimal.valueOf(amount))
+                .paymentMethod(PaymentMethod.CREDIT_CARD)
                 .idempotencyKey("payment:" + orderRef)
                 .build();
 

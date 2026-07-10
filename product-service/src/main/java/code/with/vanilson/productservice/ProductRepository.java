@@ -67,4 +67,20 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
      * @return page of the seller's own products
      */
     Page<Product> findByCreatedBy(String createdBy, Pageable pageable);
+
+    /**
+     * Tenant-scoped lookup by primary key.
+     * <p>
+     * A by-id read via {@code findById} resolves to {@code EntityManager.find}, which
+     * Hibernate {@code @Filter} does not apply to — so the tenant filter alone cannot make
+     * a by-id read tenant-safe. {@code getProductById} uses this query when a tenant is
+     * bound so a caller of tenant A reading tenant B's product by id gets an empty result
+     * (404), not a cross-tenant leak. Defense-in-depth at the query level alongside the
+     * Hibernate filter used by the list reads.
+     *
+     * @param id       product primary key
+     * @param tenantId the tenant the caller is bound to
+     * @return the product only if it belongs to {@code tenantId}, otherwise empty
+     */
+    java.util.Optional<Product> findByIdAndTenantId(Integer id, String tenantId);
 }

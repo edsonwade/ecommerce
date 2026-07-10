@@ -21,6 +21,7 @@ public class DeserializationErrorHandler implements ConsumerRecordRecoverer {
     public void accept(ConsumerRecord<?, ?> record, Exception exception) {
         log.error("Deserialization error: unable to deserialize record from topic='{}', partition={}, offset={}. "
                         + "Record will be skipped. Exception: {}",
-                record.topic(), record.partition(), record.offset(), exception.getMessage(), exception);
+                record.topic(), record.partition(), record.offset(), exception.getMessage());
+        log.debug("Deserialization error stack trace", exception);
     }
 }

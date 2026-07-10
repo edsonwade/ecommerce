@@ -4,6 +4,8 @@ import code.with.vanilson.productservice.category.Category;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.tenantcontext.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -57,6 +60,7 @@ class ProductServiceTest {
     @Mock private ProductMapper      productMapper;
     @Mock private MessageSource      messageSource;
     @Mock private code.with.vanilson.productservice.category.CategoryRepository categoryRepository;
+    @Mock private code.with.vanilson.tenantcontext.TenantHibernateFilterActivator filterActivator;
 
     private ProductService productService;
 
@@ -82,14 +86,25 @@ class ProductServiceTest {
         response2 = new ProductResponse(2, "Headphones","Noise Cancelling",15.0,
                 BigDecimal.valueOf(250.00), 1, "Electronics", "Electronic items", "1", null);
 
-        // MessageSource stub: returns the key itself so tests are portable
-        when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
+        // MessageSource stub: returns the key itself so tests are portable.
+        // lenient() because tenant-scoping tests (e.g. cacheTenantKeyDiscriminatesTenant)
+        // don't exercise any message-resolving code path.
+        lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         // Real shared reservation core wired over the same mocks — purchase tests
         // exercise the actual fetch/validate/deduct logic, not a stub.
         productService = new ProductService(productRepository, productMapper, messageSource,
-                categoryRepository, new InventoryReservationService(productRepository, messageSource));
+                categoryRepository, new InventoryReservationService(productRepository, messageSource),
+                filterActivator);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        // Defensive: no test in this class binds a tenant except the tenant-scoping group,
+        // which clears its own — but keep the shared ThreadLocal clean so an ordering change
+        // can never flip getProductById onto the tenant-scoped branch of another test.
+        TenantContext.clear();
     }
 
     // -------------------------------------------------------
@@ -249,6 +264,81 @@ class ProductServiceTest {
     }
 
     // -------------------------------------------------------
+    // Tenant isolation (B3 Fase 1b) — reads honour the bound tenant
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("tenant isolation — reads scope to the bound tenant")
+    class TenantScoping {
+
+        @AfterEach
+        void clear() {
+            TenantContext.clear();
+        }
+
+        @Test
+        @DisplayName("getProductById queries by tenant when a tenant is bound (no em.find leak)")
+        void getProductByIdUsesTenantScopedQueryWhenTenantBound() {
+            TenantContext.setCurrentTenantId("tenant-a");
+            when(productRepository.findByIdAndTenantId(1, "tenant-a")).thenReturn(Optional.of(product1));
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+
+            ProductResponse result = productService.getProductById(1);
+
+            assertThat(result.name()).isEqualTo("Laptop");
+            verify(productRepository).findByIdAndTenantId(1, "tenant-a");
+            verify(productRepository, never()).findById(any(Integer.class));
+        }
+
+        @Test
+        @DisplayName("getProductById across tenants is a 404, not a cross-tenant leak")
+        void getProductByIdAcrossTenantsIsNotFound() {
+            TenantContext.setCurrentTenantId("tenant-a");
+            when(productRepository.findByIdAndTenantId(2, "tenant-a")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.getProductById(2))
+                    .isInstanceOf(ProductNotFoundException.class)
+                    .hasMessageContaining("product.not.found");
+            verify(productRepository, never()).findById(any(Integer.class));
+        }
+
+        @Test
+        @DisplayName("getProductById falls back to a plain lookup when no tenant is bound (single-tenant dev)")
+        void getProductByIdFallsBackToPlainLookupWithoutTenant() {
+            // TenantContext deliberately not set.
+            when(productRepository.findById(1)).thenReturn(Optional.of(product1));
+            when(productMapper.fromProduct(product1)).thenReturn(response1);
+
+            ProductResponse result = productService.getProductById(1);
+
+            assertThat(result.name()).isEqualTo("Laptop");
+            verify(productRepository).findById(1);
+            verify(productRepository, never()).findByIdAndTenantId(any(Integer.class), anyString());
+        }
+
+        @Test
+        @DisplayName("getAllProducts activates the Hibernate tenant filter before querying")
+        void getAllProductsActivatesTenantFilter() {
+            TenantContext.setCurrentTenantId("tenant-a");
+            when(productRepository.findAll(any(Pageable.class))).thenReturn(Page.empty());
+
+            productService.getAllProducts(PageRequest.of(0, 10));
+
+            verify(filterActivator).activateFilter();
+        }
+
+        @Test
+        @DisplayName("cacheTenantKey returns the bound tenant, or 'none' when unbound")
+        void cacheTenantKeyDiscriminatesTenant() {
+            TenantContext.setCurrentTenantId("tenant-a");
+            assertThat(productService.cacheTenantKey()).isEqualTo("tenant-a");
+
+            TenantContext.clear();
+            assertThat(productService.cacheTenantKey()).isEqualTo("none");
+        }
+    }
+
+    // -------------------------------------------------------
     // createProduct
     // -------------------------------------------------------
 
@@ -287,6 +377,41 @@ class ProductServiceTest {
             assertThatThrownBy(() -> productService.createProduct(noCategory))
                     .isInstanceOf(ProductNullException.class)
                     .hasMessageContaining("product.category.null");
+        }
+
+        @Test
+        @DisplayName("stamps tenantId from the request context")
+        void shouldStampTenantIdFromContext() {
+            TenantContext.setCurrentTenantId("tenant-a");
+            try {
+                when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+                when(productMapper.toProductRequest(any(Product.class))).thenReturn(
+                        new ProductRequest(1, "Laptop", "Gaming Laptop", 5.0, BigDecimal.valueOf(1200.00), 1));
+
+                productService.createProduct(product1);
+
+                ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+                verify(productRepository).save(captor.capture());
+                assertThat(captor.getValue().getTenantId()).isEqualTo("tenant-a");
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @DisplayName("stamps 'default' (not the old 'default-tenant' orphan) when no tenant is bound")
+        void shouldStampDefaultTenantWhenNoContext() {
+            when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(productMapper.toProductRequest(any(Product.class))).thenReturn(
+                    new ProductRequest(1, "Laptop", "Gaming Laptop", 5.0, BigDecimal.valueOf(1200.00), 1));
+
+            productService.createProduct(product1);
+
+            ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+            verify(productRepository).save(captor.capture());
+            assertThat(captor.getValue().getTenantId())
+                    .isEqualTo("default")
+                    .isNotEqualTo("default-tenant");
         }
     }
 

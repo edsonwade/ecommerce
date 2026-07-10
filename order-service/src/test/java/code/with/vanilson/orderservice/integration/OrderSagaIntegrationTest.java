@@ -8,11 +8,17 @@ import code.with.vanilson.orderservice.outbox.OutboxRepository;
 import code.with.vanilson.orderservice.payment.PaymentMethod;
 import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
 import code.with.vanilson.tenantcontext.TenantContext;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -23,7 +29,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +63,16 @@ import static org.mockito.Mockito.when;
 @EmbeddedKafka(
         partitions = 1,
         topics = {"payment.authorized", "payment.failed", "inventory.insufficient", "order-topic"},
-        brokerProperties = {"auto.create.topics.enable=true"})
+        brokerProperties = {
+                "auto.create.topics.enable=true",
+                // Cap internal-topic index preallocation — without these the embedded
+                // broker preallocates ~2.3 GB of index files per run in %TEMP%.
+                "offsets.topic.num.partitions=1",
+                "transaction.state.log.num.partitions=1",
+                "transaction.state.log.replication.factor=1",
+                "transaction.state.log.min.isr=1",
+                "log.index.size.max.bytes=1048576"
+        })
 @ActiveProfiles("test")
 @DisplayName("Order Saga Integration Tests — Phase 0 (Testcontainers PostgreSQL + EmbeddedKafka)")
 class OrderSagaIntegrationTest {
@@ -72,6 +89,29 @@ class OrderSagaIntegrationTest {
         registry.add("spring.datasource.url",      postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+    }
+
+    /**
+     * The application declares its own {@code KafkaTemplate<String, String>} and
+     * {@code KafkaTemplate<String, OrderConfirmation>} beans, so Boot's auto-configured
+     * generic template backs off ({@code @ConditionalOnMissingBean(KafkaTemplate.class)})
+     * and no {@code KafkaTemplate<String, Object>} exists to drive the saga topics from a test.
+     * <p>
+     * This test-only template publishes JSON, which is what {@code sagaConsumerFactory}
+     * expects: it reads values with a {@code StringDeserializer} and lets
+     * {@code StringJsonMessageConverter} bind the payload to the listener's event type.
+     * Type headers are switched off so the converter uses the listener signature rather
+     * than a serialised class name.
+     */
+    @TestConfiguration
+    static class SagaTestProducerConfig {
+        @Bean
+        KafkaTemplate<String, Object> objectKafkaTemplate(KafkaProperties kafkaProperties) {
+            Map<String, Object> props = new HashMap<>(kafkaProperties.buildProducerProperties(null));
+            props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+            props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+            return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(props));
+        }
     }
 
     @Autowired OrderService      orderService;

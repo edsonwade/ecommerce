@@ -304,7 +304,14 @@ public class OrderService {
 
     public OrderResponse findById(Integer id) {
         filterActivator.activateFilter();
-        Order order = orderRepository.findById(id)
+        // Tenant safety: findById (= em.find) bypasses the Hibernate tenant filter by design,
+        // so when a tenant is bound we query by (id, tenant) — a caller of tenant A reading
+        // tenant B's order gets a 404, not a leak. The ownership guard below only checks the
+        // principal, so it cannot enforce tenant isolation on its own. Without a bound tenant
+        // (internal/single-tenant paths) fall back to the plain lookup.
+        Order order = (TenantContext.isPresent()
+                ? orderRepository.findByOrderIdAndTenantId(id, TenantContext.getCurrentTenantId())
+                : orderRepository.findById(id))
                 .orElseThrow(() -> new OrderNotFoundException(
                         msg("order.not.found", id), "order.not.found"));
 

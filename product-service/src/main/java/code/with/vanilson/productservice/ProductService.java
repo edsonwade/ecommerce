@@ -7,6 +7,7 @@ import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
 import code.with.vanilson.tenantcontext.TenantContext;
+import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.MessageFormat;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * ProductService — Application Layer
@@ -57,17 +59,20 @@ public class ProductService {
     private final MessageSource messageSource;
     private final CategoryRepository categoryRepository;
     private final InventoryReservationService inventoryReservationService;
+    private final TenantHibernateFilterActivator filterActivator;
 
     public ProductService(ProductRepository productRepository,
                           ProductMapper productMapper,
                           MessageSource messageSource,
                           CategoryRepository categoryRepository,
-                          InventoryReservationService inventoryReservationService) {
+                          InventoryReservationService inventoryReservationService,
+                          TenantHibernateFilterActivator filterActivator) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.messageSource = messageSource;
         this.categoryRepository = categoryRepository;
         this.inventoryReservationService = inventoryReservationService;
+        this.filterActivator = filterActivator;
     }
 
     // -------------------------------------------------------
@@ -82,8 +87,10 @@ public class ProductService {
      * @return Page of ProductResponse DTOs
      */
     @Cacheable(value = CACHE_PRODUCT_LIST,
-            key = "#root.target.catalogScopeKey() + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+            key = "#root.target.cacheTenantKey() + '-' + #root.target.catalogScopeKey() "
+                    + "+ '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
+        filterActivator.activateFilter();
         String sellerScope = currentSellerScope();
         Page<ProductResponse> page = (sellerScope != null
                 ? productRepository.findByCreatedBy(sellerScope, pageable)
@@ -107,6 +114,7 @@ public class ProductService {
      * @return Page of the caller's own ProductResponse DTOs (empty if unauthenticated)
      */
     public Page<ProductResponse> getMyProducts(Pageable pageable) {
+        filterActivator.activateFilter();
         SecurityPrincipal principal = currentPrincipal();
         if (principal == null) {
             return Page.empty(pageable);
@@ -120,14 +128,26 @@ public class ProductService {
 
     /**
      * Returns a single product by ID.
-     * Cached individually in Redis under 'products::{id}'.
+     * Cached individually in Redis under 'products::{tenant}:{id}'.
+     * <p>
+     * Tenant safety: a by-id lookup uses {@code repository.findById} (= {@code em.find}),
+     * which Hibernate {@code @Filter} does <strong>not</strong> apply to by design — so
+     * activating the filter is not enough here. When a tenant is bound to the request we
+     * query {@link ProductRepository#findByIdAndTenantId} instead, so a caller of tenant A
+     * reading tenant B's product gets a 404, not a cross-tenant leak. Without a tenant
+     * (single-tenant dev / anonymous) we fall back to the plain lookup. The cache key is
+     * tenant-scoped for the same reason — otherwise tenant A could be served tenant B's
+     * cached entry under the shared {@code id} key.
      *
      * @param id product ID
      * @return ProductResponse DTO
      */
-    @Cacheable(value = CACHE_PRODUCTS, key = "#id")
+    @Cacheable(value = CACHE_PRODUCTS, key = "#root.target.cacheTenantKey() + ':' + #id")
     public ProductResponse getProductById(int id) {
-        return productRepository.findById(id)
+        Optional<Product> found = TenantContext.isPresent()
+                ? productRepository.findByIdAndTenantId(id, TenantContext.getCurrentTenantId())
+                : productRepository.findById(id);
+        return found
                 .map(product -> {
                     log.info(resolve("product.log.found.by.id", id, product.getName()));
                     return productMapper.fromProduct(product);
@@ -157,6 +177,7 @@ public class ProductService {
     public Page<ProductResponse> searchProducts(String query, Integer categoryId,
                                                 String sortBy, String sortDir,
                                                 int page, int size) {
+        filterActivator.activateFilter();
         Sort.Direction direction = Sort.Direction.fromString(sortDir);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
@@ -203,8 +224,13 @@ public class ProductService {
         }
         SecurityPrincipal p = currentPrincipal();
         product.setCreatedBy(p != null ? String.valueOf(p.userId()) : "system");
+        // Stamp the tenant from the request context. The previous "default-tenant" fallback
+        // wrote an orphan tag that matched neither the JWT tenant claim nor the seeded data
+        // (both "default"); once the read path filters by tenant that orphan would vanish
+        // from every query. Fall back to the single-tenant "default" so a product created
+        // without a bound tenant is still reachable, consistent with auth and the catalogue.
         String tenantId = TenantContext.getCurrentTenantId();
-        product.setTenantId(tenantId != null ? tenantId : "default-tenant");
+        product.setTenantId(tenantId != null && !tenantId.isBlank() ? tenantId : "default");
         log.info(resolve("product.log.ownership.stamp", product.getName(), product.getCreatedBy()));
         Product saved = productRepository.save(product);
         log.info(resolve("product.log.created", saved.getId(), saved.getName()));
@@ -374,5 +400,17 @@ public class ProductService {
     public String catalogScopeKey() {
         String scope = currentSellerScope();
         return scope == null ? "all" : "seller:" + scope;
+    }
+
+    /**
+     * Tenant discriminator for cache keys: keeps one tenant's cached catalogue page or
+     * product entry from being served to another under a shared, tenant-blind key. Public
+     * so it is reachable from the {@code @Cacheable} SpEL key expression.
+     *
+     * @return the current tenant id, or {@code "none"} when no tenant is bound (single-tenant dev)
+     */
+    public String cacheTenantKey() {
+        String tenant = TenantContext.getCurrentTenantId();
+        return (tenant == null || tenant.isBlank()) ? "none" : tenant;
     }
 }

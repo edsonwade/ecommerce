@@ -4,6 +4,8 @@ import code.with.vanilson.productservice.Product;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.ProductResponse;
 import code.with.vanilson.productservice.ProductService;
+import code.with.vanilson.productservice.category.Category;
+import code.with.vanilson.productservice.category.CategoryRepository;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
@@ -87,7 +89,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @EmbeddedKafka(
         partitions = 1,
         topics = {"order.requested", "payment.failed", "inventory.reserved", "inventory.released"},
-        brokerProperties = {"auto.create.topics.enable=true"})
+        brokerProperties = {
+                "auto.create.topics.enable=true",
+                // Cap internal-topic index preallocation — without these the embedded
+                // broker preallocates ~2.3 GB of index files per run in %TEMP%.
+                "offsets.topic.num.partitions=1",
+                "transaction.state.log.num.partitions=1",
+                "transaction.state.log.replication.factor=1",
+                "transaction.state.log.min.isr=1",
+                "log.index.size.max.bytes=1048576"
+        })
 @ActiveProfiles("test")
 @DisplayName("Tenant isolation — product-service (integration, Testcontainers PostgreSQL)")
 class ProductTenantIsolationIntegrationTest {
@@ -125,6 +136,7 @@ class ProductTenantIsolationIntegrationTest {
 
     @Autowired ProductService productService;
     @Autowired ProductRepository productRepository;
+    @Autowired CategoryRepository categoryRepository;
     @Autowired TenantHibernateFilterActivator filterActivator;
     @Autowired PlatformTransactionManager transactionManager;
 
@@ -141,19 +153,31 @@ class ProductTenantIsolationIntegrationTest {
         // Flyway seed products (createdBy="system") would pollute the assertions.
         productRepository.deleteAll();
 
+        // ProductMapper.fromProduct rejects a product without a category, so the seed
+        // must carry one or every service read fails before the tenant filter is exercised.
+        // Reuse a Flyway-seeded category: category.tenant_id is NOT NULL (V4) but the JPA
+        // entity does not map it — in production categories are only ever inserted by
+        // migrations, so saving one through the repository violates the constraint.
+        Category category = categoryRepository.findAll().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Flyway seed categories missing — migrations did not run in the test container"));
+
         laptopA = productRepository.save(Product.builder()
                 .name("A-Laptop").description("Tenant A laptop")
                 .availableQuantity(10.0).price(BigDecimal.valueOf(1500))
+                .category(category)
                 .tenantId(TENANT_A).createdBy("9001")
                 .build());
         phoneA = productRepository.save(Product.builder()
                 .name("A-Phone").description("Tenant A phone")
                 .availableQuantity(20.0).price(BigDecimal.valueOf(800))
+                .category(category)
                 .tenantId(TENANT_A).createdBy("9001")
                 .build());
         cameraB = productRepository.save(Product.builder()
                 .name("B-Camera").description("Tenant B camera")
                 .availableQuantity(5.0).price(BigDecimal.valueOf(600))
+                .category(category)
                 .tenantId(TENANT_B).createdBy("9002")
                 .build());
     }

@@ -29,7 +29,16 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @EmbeddedKafka(
         partitions = 1,
         topics = {"inventory.reserved", "payment.authorized", "payment.failed", "payment-topic"},
-        brokerProperties = {"auto.create.topics.enable=true"})
+        brokerProperties = {
+                "auto.create.topics.enable=true",
+                // Cap internal-topic index preallocation — without these the embedded
+                // broker preallocates ~2.3 GB of index files per run in %TEMP%.
+                "offsets.topic.num.partitions=1",
+                "transaction.state.log.num.partitions=1",
+                "transaction.state.log.replication.factor=1",
+                "transaction.state.log.min.isr=1",
+                "log.index.size.max.bytes=1048576"
+        })
 // Metrics exporters are disabled by default in Spring Boot tests; needed so the
 // scenarios can hit a real /actuator/prometheus endpoint.
 @AutoConfigureObservability(tracing = false)

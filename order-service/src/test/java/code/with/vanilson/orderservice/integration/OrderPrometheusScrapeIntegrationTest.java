@@ -37,7 +37,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @EmbeddedKafka(
         partitions = 1,
         topics = {"payment.authorized", "payment.failed", "inventory.insufficient", "order-topic"},
-        brokerProperties = {"auto.create.topics.enable=true"})
+        brokerProperties = {
+                "auto.create.topics.enable=true",
+                // Cap internal-topic index preallocation — without these the embedded
+                // broker preallocates ~2.3 GB of index files per run in %TEMP%.
+                "offsets.topic.num.partitions=1",
+                "transaction.state.log.num.partitions=1",
+                "transaction.state.log.replication.factor=1",
+                "transaction.state.log.min.isr=1",
+                "log.index.size.max.bytes=1048576"
+        })
 @ActiveProfiles("test")
 // Metrics exporters are disabled by default in Spring Boot tests; without this
 // the PrometheusMeterRegistry bean is never created and /actuator/prometheus

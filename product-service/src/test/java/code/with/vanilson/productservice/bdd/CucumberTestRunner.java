@@ -18,11 +18,24 @@ import org.junit.platform.suite.api.Suite;
  */
 @Suite
 @IncludeEngines("cucumber")
-@SelectClasspathResource("features")
+// Feature files are selected individually: selecting the "features" directory
+// would also pull in the legacy products.feature from src/MAIN/resources/features
+// (same classpath root name), whose glue (stepdefinitions package) is not on this
+// suite's glue path and whose endpoints are stale (POST /api/v1/products vs the
+// real /api/v1/products/create) — those endpoints are covered by
+// ProductControllerTest. New feature files must be registered here.
+@SelectClasspathResource("features/purchase_products.feature")
+@SelectClasspathResource("features/search_products.feature")
+@SelectClasspathResource("features/tenant_isolation.feature")
 @ConfigurationParameter(key = Constants.GLUE_PROPERTY_NAME,
         value = "code.with.vanilson.productservice.bdd")
 @ConfigurationParameter(key = Constants.PLUGIN_PROPERTY_NAME,
         value = "pretty, html:target/cucumber-reports/cucumber.html, json:target/cucumber-reports/cucumber.json")
 @ConfigurationParameter(key = Constants.FILTER_TAGS_PROPERTY_NAME, value = "not @Ignore")
+// Steps here are POJO + Mockito. cucumber-spring is on the classpath (for the
+// monitoring suite), so without this pin Cucumber auto-selects SpringFactory
+// and fails: no @CucumberContextConfiguration exists in this glue package.
+@ConfigurationParameter(key = Constants.OBJECT_FACTORY_PROPERTY_NAME,
+        value = "io.cucumber.core.backend.DefaultObjectFactory")
 public class CucumberTestRunner {
 }
