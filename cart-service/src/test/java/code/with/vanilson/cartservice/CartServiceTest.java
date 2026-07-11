@@ -218,6 +218,94 @@ class CartServiceTest {
     }
 
     // -------------------------------------------------------
+    // addItem — Idempotency-Key (B4)
+    // -------------------------------------------------------
+    @Nested @DisplayName("addItem — Idempotency-Key (B4)")
+    class AddItemIdempotency {
+
+        private static final String KEY = "idem-key-001";
+
+        @Test @DisplayName("should record the key and apply the add on first delivery")
+        void shouldApplyAndRecordKeyOnFirstDelivery() {
+            CartResponse expectedResponse = buildResponse(CART_ID, CUSTOMER_ID, 1);
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            when(cartRepository.save(any(Cart.class))).thenReturn(cartWithOneItem);
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(expectedResponse);
+
+            cartService.addItem(CUSTOMER_ID, addLaptopRequest, KEY);
+
+            ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
+            verify(cartRepository).save(captor.capture());
+            // The add applied (2 existing + 2 requested = 4) and the key was recorded
+            assertThat(captor.getValue().getItems().get(0).getQuantity()).isEqualTo(4.0);
+            assertThat(captor.getValue().hasIdempotencyKey(KEY)).isTrue();
+        }
+
+        @Test @DisplayName("should NOT increment quantity when the same key is replayed")
+        void shouldNotIncrementOnReplayedKey() {
+            // Cart state after the first (successful) add: key already applied
+            cartWithOneItem.recordIdempotencyKey(KEY);
+            CartResponse expectedResponse = buildResponse(CART_ID, CUSTOMER_ID, 1);
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(expectedResponse);
+
+            CartResponse result = cartService.addItem(CUSTOMER_ID, addLaptopRequest, KEY);
+
+            assertThat(result).isNotNull();
+            // Replay must not mutate or persist anything
+            verify(cartRepository, never()).save(any());
+            assertThat(cartWithOneItem.getItems().get(0).getQuantity()).isEqualTo(2.0);
+        }
+
+        @Test @DisplayName("should apply adds with different keys separately")
+        void shouldApplyDifferentKeysSeparately() {
+            cartWithOneItem.recordIdempotencyKey(KEY);
+            CartResponse expectedResponse = buildResponse(CART_ID, CUSTOMER_ID, 1);
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            when(cartRepository.save(any(Cart.class))).thenReturn(cartWithOneItem);
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(expectedResponse);
+
+            cartService.addItem(CUSTOMER_ID, addLaptopRequest, "idem-key-002");
+
+            // A different key is a different user action — the merge applies
+            ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
+            verify(cartRepository).save(captor.capture());
+            assertThat(captor.getValue().getItems().get(0).getQuantity()).isEqualTo(4.0);
+            assertThat(captor.getValue().hasIdempotencyKey("idem-key-002")).isTrue();
+        }
+
+        @Test @DisplayName("should keep legacy merge behaviour when no key is sent")
+        void shouldKeepLegacyBehaviourWithoutKey() {
+            CartResponse expectedResponse = buildResponse(CART_ID, CUSTOMER_ID, 1);
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            when(cartRepository.save(any(Cart.class))).thenReturn(cartWithOneItem);
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(expectedResponse);
+
+            cartService.addItem(CUSTOMER_ID, addLaptopRequest, null);
+
+            ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
+            verify(cartRepository).save(captor.capture());
+            assertThat(captor.getValue().getItems().get(0).getQuantity()).isEqualTo(4.0);
+            // No key sent → nothing recorded
+            assertThat(captor.getValue().getAppliedIdempotencyKeys()).isEmpty();
+        }
+
+        @Test @DisplayName("should treat a blank key as absent")
+        void shouldTreatBlankKeyAsAbsent() {
+            CartResponse expectedResponse = buildResponse(CART_ID, CUSTOMER_ID, 1);
+            when(cartRepository.findById(CART_ID)).thenReturn(Optional.of(cartWithOneItem));
+            when(cartRepository.save(any(Cart.class))).thenReturn(cartWithOneItem);
+            when(cartMapper.toResponse(any(Cart.class))).thenReturn(expectedResponse);
+
+            cartService.addItem(CUSTOMER_ID, addLaptopRequest, "   ");
+
+            ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
+            verify(cartRepository).save(captor.capture());
+            assertThat(captor.getValue().getAppliedIdempotencyKeys()).isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------
     // updateItemQuantity
     // -------------------------------------------------------
     @Nested @DisplayName("updateItemQuantity")

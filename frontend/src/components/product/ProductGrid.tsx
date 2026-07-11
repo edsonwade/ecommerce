@@ -21,15 +21,22 @@ export default function ProductGrid({ products }: ProductGridProps) {
   const prevFailureCount = useRef(0);
 
   const { mutate: addToCart, isPending: isAddingToCart, failureCount } = useMutation({
-    mutationFn: (product: ProductResponse) =>
-      cartApi.addItem(userId!, {
-        productId: product.id,
-        productName: product.name,
-        productDescription: product.description,
-        unitPrice: product.price,
-        quantity: 1,
-        availableQuantity: product.availableQuantity,
-      }),
+    // The idempotency key is generated once per click (in handleAddToCart) and
+    // travels with the mutation variables, so the 503 retry reuses the SAME key
+    // and cart-service applies the add only once.
+    mutationFn: ({ product, idempotencyKey }: { product: ProductResponse; idempotencyKey: string }) =>
+      cartApi.addItem(
+        userId!,
+        {
+          productId: product.id,
+          productName: product.name,
+          productDescription: product.description,
+          unitPrice: product.price,
+          quantity: 1,
+          availableQuantity: product.availableQuantity,
+        },
+        idempotencyKey,
+      ),
     retry: (count, error) => count <= 1 && (error as unknown as AppError).status === 503,
     // Optimistic: confirm to the user the instant they click, not after the
     // server round-trip — the toast must feel immediate (ms, not seconds).
@@ -59,7 +66,7 @@ export default function ProductGrid({ products }: ProductGridProps) {
 
   const handleAddToCart = (product: ProductResponse) => {
     if (!isAuthenticated || !userId) return;
-    addToCart(product);
+    addToCart({ product, idempotencyKey: crypto.randomUUID() });
   };
 
   if (products.length === 0) {

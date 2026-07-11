@@ -4,6 +4,7 @@ import code.with.vanilson.productservice.domain.InventoryReservation;
 import code.with.vanilson.productservice.domain.InventoryReservationRepository;
 import code.with.vanilson.productservice.InventoryReservationService;
 import code.with.vanilson.productservice.Product;
+import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * InventoryReservationConsumer — Infrastructure Layer (Saga Step 1)
@@ -34,12 +38,21 @@ import java.util.UUID;
  * 3a. SUCCESS → publish inventory.reserved → payment-service processes payment
  * 3b. FAILURE → publish inventory.insufficient → order-service cancels order
  * <p>
- * Idempotency: if the same eventId arrives twice (Kafka at-least-once),
- * the second reservation attempt will fail at the DB lock and the same
- * outcome event is published again — idempotent from order-service's perspective.
+ * Idempotency (B4): the InventoryReservation rows written in the SAME transaction
+ * as the stock deduction double as the processed-event record. On every delivery
+ * the consumer first checks for existing rows for the event's correlationId:
+ * - rows with status RESERVED → a previous delivery already deducted stock but the
+ *   publish/ack may have been lost → re-publish inventory.reserved rebuilt from the
+ *   persisted rows (at-least-once), WITHOUT touching stock again;
+ * - rows all RELEASED → the saga was already compensated (payment.failed) → ack and
+ *   skip; re-publishing inventory.reserved here would re-trigger payment for a dead
+ *   order;
+ * - no rows → first effective delivery → reserve normally. A redelivered event that
+ *   previously failed with insufficient stock leaves no rows, so it reprocesses and
+ *   republishes the same inventory.insufficient outcome — idempotent by outcome.
  * <p>
  * Manual acknowledgement: offset committed only after Kafka publish succeeds.
- * If publish fails → Kafka retries → product-service processes again (idempotent).
+ * If publish fails → Kafka retries → the guard above makes the retry safe.
  * </p>
  *
  * @author vamuhong
@@ -52,6 +65,7 @@ public class InventoryReservationConsumer {
 
     private final InventoryReservationService        inventoryReservationService;
     private final InventoryReservationRepository     reservationRepository;
+    private final ProductRepository                  productRepository;
     private final KafkaTemplate<String, Object>      kafkaTemplate;
     private final MeterRegistry                      meterRegistry;
     private final TransactionTemplate                transactionTemplate;
@@ -75,6 +89,17 @@ public class InventoryReservationConsumer {
 
             log.info("[InventoryConsumer] order.requested received: correlationId=[{}] products=[{}] partition=[{}] offset=[{}]",
                     event.correlationId(), event.products().size(), partition, offset);
+
+            // Idempotency guard (B4): reservation rows are committed in the same TX as
+            // the stock deduction, so any row for this correlationId means a previous
+            // delivery already deducted stock — deducting again would double-reserve.
+            List<InventoryReservation> priorReservations =
+                    reservationRepository.findByCorrelationId(event.correlationId());
+            if (!priorReservations.isEmpty()) {
+                handleDuplicateDelivery(event, priorReservations);
+                ack.acknowledge();
+                return;
+            }
 
             try {
                 // Programmatic TX instead of @Transactional on the listener:
@@ -108,6 +133,62 @@ public class InventoryReservationConsumer {
     }
 
     // -------------------------------------------------------
+
+    /**
+     * Handles a redelivered order.requested whose reservation already committed.
+     * <p>
+     * If the rows are still RESERVED the previous delivery deducted stock but its
+     * publish/ack may have been lost — re-publish inventory.reserved rebuilt from
+     * the persisted rows so the saga can progress (at-least-once; payment-service
+     * deduplicates by orderReference). If every row is already RELEASED the saga
+     * was compensated after a payment failure — publishing inventory.reserved now
+     * would re-trigger payment for a dead order, so the duplicate is only logged.
+     */
+    private void handleDuplicateDelivery(OrderRequestedEvent event,
+                                         List<InventoryReservation> priorReservations) {
+        List<InventoryReservation> stillReserved = priorReservations.stream()
+                .filter(r -> r.getStatus() == InventoryReservation.ReservationStatus.RESERVED)
+                .toList();
+
+        if (stillReserved.isEmpty()) {
+            log.info("[InventoryConsumer] Duplicate order.requested ignored — reservations already RELEASED (saga compensated). correlationId=[{}]",
+                    event.correlationId());
+            meterRegistry.counter("saga.step.duplicate", "step", "inventory", "outcome", "released").increment();
+            return;
+        }
+
+        publishInventoryReserved(event, rebuildReservedItems(stillReserved));
+        log.info("[InventoryConsumer] Duplicate order.requested — stock already reserved, re-published inventory.reserved without deducting again. correlationId=[{}]",
+                event.correlationId());
+        meterRegistry.counter("saga.step.duplicate", "step", "inventory", "outcome", "reserved").increment();
+    }
+
+    /**
+     * Rebuilds the reserved-items payload from persisted reservation rows.
+     * Product name/price come from the current catalog row (same source the
+     * original publish used); quantity comes from the reservation record.
+     */
+    private List<InventoryReservedEvent.ReservedItem> rebuildReservedItems(
+            List<InventoryReservation> reservations) {
+        Map<Integer, Product> productsById = productRepository.findAllById(
+                        reservations.stream().map(InventoryReservation::getProductId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        List<InventoryReservedEvent.ReservedItem> items = new ArrayList<>();
+        for (InventoryReservation reservation : reservations) {
+            Product product = productsById.get(reservation.getProductId());
+            if (product == null) {
+                log.warn("[InventoryConsumer] Reserved product no longer in catalog — omitted from re-published event: productId=[{}] correlationId=[{}]",
+                        reservation.getProductId(), reservation.getCorrelationId());
+                continue;
+            }
+            items.add(new InventoryReservedEvent.ReservedItem(
+                    product.getId(), product.getName(),
+                    reservation.getReservedQuantity(), product.getPrice()));
+        }
+        return items;
+    }
 
     /**
      * Reserves stock via the shared InventoryReservationService (pessimistic

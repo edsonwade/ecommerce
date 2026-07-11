@@ -77,7 +77,28 @@ public class CartService {
     // WRITE — add item
     // -------------------------------------------------------
 
+    /** Legacy entry point without idempotency — kept for callers that send no key. */
     public CartResponse addItem(String customerId, AddCartItemRequest request) {
+        return addItem(customerId, request, null);
+    }
+
+    /**
+     * Adds an item to the cart, idempotently when an {@code Idempotency-Key} is supplied.
+     * <p>
+     * B4: addItem is a RELATIVE mutation (it increments the quantity), so a client
+     * retry of the same request — e.g. after a false 503 from a stale gateway
+     * keep-alive on a write that actually succeeded, the same failure mode that
+     * duplicated orders — used to double the quantity. When the client sends an
+     * {@code Idempotency-Key}, keys already applied to this cart are answered with
+     * the current cart unchanged. The applied keys live on the cart hash itself
+     * (bounded FIFO), so the replay window expires with the cart's TTL / checkout
+     * clear — acceptable, because a cleared cart ends the shopping session the key
+     * belonged to. Absolute mutations (update quantity, remove, clear) are already
+     * replay-safe and take no key.
+     *
+     * @param idempotencyKey client-generated key, stable across retries of one add click; may be null
+     */
+    public CartResponse addItem(String customerId, AddCartItemRequest request, String idempotencyKey) {
         if (request.quantity() <= 0) {
             throw new CartValidationException(
                     msg("cart.item.quantity.invalid", request.productId()),
@@ -96,6 +117,15 @@ public class CartService {
             return newCart;
         });
 
+        boolean hasIdempotencyKey = idempotencyKey != null && !idempotencyKey.isBlank();
+
+        // Idempotent replay: this exact add was already applied — return the cart
+        // as it stands instead of incrementing the quantity a second time.
+        if (hasIdempotencyKey && cart.hasIdempotencyKey(idempotencyKey)) {
+            log.info(msg("cart.log.item.replayed", cartId, request.productId(), idempotencyKey));
+            return cartMapper.toResponse(cart);
+        }
+
         // Merge: if product already in cart, increment quantity
         cart.findItem(request.productId()).ifPresentOrElse(
                 existing -> existing.setQuantity(existing.getQuantity() + request.quantity()),
@@ -108,6 +138,10 @@ public class CartService {
                         .availableQuantity(request.availableQuantity())
                         .build())
         );
+
+        if (hasIdempotencyKey) {
+            cart.recordIdempotencyKey(idempotencyKey);
+        }
 
         cart.touch();
         cartRepository.save(cart);

@@ -161,7 +161,7 @@ class CartControllerSecurityTest {
         @Test
         @DisplayName("201 when USER adds to own cart")
         void user_adds_to_own_cart() throws Exception {
-            when(cartService.addItem(anyString(), any())).thenReturn(sampleCart("42"));
+            when(cartService.addItem(anyString(), any(), any())).thenReturn(sampleCart("42"));
 
             mockMvc.perform(post(BASE + "/42/items")
                             .header(TENANT_HDR, TENANT_VAL)
@@ -185,7 +185,7 @@ class CartControllerSecurityTest {
         @Test
         @DisplayName("201 when ADMIN adds to any cart")
         void admin_adds_to_any_cart() throws Exception {
-            when(cartService.addItem(anyString(), any())).thenReturn(sampleCart("99"));
+            when(cartService.addItem(anyString(), any(), any())).thenReturn(sampleCart("99"));
 
             mockMvc.perform(post(BASE + "/99/items")
                             .header(TENANT_HDR, TENANT_VAL)

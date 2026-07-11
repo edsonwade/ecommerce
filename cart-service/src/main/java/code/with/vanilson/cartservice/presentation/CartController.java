@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -63,7 +64,10 @@ public class CartController {
     }
 
     @Operation(summary = "Add item to cart",
-               description = "Creates the cart if it doesn't exist. If product already in cart, quantity is added.")
+               description = "Creates the cart if it doesn't exist. If product already in cart, quantity is added. "
+                       + "Send an optional Idempotency-Key header (stable across retries of one click) to make "
+                       + "the add replay-safe: a retried request with an already-applied key returns the current "
+                       + "cart without incrementing the quantity again.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Item added to cart"),
         @ApiResponse(responseCode = "400", description = "Invalid item data")
@@ -72,9 +76,12 @@ public class CartController {
     @PostMapping("/{customerId}/items")
     public ResponseEntity<CartResponse> addItem(
             @PathVariable String customerId,
-            @RequestBody @Valid AddCartItemRequest request) {
+            @RequestBody @Valid AddCartItemRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false)
+            @Parameter(description = "Client-generated key, stable across retries of one add click")
+            String idempotencyKey) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(cartService.addItem(customerId, request));
+                .body(cartService.addItem(customerId, request, idempotencyKey));
     }
 
     @Operation(summary = "Update item quantity",
