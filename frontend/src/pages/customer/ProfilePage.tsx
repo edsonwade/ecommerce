@@ -36,12 +36,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (customer) {
+      // Auth-provisioned profiles have no address until the user saves one — keep the form empty.
       reset({
-        street: customer.address.street,
-        houseNumber: customer.address.houseNumber,
-        city: customer.address.city,
-        zipCode: customer.address.zipCode,
-        country: customer.address.country,
+        street: customer.address?.street ?? '',
+        houseNumber: customer.address?.houseNumber ?? '',
+        city: customer.address?.city ?? '',
+        zipCode: customer.address?.zipCode ?? '',
+        country: customer.address?.country ?? '',
       });
     }
   }, [customer, reset]);

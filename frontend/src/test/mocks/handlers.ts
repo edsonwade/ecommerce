@@ -99,7 +99,7 @@ const ORDER: OrderResponse = {
 };
 
 const CUSTOMER: CustomerResponse = {
-  id: 'user-001',
+  customerId: 'user-001',
   firstname: 'Jane',
   lastname: 'Doe',
   email: 'test@example.com',

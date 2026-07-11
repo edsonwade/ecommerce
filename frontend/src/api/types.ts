@@ -248,11 +248,14 @@ export interface CustomerRequest {
 }
 
 export interface CustomerResponse {
-  id: string;
+  // Backend record field is `customerId` (customer-service CustomerResponse.java) — not `id`.
+  customerId: string;
   firstname: string;
   lastname: string;
   email: string;
-  address: Address;
+  // Auth-provisioned profiles are created without an address (CustomerProvisioning sends
+  // only id/name/email), so this is null until the user saves one.
+  address: Address | null;
 }
 
 // ── Tenant ──

@@ -27,7 +27,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
             PasswordEncoder encoder,
             @Value("${app.admin.email:admin@obsidian.com}") String adminEmail,
             @Value("${app.admin.password:Admin@123!}") String adminPassword,
-            @Value("${app.admin.tenant-id:system}") String systemTenant) {
+            @Value("${app.admin.tenant-id:default}") String systemTenant) {
         this.repo          = repo;
         this.encoder       = encoder;
         this.adminEmail    = adminEmail;
@@ -38,7 +38,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (repo.existsByEmail(adminEmail)) {
-            log.info("[AdminBootstrap] Admin {} already exists — skipping", adminEmail);
+            reconcileTenant();
             return;
         }
 
@@ -59,5 +59,23 @@ public class AdminBootstrapRunner implements ApplicationRunner {
             log.warn("[SECURITY] Admin seeded with DEFAULT credentials — change immediately via PATCH /api/v1/auth/users/{id}/role or env ADMIN_PASSWORD");
         }
         log.info("[AdminBootstrap] ADMIN user seeded: email={} tenantId={}", adminEmail, systemTenant);
+    }
+
+    /**
+     * The admin's tenantId must match the tenant that owns the catalogue data ('default').
+     * A legacy row seeded with 'system' makes every tenant-filtered read return zero rows
+     * for the logged-in admin, so an existing admin is realigned to the configured tenant.
+     */
+    private void reconcileTenant() {
+        repo.findByEmail(adminEmail).ifPresent(admin -> {
+            if (systemTenant.equals(admin.getTenantId())) {
+                log.info("[AdminBootstrap] Admin {} already exists — skipping", adminEmail);
+                return;
+            }
+            String previous = admin.getTenantId();
+            admin.setTenantId(systemTenant);
+            repo.save(admin);
+            log.warn("[AdminBootstrap] Admin {} tenantId reconciled: '{}' -> '{}'", adminEmail, previous, systemTenant);
+        });
     }
 }
