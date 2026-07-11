@@ -40,3 +40,17 @@ Feature: Cart Management
     When I update product 1 quantity to 5.0
     Then the cart should contain 1 item with product ID 1
     And the total quantity for product 1 should be 5.0
+
+  Scenario: Retrying the same add with an idempotency key does not double the quantity
+    Given the cart for customer "cust-IDEM" is empty
+    When I add product 1 with quantity 2.0 to the cart using idempotency key "key-1"
+    And I add product 1 with quantity 2.0 to the cart again using idempotency key "key-1"
+    Then the cart should contain 1 item with product ID 1
+    And the total quantity for product 1 should be 2.0
+
+  Scenario: Adds with different idempotency keys are applied separately
+    Given the cart for customer "cust-IDEM2" is empty
+    When I add product 1 with quantity 2.0 to the cart using idempotency key "key-1"
+    And I add product 1 with quantity 2.0 to the cart again using idempotency key "key-2"
+    Then the cart should contain 1 item with product ID 1
+    And the total quantity for product 1 should be 4.0

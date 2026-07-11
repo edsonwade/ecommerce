@@ -42,15 +42,22 @@ export default function ProductPage() {
   const prevFailureCount = useRef(0);
 
   const { mutate: addToCart, isPending, failureCount } = useMutation({
-    mutationFn: () =>
-      cartApi.addItem(userId!, {
-        productId: product!.id,
-        productName: product!.name,
-        productDescription: product!.description,
-        unitPrice: product!.price,
-        quantity,
-        availableQuantity: product!.availableQuantity,
-      }),
+    // The idempotency key is generated once per click (at the onClick call site)
+    // and travels with the mutation variables, so the 503 retry reuses the SAME
+    // key and cart-service applies the add only once.
+    mutationFn: (idempotencyKey: string) =>
+      cartApi.addItem(
+        userId!,
+        {
+          productId: product!.id,
+          productName: product!.name,
+          productDescription: product!.description,
+          unitPrice: product!.price,
+          quantity,
+          availableQuantity: product!.availableQuantity,
+        },
+        idempotencyKey,
+      ),
     retry: (count, error) => count <= 1 && (error as unknown as AppError).status === 503,
     // Optimistic: confirm the instant the user clicks, not after the round-trip.
     onMutate: () => {
@@ -223,7 +230,7 @@ export default function ProductPage() {
                   size="large"
                   startIcon={isPending ? <CircularProgress size={16} color="inherit" /> : <ShoppingBag />}
                   disabled={!isAuthenticated || isPending}
-                  onClick={() => addToCart()}
+                  onClick={() => addToCart(crypto.randomUUID())}
                   sx={{ flex: 1 }}
                 >
                   {!isAuthenticated

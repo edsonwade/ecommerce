@@ -27,6 +27,7 @@ import org.junit.platform.suite.api.Suite;
 @SelectClasspathResource("features/purchase_products.feature")
 @SelectClasspathResource("features/search_products.feature")
 @SelectClasspathResource("features/tenant_isolation.feature")
+@SelectClasspathResource("features/inventory_reservation_idempotency.feature")
 @ConfigurationParameter(key = Constants.GLUE_PROPERTY_NAME,
         value = "code.with.vanilson.productservice.bdd")
 @ConfigurationParameter(key = Constants.PLUGIN_PROPERTY_NAME,

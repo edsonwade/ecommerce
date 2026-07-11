@@ -106,6 +106,49 @@ public class CartStepDefinitions {
         }
     }
 
+    @When("I add product {int} with quantity {double} to the cart using idempotency key {string}")
+    public void i_add_product_with_idempotency_key(int productId, double quantity, String key) {
+        addWithIdempotencyKey(productId, quantity, key);
+    }
+
+    @When("I add product {int} with quantity {double} to the cart again using idempotency key {string}")
+    public void i_add_product_again_with_idempotency_key(int productId, double quantity, String key) {
+        addWithIdempotencyKey(productId, quantity, key);
+    }
+
+    /**
+     * B4 — drives the 3-arg addItem. Unlike the plain add step, the save stub here
+     * is STATEFUL: whatever CartService persists becomes what the next findById
+     * returns, so the second delivery sees the cart (and the applied key) exactly
+     * as the first delivery left it — the precondition the replay guard reads.
+     */
+    private void addWithIdempotencyKey(int productId, double quantity, String key) {
+        AddCartItemRequest req = new AddCartItemRequest(
+                productId, "TestProd", "Desc", BigDecimal.TEN, quantity, 20);
+
+        when(cartMapper.toResponse(any(Cart.class))).thenAnswer(inv -> {
+            Cart saved = inv.getArgument(0);
+            List<CartResponse.CartItemResponse> responses = saved.getItems().stream()
+                    .map(i -> new CartResponse.CartItemResponse(i.getProductId(), i.getProductName(),
+                            i.getProductDescription(), i.getUnitPrice(), i.getQuantity(), BigDecimal.TEN,
+                            i.getAvailableQuantity()))
+                    .toList();
+            return new CartResponse(saved.getCartId(), saved.getCustomerId(), responses, BigDecimal.TEN,
+                    saved.getItems().size(), null, null);
+        });
+        when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> {
+            Cart saved = inv.getArgument(0);
+            when(cartRepository.findById(saved.getCartId())).thenReturn(Optional.of(saved));
+            return saved;
+        });
+
+        try {
+            resultCart = cartService.addItem(customerId, req, key);
+        } catch (Exception e) {
+            caughtException = e;
+        }
+    }
+
     @When("I attempt to add product {int} with quantity {double} to the cart")
     public void i_attempt_to_add_product_with_quantity_to_cart(int productId, double quantity) {
         AddCartItemRequest req = new AddCartItemRequest(

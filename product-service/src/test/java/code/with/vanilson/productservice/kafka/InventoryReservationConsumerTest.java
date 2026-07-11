@@ -85,13 +85,18 @@ class InventoryReservationConsumerTest {
         lenient().when(meterRegistry.counter(anyString(), any(String[].class)))
                 .thenReturn(org.mockito.Mockito.mock(io.micrometer.core.instrument.Counter.class));
 
+        // B4 idempotency guard runs first on every delivery — default to "no prior
+        // reservations" so the pre-existing scenarios exercise the first-delivery path.
+        lenient().when(reservationRepository.findByCorrelationId(anyString()))
+                .thenReturn(List.of());
+
         // Real shared reservation core wired over the mocked repository — the
         // consumer test exercises the actual fetch/validate/deduct logic.
         // TransactionTemplate over a mocked manager: runs the callback inline
         // and rethrows on failure, mirroring the production rollback semantics.
         consumer = new InventoryReservationConsumer(
                 new InventoryReservationService(productRepository, messageSource),
-                reservationRepository, kafkaTemplate, meterRegistry,
+                reservationRepository, productRepository, kafkaTemplate, meterRegistry,
                 new org.springframework.transaction.support.TransactionTemplate(transactionManager));
 
         Category category = Category.builder().id(1).name("Electronics").description("Electronic items").build();
@@ -285,6 +290,97 @@ class InventoryReservationConsumerTest {
             consumer.onOrderRequested(overRequest, 0, 0L, acknowledgment);
 
             // Offset must still be acknowledged — DLQ handles retries, not requeue
+            verify(acknowledgment, times(1)).acknowledge();
+        }
+    }
+
+    // -------------------------------------------------------
+    // Idempotency guard (B4) — duplicate delivery
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("onOrderRequested — duplicate delivery (B4 idempotency guard)")
+    class DuplicateDelivery {
+
+        private InventoryReservation reservedRow() {
+            return InventoryReservation.builder()
+                    .id(1L)
+                    .correlationId(CORRELATION_ID)
+                    .productId(1)
+                    .reservedQuantity(3)
+                    .status(InventoryReservation.ReservationStatus.RESERVED)
+                    .build();
+        }
+
+        private InventoryReservation releasedRow() {
+            return InventoryReservation.builder()
+                    .id(2L)
+                    .correlationId(CORRELATION_ID)
+                    .productId(1)
+                    .reservedQuantity(3)
+                    .status(InventoryReservation.ReservationStatus.RELEASED)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("should NOT deduct stock again when the same correlationId was already reserved")
+        void shouldNotDeductStockOnDuplicateDelivery() {
+            when(reservationRepository.findByCorrelationId(CORRELATION_ID))
+                    .thenReturn(List.of(reservedRow()));
+            when(productRepository.findAllById(List.of(1))).thenReturn(List.of(laptop));
+
+            consumer.onOrderRequested(validEvent, 0, 1L, acknowledgment);
+
+            // The reservation core must never run: no locked fetch, no stock save,
+            // no second reservation row.
+            verify(productRepository, times(0)).findAllByIdInOrderById(any());
+            verify(productRepository, times(0)).save(any());
+            verify(reservationRepository, times(0)).save(any());
+        }
+
+        @Test
+        @DisplayName("should re-publish inventory.reserved rebuilt from the persisted rows on duplicate")
+        void shouldRepublishReservedOnDuplicate() {
+            when(reservationRepository.findByCorrelationId(CORRELATION_ID))
+                    .thenReturn(List.of(reservedRow()));
+            when(productRepository.findAllById(List.of(1))).thenReturn(List.of(laptop));
+
+            consumer.onOrderRequested(validEvent, 0, 1L, acknowledgment);
+
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            verify(kafkaTemplate).send(eq(TOPIC_RESERVED), eq(CORRELATION_ID), captor.capture());
+            InventoryReservedEvent republished = (InventoryReservedEvent) captor.getValue();
+            assertThat(republished.correlationId()).isEqualTo(CORRELATION_ID);
+            assertThat(republished.reservedItems()).hasSize(1);
+            assertThat(republished.reservedItems().get(0).productId()).isEqualTo(1);
+            // Quantity must come from the persisted reservation row, not the event
+            assertThat(republished.reservedItems().get(0).quantity()).isEqualTo(3.0);
+            verify(acknowledgment, times(1)).acknowledge();
+        }
+
+        @Test
+        @DisplayName("should NOT re-publish inventory.reserved when reservations were already RELEASED (saga compensated)")
+        void shouldNotRepublishWhenAlreadyReleased() {
+            when(reservationRepository.findByCorrelationId(CORRELATION_ID))
+                    .thenReturn(List.of(releasedRow()));
+
+            consumer.onOrderRequested(validEvent, 0, 1L, acknowledgment);
+
+            // Re-publishing inventory.reserved would re-trigger payment for a dead order
+            verify(kafkaTemplate, times(0)).send(anyString(), anyString(), any());
+            verify(productRepository, times(0)).save(any());
+            verify(acknowledgment, times(1)).acknowledge();
+        }
+
+        @Test
+        @DisplayName("should still acknowledge the duplicate offset so it is not redelivered forever")
+        void shouldAcknowledgeDuplicateOffset() {
+            when(reservationRepository.findByCorrelationId(CORRELATION_ID))
+                    .thenReturn(List.of(reservedRow()));
+            when(productRepository.findAllById(List.of(1))).thenReturn(List.of(laptop));
+
+            consumer.onOrderRequested(validEvent, 0, 1L, acknowledgment);
+
             verify(acknowledgment, times(1)).acknowledge();
         }
     }

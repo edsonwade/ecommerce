@@ -5,8 +5,19 @@ export const cartApi = {
   get: (customerId: string) =>
     apiClient.get<CartResponse>(`/carts/${customerId}`).then((r) => r.data),
 
-  addItem: (customerId: string, data: AddCartItemRequest) =>
-    apiClient.post<CartResponse>(`/carts/${customerId}/items`, data).then((r) => r.data),
+  // idempotencyKey: a stable per-click UUID. addItem is a RELATIVE mutation
+  // (it increments the quantity) and the add-to-cart mutations retry on 503 —
+  // the same false-503-on-a-succeeded-write pattern that once duplicated orders.
+  // Sending the same key on the retry lets cart-service return the current cart
+  // instead of incrementing the quantity again.
+  addItem: (customerId: string, data: AddCartItemRequest, idempotencyKey?: string) =>
+    apiClient
+      .post<CartResponse>(
+        `/carts/${customerId}/items`,
+        data,
+        idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined,
+      )
+      .then((r) => r.data),
 
   updateQuantity: (customerId: string, productId: number, quantity: number) =>
     apiClient

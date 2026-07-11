@@ -82,6 +82,16 @@ public class Cart implements Serializable {
     private LocalDateTime updatedAt  = LocalDateTime.now();
 
     /**
+     * B4 — Idempotency-Key values already applied to this cart's addItem.
+     * A retried POST (same key) is answered with the current cart instead of
+     * incrementing the quantity again. Bounded FIFO (see recordIdempotencyKey)
+     * and stored on the cart hash itself, so the record expires with the cart's
+     * own TTL — a cleared/expired cart ends the replay window by design.
+     */
+    @Builder.Default
+    private List<String> appliedIdempotencyKeys = new ArrayList<>();
+
+    /**
      * TTL: 86400 seconds = 24 hours.
      * Every write resets this — sliding window TTL.
      * Redis removes the key automatically when TTL expires.
@@ -122,5 +132,35 @@ public class Cart implements Serializable {
     public void touch() {
         this.updatedAt = LocalDateTime.now();
         this.ttl       = 86400L;
+    }
+
+    // -------------------------------------------------------
+    // B4 — addItem idempotency record
+    // -------------------------------------------------------
+
+    /** Cap on stored replay keys — plenty for one session's add clicks without unbounded growth. */
+    private static final int MAX_IDEMPOTENCY_KEYS = 50;
+
+    /** True when this Idempotency-Key was already applied to an addItem on this cart. */
+    public boolean hasIdempotencyKey(String key) {
+        return key != null && appliedIdempotencyKeys != null && appliedIdempotencyKeys.contains(key);
+    }
+
+    /**
+     * Records an applied Idempotency-Key, evicting the oldest beyond the cap.
+     * Carts serialised before this field existed deserialise it as null —
+     * initialised lazily here instead of assuming the builder default.
+     */
+    public void recordIdempotencyKey(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        if (appliedIdempotencyKeys == null) {
+            appliedIdempotencyKeys = new ArrayList<>();
+        }
+        appliedIdempotencyKeys.add(key);
+        while (appliedIdempotencyKeys.size() > MAX_IDEMPOTENCY_KEYS) {
+            appliedIdempotencyKeys.remove(0);
+        }
     }
 }

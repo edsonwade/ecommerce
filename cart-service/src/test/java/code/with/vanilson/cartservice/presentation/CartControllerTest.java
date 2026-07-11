@@ -27,7 +27,10 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -100,7 +103,8 @@ class CartControllerTest {
         @Test
         @DisplayName("should return 201 when item added")
         void shouldReturn201() throws Exception {
-            when(cartService.addItem(eq("c-01"), any(AddCartItemRequest.class))).thenReturn(cartResponse);
+            when(cartService.addItem(eq("c-01"), any(AddCartItemRequest.class), nullable(String.class)))
+                    .thenReturn(cartResponse);
 
             mockMvc.perform(post("/api/v1/carts/{customerId}/items", "c-01")
                             .header(TENANT_HEADER, TENANT_ID)
@@ -109,6 +113,38 @@ class CartControllerTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.customerId", is("c-01")))
                     .andExpect(jsonPath("$.itemCount", is(1)));
+        }
+
+        @Test
+        @DisplayName("should forward the Idempotency-Key header to the service (B4)")
+        void shouldForwardIdempotencyKeyHeader() throws Exception {
+            when(cartService.addItem(eq("c-01"), any(AddCartItemRequest.class), eq("idem-abc")))
+                    .thenReturn(cartResponse);
+
+            mockMvc.perform(post("/api/v1/carts/{customerId}/items", "c-01")
+                            .header(TENANT_HEADER, TENANT_ID)
+                            .header("Idempotency-Key", "idem-abc")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.itemCount", is(1)));
+
+            verify(cartService).addItem(eq("c-01"), any(AddCartItemRequest.class), eq("idem-abc"));
+        }
+
+        @Test
+        @DisplayName("should pass a null key to the service when no Idempotency-Key header is sent")
+        void shouldPassNullKeyWithoutHeader() throws Exception {
+            when(cartService.addItem(eq("c-01"), any(AddCartItemRequest.class), isNull()))
+                    .thenReturn(cartResponse);
+
+            mockMvc.perform(post("/api/v1/carts/{customerId}/items", "c-01")
+                            .header(TENANT_HEADER, TENANT_ID)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isCreated());
+
+            verify(cartService).addItem(eq("c-01"), any(AddCartItemRequest.class), isNull());
         }
 
         @Test

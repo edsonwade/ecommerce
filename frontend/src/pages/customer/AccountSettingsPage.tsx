@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -61,7 +61,7 @@ export default function AccountSettingsPage() {
     }
   }, [account]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const watchedEmail = identityForm.watch('email');
+  const watchedEmail = useWatch({ control: identityForm.control, name: 'email' });
   const emailChanged = !!account && !!watchedEmail
     && watchedEmail.toLowerCase() !== account.email.toLowerCase();
 
