@@ -10,6 +10,7 @@ import SellerLayout from './layouts/SellerLayout';
 import AdminLayout from './layouts/AdminLayout';
 import ProtectedRoute from './ProtectedRoute';
 import RoleRoute from './RoleRoute';
+import RouteErrorFallback from '@components/feedback/RouteErrorFallback';
 
 // Page loading fallback
 const PageLoader = () => (
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
   // ── Public ──
   {
     element: <PublicLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/catalog', element: <CatalogPage /> },
@@ -79,6 +81,7 @@ export const router = createBrowserRouter([
   // ── Customer (authenticated) ──
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <CustomerLayout />,
@@ -97,6 +100,7 @@ export const router = createBrowserRouter([
   // ── Seller ──
   {
     element: <RoleRoute allowedRoles={['SELLER', 'ADMIN']} />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <SellerLayout />,
@@ -118,6 +122,7 @@ export const router = createBrowserRouter([
   // ── Admin ──
   {
     element: <RoleRoute allowedRoles={['ADMIN']} />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <AdminLayout />,

@@ -376,22 +376,24 @@ docker-compose up -d
 
 ### Admin Account
 
-`AdminBootstrapRunner` seeds a platform administrator on first startup (idempotent — skipped if the email already exists):
+`AdminBootstrapRunner` seeds a platform administrator on first startup (idempotent — skipped if the email already exists; if the existing row's tenant differs from the configured one, it is reconciled on startup):
 
 | Field | Value |
 |:---|:---|
 | **Email** | `admin@obsidian.com` |
 | **Password** | `Admin@123!` |
 | **Role** | `ADMIN` |
-| **Tenant** | `system` |
+| **Tenant** | `default` |
 
 > **Security note:** Change the password immediately in production by setting the `APP_ADMIN_PASSWORD` environment variable before first boot.
+
+> **Tenant note:** The admin's tenant MUST be `default` — the tenant that owns the catalogue data. Since the Hibernate tenant filter was activated on product reads (B3), a user logged in under any other tenant (e.g. the old `system` value) sees an empty catalogue: the SPA sends the login's `tenantId` as `X-Tenant-Id` on every request and the filter scopes all reads to it.
 
 The credentials are configurable via environment variables in `docker-compose.yml`:
 ```
 APP_ADMIN_EMAIL=admin@obsidian.com
 APP_ADMIN_PASSWORD=Admin@123!
-APP_ADMIN_TENANT_ID=system
+APP_ADMIN_TENANT_ID=default
 ```
 
 ### Build from Source

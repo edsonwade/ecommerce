@@ -1,5 +1,25 @@
 import { test, expect } from '@playwright/test';
 
+// Mirrors the REAL customer-service contract: the field is `customerId` (not `id`) and
+// `address` is null for auth-provisioned profiles. The old mock returned [] here, which
+// hid a production crash (`r.id.slice` on undefined) on /admin/users.
+const MOCK_CUSTOMERS = [
+  {
+    customerId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    firstname: 'Jane',
+    lastname: 'Doe',
+    email: 'jane@example.com',
+    address: { street: 'Market St', houseNumber: '1', zipCode: '94103', city: 'San Francisco', country: 'US' },
+  },
+  {
+    customerId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
+    firstname: 'John',
+    lastname: 'NoAddress',
+    email: 'john@example.com',
+    address: null,
+  },
+];
+
 const MOCK_TENANT = {
   tenantId: 'tenant-001',
   name: 'Demo Store',
@@ -30,7 +50,7 @@ async function mockApi(page: import('@playwright/test').Page) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([MOCK_TENANT]) });
     }
     if (url.includes('/api/v1/customers')) {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_CUSTOMERS) });
     }
     if (url.includes('/api/v1/payments')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
@@ -119,6 +139,19 @@ test.describe('Admin dashboard', () => {
     await page.goto('/admin/users');
     await expect(page).not.toHaveURL(/\/login/);
     await expect(page.getByRole('heading', { name: /users/i })).toBeVisible();
+  });
+
+  test('/admin/users renders customer rows without crashing (customerId + null address)', async ({ page }) => {
+    await page.goto('/admin/users');
+    // Both rows render: one with a full address, one auth-provisioned (address: null).
+    await expect(page.getByText('Jane Doe')).toBeVisible();
+    await expect(page.getByText('John NoAddress')).toBeVisible();
+    await expect(page.getByText('San Francisco, US')).toBeVisible();
+    // The truncated customerId is displayed (regression guard for r.id.slice crash).
+    await expect(page.getByText('a1b2c3d4…')).toBeVisible();
+    // Neither the router's raw error page nor the app error screen appears.
+    await expect(page.getByText(/unexpected application error/i)).toHaveCount(0);
+    await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
   });
 
   test('/admin/payments renders payments heading', async ({ page }) => {

@@ -15,10 +15,10 @@ export default function UsersPage() {
   });
 
   const COLUMNS = [
-    { key: 'id', label: 'ID', render: (r: CustomerResponse) => <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'text.secondary' }}>{r.id.slice(0, 8)}…</Typography> },
+    { key: 'customerId', label: 'ID', render: (r: CustomerResponse) => <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'text.secondary' }}>{(r.customerId ?? '').slice(0, 8)}…</Typography> },
     { key: 'firstname', label: 'Name', render: (r: CustomerResponse) => <Typography variant="body2" sx={{ fontWeight: 500 }}>{r.firstname} {r.lastname}</Typography> },
     { key: 'email', label: 'Email', render: (r: CustomerResponse) => <Typography variant="body2" color="text.secondary">{r.email}</Typography> },
-    { key: 'city', label: 'Location', render: (r: CustomerResponse) => <Typography variant="caption" color="text.secondary">{r.address.city}, {r.address.country}</Typography> },
+    { key: 'city', label: 'Location', render: (r: CustomerResponse) => <Typography variant="caption" color="text.secondary">{r.address ? `${r.address.city}, ${r.address.country}` : '—'}</Typography> },
   ];
 
   return (
@@ -30,7 +30,7 @@ export default function UsersPage() {
         ) : (
           <DataTable
             columns={COLUMNS}
-            rows={(customers ?? []).map((c) => ({ ...c, id: c.id }))}
+            rows={(customers ?? []).map((c) => ({ ...c, id: c.customerId }))}
           />
         )}
       </motion.div>
