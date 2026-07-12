@@ -17,9 +17,11 @@ import { useForm, type Resolver, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Alert } from '@mui/material';
 import { productsApi } from '@api/products.api';
 import { QUERY_KEYS, ROUTES } from '@utils/constants';
 import { useUIStore } from '@stores/ui.store';
+import { useAuthStore } from '@stores/auth.store';
 import type { ProductRequest } from '@api/types';
 
 // Accept both `.` and `,` as decimal separator (handles pt-PT locale)
@@ -41,6 +43,10 @@ export default function ProductForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
+  const sellerStatus = useAuthStore((s) => s.sellerStatus);
+  // Mirrors the backend write-guard: pending/suspended sellers get 403 on product
+  // writes, so the submit is disabled up-front with an explanatory banner.
+  const writesLocked = sellerStatus === 'PENDING_APPROVAL' || sellerStatus === 'SUSPENDED';
 
   const { data: product, isLoading } = useQuery({
     queryKey: [QUERY_KEYS.PRODUCT, id],
@@ -117,6 +123,14 @@ export default function ProductForm() {
         {isEdit ? 'Edit product' : 'New product'}
       </Typography>
 
+      {writesLocked && (
+        <Alert severity={sellerStatus === 'SUSPENDED' ? 'error' : 'warning'} sx={{ mb: 3 }}>
+          {sellerStatus === 'SUSPENDED'
+            ? 'Your seller account is suspended — product changes are blocked.'
+            : 'Your seller account is pending approval — you can save products once an administrator approves it.'}
+        </Alert>
+      )}
+
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField {...register('name')} label="Product name" error={!!errors.name} helperText={errors.name?.message} fullWidth autoFocus />
         <TextField {...register('description')} label="Description" multiline rows={3} error={!!errors.description} helperText={errors.description?.message} fullWidth />
@@ -162,7 +176,7 @@ export default function ProductForm() {
           <Button variant="outlined" onClick={() => navigate(ROUTES.SELLER_PRODUCTS)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ flex: 1 }}>
+          <Button type="submit" variant="contained" size="large" disabled={isSubmitting || writesLocked} sx={{ flex: 1 }}>
             {isSubmitting ? <CircularProgress size={22} color="inherit" /> : isEdit ? 'Save changes' : 'Create product'}
           </Button>
         </Box>

@@ -1,6 +1,7 @@
 package code.with.vanilson.authentication.unit;
 
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.infrastructure.JwtService;
 import io.jsonwebtoken.JwtException;
@@ -280,6 +281,42 @@ class JwtServiceTest {
                     .accountEnabled(true).accountLocked(false).build();
             String token = jwtService.generateAccessToken(seller);
             assertThat(jwtService.extractRole(token)).isEqualTo("SELLER");
+        }
+
+        @Test
+        @DisplayName("SELLER access token carries the sellerStatus claim")
+        void sellerStatusClaimPropagatedInToken() {
+            User seller = User.builder()
+                    .id(2L).email("seller@test.com").password("pw")
+                    .role(Role.SELLER).tenantId("tenant-x")
+                    .sellerStatus(SellerStatus.PENDING_APPROVAL)
+                    .accountEnabled(true).accountLocked(false).build();
+            String token = jwtService.generateAccessToken(seller);
+            String claim = jwtService.extractClaim(token,
+                    c -> c.get("sellerStatus", String.class));
+            assertThat(claim).isEqualTo("PENDING_APPROVAL");
+        }
+
+        @Test
+        @DisplayName("non-seller access token carries NO sellerStatus claim")
+        void nonSellerTokenHasNoSellerStatusClaim() {
+            String token = jwtService.generateAccessToken(testUser);
+            String claim = jwtService.extractClaim(token,
+                    c -> c.get("sellerStatus", String.class));
+            assertThat(claim).isNull();
+        }
+
+        @Test
+        @DisplayName("SELLER with null sellerStatus (pre-migration edge) mints a claim-free token")
+        void sellerWithNullStatusMintsClaimFreeToken() {
+            User grandfathered = User.builder()
+                    .id(3L).email("old.seller@test.com").password("pw")
+                    .role(Role.SELLER).tenantId("default")
+                    .accountEnabled(true).accountLocked(false).build();
+            String token = jwtService.generateAccessToken(grandfathered);
+            String claim = jwtService.extractClaim(token,
+                    c -> c.get("sellerStatus", String.class));
+            assertThat(claim).isNull();
         }
     }
 

@@ -37,7 +37,10 @@ public class JwtTokenValidator {
                     c.getSubject(),
                     c.get("userId", Long.class),
                     c.get("tenantId", String.class),
-                    c.get("role", String.class)
+                    c.get("role", String.class),
+                    // Absent on non-seller tokens and on tokens minted before the seller
+                    // approval flow — both parse to null (never a validation failure).
+                    c.get("sellerStatus", String.class)
             );
         } catch (JwtException | IllegalArgumentException ex) {
             throw new InvalidJwtException("JWT validation failed: " + ex.getMessage(), ex);

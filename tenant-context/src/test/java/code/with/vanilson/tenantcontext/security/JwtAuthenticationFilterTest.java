@@ -47,7 +47,27 @@ class JwtAuthenticationFilterTest {
         SecurityPrincipal principal = (SecurityPrincipal) auth.getPrincipal();
         assertThat(principal.userId()).isEqualTo(7L);
         assertThat(principal.tenantId()).isEqualTo("t1");
+        // 4-arg JwtClaims (legacy shape) must yield a null sellerStatus, not an error.
+        assertThat(principal.sellerStatus()).isNull();
         verify(chain).doFilter(req, res);
+    }
+
+    @Test
+    void propagates_seller_status_claim_to_principal() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer seller.token.here");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        when(validator.validate("seller.token.here"))
+                .thenReturn(new JwtClaims("s@b.com", 9L, "default", "SELLER", "SUSPENDED"));
+
+        filter.doFilter(req, res, chain);
+
+        SecurityPrincipal principal = (SecurityPrincipal)
+                SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        assertThat(principal.isSeller()).isTrue();
+        assertThat(principal.sellerStatus()).isEqualTo("SUSPENDED");
     }
 
     @Test

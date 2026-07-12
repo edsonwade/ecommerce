@@ -222,6 +222,7 @@ public class ProductService {
             throw new ProductNullException(
                     resolve("product.category.null"), "product.category.null");
         }
+        assertSellerMayWrite();
         SecurityPrincipal p = currentPrincipal();
         product.setCreatedBy(p != null ? String.valueOf(p.userId()) : "system");
         // Stamp the tenant from the request context. The previous "default-tenant" fallback
@@ -247,6 +248,7 @@ public class ProductService {
         @CacheEvict(value = CACHE_PRODUCTS, key = "#id")
     })
     public ProductRequest updateProduct(int id, Product product) {
+        assertSellerMayWrite();
         Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         resolve("product.not.found", id), "product.not.found"));
@@ -276,6 +278,7 @@ public class ProductService {
         @CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)
     })
     public void deleteProduct(int id) {
+        assertSellerMayWrite();
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         resolve("product.not.found", id), "product.not.found"));
@@ -371,6 +374,29 @@ public class ProductService {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof SecurityPrincipal sp)) return null;
         return sp;
+    }
+
+    /**
+     * Seller approval write-guard (Fase 2): a SELLER whose JWT carries a sellerStatus of
+     * PENDING_APPROVAL or SUSPENDED may not create/update/delete products. A null claim —
+     * an old token minted before the approval flow, or a grandfathered seller — is allowed,
+     * so existing sessions keep working until the token rotates. ADMIN and non-seller
+     * callers are never restricted here (ownership guards handle them separately).
+     */
+    private void assertSellerMayWrite() {
+        SecurityPrincipal p = currentPrincipal();
+        if (p == null || !p.isSeller()) {
+            return;
+        }
+        String status = p.sellerStatus();
+        if ("PENDING_APPROVAL".equals(status)) {
+            throw new ProductForbiddenException(
+                    resolve("seller.not.approved"), "seller.not.approved");
+        }
+        if ("SUSPENDED".equals(status)) {
+            throw new ProductForbiddenException(
+                    resolve("seller.suspended"), "seller.suspended");
+        }
     }
 
     /**

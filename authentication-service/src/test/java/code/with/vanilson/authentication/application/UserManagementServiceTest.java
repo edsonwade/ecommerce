@@ -2,6 +2,7 @@ package code.with.vanilson.authentication.application;
 
 import code.with.vanilson.authentication.domain.AuditLog;
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.AdminActionNotAllowedException;
 import code.with.vanilson.authentication.exception.AuthUserNotFoundException;
@@ -139,6 +140,46 @@ class UserManagementServiceTest {
             UserSummaryResponse result = svc.createUser("admin@x.com", request(Role.ADMIN, "default"));
 
             assertThat(result.role()).isEqualTo(Role.ADMIN);
+        }
+
+        @Test
+        @DisplayName("admin-created SELLER is born APPROVED (skips the approval queue)")
+        void admin_created_seller_is_born_approved() {
+            when(userRepo.existsByEmail("new.user@x.com")).thenReturn(false);
+            when(passwordEncoder.encode(any())).thenReturn("hash");
+            when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+                User u = inv.getArgument(0);
+                u.setId(50L);
+                return u;
+            });
+
+            UserSummaryResponse result = svc.createUser("admin@x.com", request(Role.SELLER, null));
+
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepo).save(captor.capture());
+            assertThat(captor.getValue().getSellerStatus()).isEqualTo(SellerStatus.APPROVED);
+
+            assertThat(result.sellerStatus()).isEqualTo(SellerStatus.APPROVED);
+        }
+
+        @Test
+        @DisplayName("admin-created USER carries no sellerStatus")
+        void admin_created_user_has_no_seller_status() {
+            when(userRepo.existsByEmail("new.user@x.com")).thenReturn(false);
+            when(passwordEncoder.encode(any())).thenReturn("hash");
+            when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+                User u = inv.getArgument(0);
+                u.setId(51L);
+                return u;
+            });
+
+            UserSummaryResponse result = svc.createUser("admin@x.com", request(Role.USER, null));
+
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepo).save(captor.capture());
+            assertThat(captor.getValue().getSellerStatus()).isNull();
+
+            assertThat(result.sellerStatus()).isNull();
         }
 
         @Test
@@ -327,6 +368,105 @@ class UserManagementServiceTest {
                     .thenReturn("User with email [99] not found.");
 
             assertThatThrownBy(() -> svc.setUserStatus("admin@x.com", 1L, 99L, false))
+                    .isInstanceOf(AuthUserNotFoundException.class);
+        }
+    }
+
+    // -------------------------------------------------------
+    // setSellerStatus (PATCH /api/v1/auth/users/{userId}/seller-status — ADMIN only)
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("setSellerStatus")
+    class SetSellerStatus {
+
+        private User seller(SellerStatus status) {
+            return User.builder().id(9L).email("seller@x.com")
+                    .role(Role.SELLER).sellerStatus(status).accountEnabled(true).build();
+        }
+
+        @Test
+        @DisplayName("approves a pending seller — no token revocation, audit written")
+        void approves_pending_seller() {
+            User target = seller(SellerStatus.PENDING_APPROVAL);
+            when(userRepo.findById(9L)).thenReturn(Optional.of(target));
+            when(userRepo.save(target)).thenReturn(target);
+
+            UserSummaryResponse result =
+                    svc.setSellerStatus("admin@x.com", 9L, SellerStatus.APPROVED);
+
+            assertThat(result.sellerStatus()).isEqualTo(SellerStatus.APPROVED);
+            assertThat(target.getSellerStatus()).isEqualTo(SellerStatus.APPROVED);
+            verify(tokenRepo, never()).revokeAllUserTokens(any());
+            verify(auditRepo).save(any());
+        }
+
+        @Test
+        @DisplayName("suspension revokes every token so the stale JWT claim dies with the session")
+        void suspension_revokes_tokens() {
+            User target = seller(SellerStatus.APPROVED);
+            when(userRepo.findById(9L)).thenReturn(Optional.of(target));
+            when(userRepo.save(target)).thenReturn(target);
+
+            UserSummaryResponse result =
+                    svc.setSellerStatus("admin@x.com", 9L, SellerStatus.SUSPENDED);
+
+            assertThat(result.sellerStatus()).isEqualTo(SellerStatus.SUSPENDED);
+            verify(tokenRepo).revokeAllUserTokens(9L);
+            verify(auditRepo).save(any());
+        }
+
+        @Test
+        @DisplayName("re-queueing to PENDING_APPROVAL does not revoke tokens")
+        void requeue_does_not_revoke() {
+            User target = seller(SellerStatus.APPROVED);
+            when(userRepo.findById(9L)).thenReturn(Optional.of(target));
+            when(userRepo.save(target)).thenReturn(target);
+
+            svc.setSellerStatus("admin@x.com", 9L, SellerStatus.PENDING_APPROVAL);
+
+            verify(tokenRepo, never()).revokeAllUserTokens(any());
+        }
+
+        @Test
+        @DisplayName("throws AdminActionNotAllowedException when target is not a SELLER")
+        void rejects_non_seller_target() {
+            User target = User.builder().id(3L).email("u@x.com")
+                    .role(Role.USER).accountEnabled(true).build();
+            when(userRepo.findById(3L)).thenReturn(Optional.of(target));
+            when(messageSource.getMessage(eq("auth.seller.status.not.seller"), any(), any()))
+                    .thenReturn("User [3] is not a SELLER — seller status does not apply.");
+
+            assertThatThrownBy(() ->
+                    svc.setSellerStatus("admin@x.com", 3L, SellerStatus.APPROVED))
+                    .isInstanceOf(AdminActionNotAllowedException.class);
+
+            verify(userRepo, never()).save(any());
+            verify(auditRepo, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("no-op when status already matches — nothing saved, no audit")
+        void noop_when_status_unchanged() {
+            User target = seller(SellerStatus.APPROVED);
+            when(userRepo.findById(9L)).thenReturn(Optional.of(target));
+
+            UserSummaryResponse result =
+                    svc.setSellerStatus("admin@x.com", 9L, SellerStatus.APPROVED);
+
+            assertThat(result.sellerStatus()).isEqualTo(SellerStatus.APPROVED);
+            verify(userRepo, never()).save(any());
+            verify(auditRepo, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throws AuthUserNotFoundException when target does not exist")
+        void throws_not_found() {
+            when(userRepo.findById(99L)).thenReturn(Optional.empty());
+            when(messageSource.getMessage(eq("auth.user.not.found"), any(), any()))
+                    .thenReturn("User with email [99] not found.");
+
+            assertThatThrownBy(() ->
+                    svc.setSellerStatus("admin@x.com", 99L, SellerStatus.APPROVED))
                     .isInstanceOf(AuthUserNotFoundException.class);
         }
     }

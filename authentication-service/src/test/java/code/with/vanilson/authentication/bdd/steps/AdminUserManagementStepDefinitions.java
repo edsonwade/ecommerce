@@ -201,4 +201,50 @@ public class AdminUserManagementStepDefinitions {
     public void theUserCreationFailsWith(int status) {
         assertThat(lastResponse.statusCode()).isEqualTo(status);
     }
+
+    // ------------------------------------------------------------------
+    // Seller approval flow (Fase 2)
+    // ------------------------------------------------------------------
+
+    @When("someone registers publicly as seller {string} with password {string}")
+    public void someoneRegistersPubliclyAsSeller(String emailSeed, String password) {
+        lastCreatedEmail = uniqueEmail(emailSeed);
+        lastResponse = given().contentType(ContentType.JSON)
+                .body(String.format(
+                        "{\"firstname\":\"Pending\",\"lastname\":\"Seller\","
+                        + "\"email\":\"%s\",\"password\":\"%s\",\"role\":\"SELLER\"}",
+                        lastCreatedEmail, password))
+                .post(BASE + "/register").then().extract().response();
+        if (lastResponse.statusCode() == 201) {
+            // /register returns userId as a string — keep it for follow-up admin actions.
+            lastCreatedUserId = Long.parseLong(lastResponse.jsonPath().getString("userId"));
+        }
+    }
+
+    @When("the admin sets that seller's status to {string}")
+    public void theAdminSetsThatSellersStatusTo(String status) {
+        lastResponse = given().contentType(ContentType.JSON)
+                .header("Authorization", "Bearer " + actorToken)
+                .body(String.format("{\"status\":\"%s\"}", status))
+                .patch(USERS + "/" + lastCreatedUserId + "/seller-status")
+                .then().extract().response();
+    }
+
+    @Then("the seller status response shows {string}")
+    public void theSellerStatusResponseShows(String sellerStatus) {
+        assertThat(lastResponse.statusCode()).isEqualTo(200);
+        assertThat(lastResponse.jsonPath().getString("sellerStatus")).isEqualTo(sellerStatus);
+    }
+
+    @Then("the user creation shows seller status {string}")
+    public void theUserCreationShowsSellerStatus(String sellerStatus) {
+        assertThat(lastResponse.statusCode()).isEqualTo(201);
+        assertThat(lastResponse.jsonPath().getString("sellerStatus")).isEqualTo(sellerStatus);
+    }
+
+    @Then("the registration response shows seller status {string}")
+    public void theRegistrationResponseShowsSellerStatus(String sellerStatus) {
+        assertThat(lastResponse.statusCode()).isEqualTo(201);
+        assertThat(lastResponse.jsonPath().getString("sellerStatus")).isEqualTo(sellerStatus);
+    }
 }

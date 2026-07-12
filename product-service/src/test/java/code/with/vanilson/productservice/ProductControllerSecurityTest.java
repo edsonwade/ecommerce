@@ -221,6 +221,36 @@ class ProductControllerSecurityTest {
                             .content(BODY))
                     .andExpect(status().isForbidden());
         }
+
+        @Test
+        @WithMockUser(roles = "SELLER")
+        @DisplayName("403 with seller.not.approved when a pending seller creates (approval guard)")
+        void pending_seller_gets_403_not_approved() throws Exception {
+            doThrow(new ProductForbiddenException(
+                    "Your seller account is pending approval.", "seller.not.approved"))
+                    .when(productService).createProduct(any());
+
+            mockMvc.perform(post(BASE + "/create")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(BODY))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "SELLER")
+        @DisplayName("403 with seller.suspended when a suspended seller creates (approval guard)")
+        void suspended_seller_gets_403_suspended() throws Exception {
+            doThrow(new ProductForbiddenException(
+                    "Your seller account is suspended.", "seller.suspended"))
+                    .when(productService).createProduct(any());
+
+            mockMvc.perform(post(BASE + "/create")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(BODY))
+                    .andExpect(status().isForbidden());
+        }
     }
 
     // -------------------------------------------------------

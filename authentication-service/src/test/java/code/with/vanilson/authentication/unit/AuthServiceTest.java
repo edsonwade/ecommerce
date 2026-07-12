@@ -6,6 +6,7 @@ import code.with.vanilson.authentication.application.LoginRequest;
 import code.with.vanilson.authentication.application.RefreshTokenService;
 import code.with.vanilson.authentication.application.RegisterRequest;
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -228,6 +230,59 @@ class AuthServiceTest {
 
             AuthResponse resp = authService.register(req);
             assertThat(resp.role()).isEqualTo("SELLER");
+        }
+
+        @Test
+        @DisplayName("self-registered SELLER is persisted PENDING_APPROVAL and the response carries it")
+        void sellerRegistrationIsBornPendingApproval() {
+            User sellerUser = User.builder()
+                    .id(4L).firstname("Pending").lastname("Seller")
+                    .email("pending.seller@example.com").password("$2a$12$encoded")
+                    .role(Role.SELLER).tenantId("default")
+                    .sellerStatus(SellerStatus.PENDING_APPROVAL)
+                    .accountEnabled(true).accountLocked(false).build();
+
+            RegisterRequest req = new RegisterRequest("Pending", "Seller",
+                    "pending.seller@example.com", "password123", "default", "SELLER");
+
+            when(userRepository.existsByEmail("pending.seller@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("$2a$12$encoded");
+            when(userRepository.save(any(User.class))).thenReturn(sellerUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("access");
+            when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            AuthResponse resp = authService.register(req);
+
+            // The entity handed to the repository must already carry the pending status.
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            assertThat(captor.getValue().getSellerStatus())
+                    .isEqualTo(SellerStatus.PENDING_APPROVAL);
+
+            assertThat(resp.sellerStatus()).isEqualTo("PENDING_APPROVAL");
+        }
+
+        @Test
+        @DisplayName("USER registration persists no sellerStatus and the response omits it")
+        void userRegistrationHasNoSellerStatus() {
+            RegisterRequest req = new RegisterRequest("John", "Doe",
+                    "john.doe@example.com", "password123", "default", null);
+
+            when(userRepository.existsByEmail("john.doe@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("$2a$12$encoded");
+            when(userRepository.save(any(User.class))).thenReturn(savedUser);
+            when(jwtService.generateAccessToken(any())).thenReturn("access");
+            when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+            doNothing().when(refreshTokenService).persistTokenPair(any(), anyString(), anyString());
+
+            AuthResponse resp = authService.register(req);
+
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            assertThat(captor.getValue().getSellerStatus()).isNull();
+
+            assertThat(resp.sellerStatus()).isNull();
         }
 
         @Test

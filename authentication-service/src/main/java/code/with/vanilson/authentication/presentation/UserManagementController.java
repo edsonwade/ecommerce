@@ -3,6 +3,7 @@ package code.with.vanilson.authentication.presentation;
 import code.with.vanilson.authentication.application.AdminCreateUserRequest;
 import code.with.vanilson.authentication.application.AdminUpdateUserRequest;
 import code.with.vanilson.authentication.application.UpdateRoleRequest;
+import code.with.vanilson.authentication.application.UpdateSellerStatusRequest;
 import code.with.vanilson.authentication.application.UpdateUserStatusRequest;
 import code.with.vanilson.authentication.application.UserManagementService;
 import code.with.vanilson.authentication.application.UserSummaryResponse;
@@ -75,6 +76,19 @@ public class UserManagementController {
                 actor.getUser().getId(),
                 userId,
                 request.enabled()));
+    }
+
+    @Operation(summary = "Approve, suspend or re-queue a SELLER — ADMIN only")
+    @PatchMapping("/{userId}/seller-status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserSummaryResponse> updateSellerStatus(
+            @AuthenticationPrincipal UserDetailsAdapter actor,
+            @PathVariable Long userId,
+            @RequestBody @Valid UpdateSellerStatusRequest request) {
+        return ResponseEntity.ok(service.setSellerStatus(
+                actor.getUsername(),
+                userId,
+                request.status()));
     }
 
     @Operation(summary = "Soft-delete a user (anonymize + revoke sessions) — ADMIN only")

@@ -15,6 +15,9 @@ export interface LoginRequest {
 
 export type Role = 'USER' | 'SELLER' | 'ADMIN';
 
+/** Seller approval lifecycle — only meaningful for SELLER accounts. */
+export type SellerStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'SUSPENDED';
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
@@ -23,6 +26,8 @@ export interface AuthResponse {
   email: string;
   role: Role;
   tenantId: string;
+  /** Present only for SELLER accounts (backend omits the field for other roles). */
+  sellerStatus?: SellerStatus;
 }
 
 export interface AccountResponse {

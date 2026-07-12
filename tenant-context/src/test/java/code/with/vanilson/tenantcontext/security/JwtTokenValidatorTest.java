@@ -42,6 +42,24 @@ class JwtTokenValidatorTest {
     }
 
     @Test
+    void parses_seller_status_claim_when_present() {
+        String jwt = token(Map.of("userId", 42L, "tenantId", "t-1", "role", "SELLER",
+                "sellerStatus", "PENDING_APPROVAL"), 60_000);
+        JwtClaims claims = validator.validate(jwt);
+        assertThat(claims.sellerStatus()).isEqualTo("PENDING_APPROVAL");
+    }
+
+    @Test
+    void token_without_seller_status_parses_with_null_claim() {
+        // Old-token compatibility: tokens minted before the seller approval flow have
+        // no sellerStatus claim — they must still validate, with a null field.
+        String jwt = token(Map.of("userId", 42L, "tenantId", "t-1", "role", "SELLER"), 60_000);
+        JwtClaims claims = validator.validate(jwt);
+        assertThat(claims.role()).isEqualTo("SELLER");
+        assertThat(claims.sellerStatus()).isNull();
+    }
+
+    @Test
     void rejects_expired_token() {
         String jwt = token(Map.of("userId", 1L, "tenantId", "t", "role", "USER"), -1_000);
         assertThatThrownBy(() -> validator.validate(jwt))

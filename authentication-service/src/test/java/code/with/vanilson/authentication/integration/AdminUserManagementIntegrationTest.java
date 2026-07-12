@@ -140,14 +140,59 @@ class AdminUserManagementIntegrationTest {
                     .andExpect(jsonPath("$.email",          is(email)))
                     .andExpect(jsonPath("$.role",           is("SELLER")))
                     .andExpect(jsonPath("$.tenantId",       is("default")))
-                    .andExpect(jsonPath("$.accountEnabled", is(true)));
+                    .andExpect(jsonPath("$.accountEnabled", is(true)))
+                    // Admin-created sellers skip the approval queue.
+                    .andExpect(jsonPath("$.sellerStatus",   is("APPROVED")));
 
             // The created seller can authenticate with the admin-assigned password.
             mockMvc.perform(post(BASE + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(json("email", email, "password", "SellerPass1!")))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.role", is("SELLER")));
+                    .andExpect(jsonPath("$.role", is("SELLER")))
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
+        }
+
+        @Test
+        @DisplayName("self-registered SELLER is born PENDING_APPROVAL (register + login carry it)")
+        void selfRegisteredSellerIsPendingApproval() throws Exception {
+            String email = uniqueEmail();
+
+            mockMvc.perform(post(BASE + "/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("firstname", "Self", "lastname", "Seller",
+                                    "email", email, "password", "SellerPass1!",
+                                    "role", "SELLER")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.role",         is("SELLER")))
+                    .andExpect(jsonPath("$.sellerStatus", is("PENDING_APPROVAL")));
+
+            mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("email", email, "password", "SellerPass1!")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("PENDING_APPROVAL")));
+        }
+
+        @Test
+        @DisplayName("non-seller responses carry no sellerStatus (field absent, not null)")
+        void nonSellerHasNoSellerStatus() throws Exception {
+            String email = uniqueEmail();
+
+            mockMvc.perform(post(USERS)
+                            .header("Authorization", "Bearer " + adminToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("firstname", "Plain", "lastname", "User",
+                                    "email", email, "password", "Password1!",
+                                    "role", "USER")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.sellerStatus").value(org.hamcrest.Matchers.nullValue()));
+
+            mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("email", email, "password", "Password1!")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus").doesNotExist());
         }
 
         @Test
@@ -410,6 +455,101 @@ class AdminUserManagementIntegrationTest {
                             .content(json("enabled", false)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errorCode", is("auth.admin.self.deactivate.denied")));
+        }
+    }
+
+    // -------------------------------------------------------
+    // PATCH /api/v1/auth/users/{userId}/seller-status
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("PATCH /api/v1/auth/users/{userId}/seller-status — approve/suspend sellers")
+    class UpdateSellerStatus {
+
+        @Test
+        @DisplayName("admin approves a self-registered (pending) seller; next login carries APPROVED")
+        void adminApprovesPendingSeller() throws Exception {
+            String email = uniqueEmail();
+
+            MvcResult registered = mockMvc.perform(post(BASE + "/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("firstname", "Pending", "lastname", "Seller",
+                                    "email", email, "password", "SellerPass1!",
+                                    "role", "SELLER")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.sellerStatus", is("PENDING_APPROVAL")))
+                    .andReturn();
+            long sellerId = bodyOf(registered).get("userId").asLong();
+
+            mockMvc.perform(patch(USERS + "/" + sellerId + "/seller-status")
+                            .header("Authorization", "Bearer " + adminToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("status", "APPROVED")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
+
+            mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("email", email, "password", "SellerPass1!")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
+        }
+
+        @Test
+        @DisplayName("suspension revokes sessions — the seller's refresh token dies (401)")
+        void suspensionRevokesRefreshToken() throws Exception {
+            String email = uniqueEmail();
+            long sellerId = createUserAs(adminToken(), email, "SellerPass1!", "SELLER");
+
+            MvcResult login = mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("email", email, "password", "SellerPass1!")))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            String refreshToken = bodyOf(login).get("refreshToken").asText();
+
+            mockMvc.perform(patch(USERS + "/" + sellerId + "/seller-status")
+                            .header("Authorization", "Bearer " + adminToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("status", "SUSPENDED")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("SUSPENDED")));
+
+            // The pre-suspension refresh token must be dead.
+            mockMvc.perform(post(BASE + "/refresh")
+                            .header("Authorization", "Bearer " + refreshToken))
+                    .andExpect(status().isUnauthorized());
+
+            // A fresh login still works (suspension blocks writes, not authentication)
+            // and surfaces the SUSPENDED status for the frontend banner.
+            mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("email", email, "password", "SellerPass1!")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("SUSPENDED")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request: seller-status on a non-SELLER target")
+        void nonSellerTargetReturns400() throws Exception {
+            long userId = createUserAs(adminToken(), uniqueEmail(), "Password1!", "USER");
+
+            mockMvc.perform(patch(USERS + "/" + userId + "/seller-status")
+                            .header("Authorization", "Bearer " + adminToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("status", "APPROVED")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.seller.status.not.seller")));
+        }
+
+        @Test
+        @DisplayName("404 Not Found: seller-status on a non-existent user")
+        void missingUserReturns404() throws Exception {
+            mockMvc.perform(patch(USERS + "/999999/seller-status")
+                            .header("Authorization", "Bearer " + adminToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("status", "APPROVED")))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode", is("auth.user.not.found")));
         }
     }
 

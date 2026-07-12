@@ -2,6 +2,7 @@ package code.with.vanilson.authentication.application;
 
 import code.with.vanilson.authentication.domain.AuditLog;
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.AdminActionNotAllowedException;
 import code.with.vanilson.authentication.exception.AuthUserNotFoundException;
@@ -67,6 +68,8 @@ public class UserManagementService {
                 .password(passwordEncoder.encode(request.password()))
                 .role(request.role())
                 .tenantId(StringUtils.hasText(request.tenantId()) ? request.tenantId() : "default")
+                // Admin-created sellers skip the approval queue — the admin IS the approver.
+                .sellerStatus(request.role() == Role.SELLER ? SellerStatus.APPROVED : null)
                 .accountEnabled(true)
                 .accountLocked(false)
                 .build();
@@ -227,6 +230,53 @@ public class UserManagementService {
     }
 
     /**
+     * Approves, suspends or re-queues a SELLER — ADMIN-only entry point
+     * (PATCH /api/v1/auth/users/{userId}/seller-status).
+     * <p>
+     * SUSPENDED revokes every refresh/access token so the (stale) sellerStatus JWT claim
+     * cannot outlive the suspension beyond the access token's own TTL (design decision D1).
+     * APPROVED / PENDING_APPROVAL never revoke — the seller keeps their session and the
+     * new status takes effect on their next login/refresh.
+     * </p>
+     */
+    @Transactional
+    public UserSummaryResponse setSellerStatus(String actorEmail, Long targetUserId,
+                                               SellerStatus status) {
+        User target = userRepo.findById(targetUserId)
+                .orElseThrow(() -> new AuthUserNotFoundException(
+                        msg("auth.user.not.found", targetUserId), "auth.user.not.found"));
+
+        if (target.getRole() != Role.SELLER) {
+            throw new AdminActionNotAllowedException(
+                    msg("auth.seller.status.not.seller", targetUserId),
+                    "auth.seller.status.not.seller");
+        }
+
+        if (target.getSellerStatus() == status) {
+            return toResponse(target);
+        }
+
+        target.setSellerStatus(status);
+        User saved = userRepo.save(target);
+
+        if (status == SellerStatus.SUSPENDED) {
+            tokenRepository.revokeAllUserTokens(saved.getId());
+        }
+
+        auditRepo.save(AuditLog.builder()
+                .changedBy(actorEmail)
+                .targetUserId(String.valueOf(saved.getId()))
+                .previousRole(saved.getRole())
+                .newRole(saved.getRole())
+                .build());
+
+        log.info("[UserManagement] Seller status changed by admin: actor={} targetId={} status={}",
+                actorEmail, saved.getId(), status);
+
+        return toResponse(saved);
+    }
+
+    /**
      * Soft-deletes a user — ADMIN-only entry point (DELETE /api/v1/auth/users/{userId}).
      * Delegates to {@code AccountService.softDeleteAndAnonymize} (single source of truth,
      * same behaviour as self-service deletion) without requiring the target's password.
@@ -265,6 +315,6 @@ public class UserManagementService {
     private UserSummaryResponse toResponse(User u) {
         return new UserSummaryResponse(
                 u.getId(), u.getEmail(), u.getFirstname(), u.getLastname(),
-                u.getRole(), u.getTenantId(), u.isAccountEnabled());
+                u.getRole(), u.getTenantId(), u.isAccountEnabled(), u.getSellerStatus());
     }
 }
