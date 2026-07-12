@@ -6,6 +6,7 @@ import { QUERY_KEYS } from '@utils/constants';
 import DataTable from '@components/data-display/DataTable';
 import { TableSkeleton } from '@components/feedback/LoadingSkeleton';
 import type { CustomerResponse } from '@api/types';
+import UserManagement from './UserManagement';
 
 export default function UsersPage() {
   const { data: customers, isLoading } = useQuery({
@@ -24,7 +25,10 @@ export default function UsersPage() {
   return (
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <Typography variant="h3" sx={{ fontFamily: 'var(--font-serif)', mb: 4 }}>Users</Typography>
+        <Typography variant="h3" sx={{ fontFamily: 'var(--font-serif)', mb: 2 }}>Users</Typography>
+        <UserManagement />
+
+        <Typography variant="h5" sx={{ fontFamily: 'var(--font-serif)', mt: 6, mb: 2 }}>Customer profiles</Typography>
         {isLoading ? (
           <TableSkeleton rows={8} cols={4} />
         ) : (

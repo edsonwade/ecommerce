@@ -1,8 +1,13 @@
 package code.with.vanilson.authentication.controller;
 
+import code.with.vanilson.authentication.application.AdminCreateUserRequest;
+import code.with.vanilson.authentication.application.AdminUpdateUserRequest;
 import code.with.vanilson.authentication.application.UpdateRoleRequest;
+import code.with.vanilson.authentication.application.UpdateUserStatusRequest;
 import code.with.vanilson.authentication.application.UserManagementService;
 import code.with.vanilson.authentication.application.UserSummaryResponse;
+import code.with.vanilson.authentication.exception.AdminActionNotAllowedException;
+import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.config.JwtAuthFilter;
 import code.with.vanilson.authentication.config.SecurityConfig;
 import code.with.vanilson.authentication.domain.Role;
@@ -39,8 +44,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -120,6 +131,284 @@ class UserManagementControllerTest {
         @DisplayName("401 Unauthorized for anonymous request")
         void anonymous_gets_401() throws Exception {
             mockMvc.perform(get(BASE))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    // -------------------------------------------------------
+    // POST /api/v1/auth/users
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("POST /api/v1/auth/users")
+    class CreateUser {
+
+        private String body(String role) throws Exception {
+            return objectMapper.writeValueAsString(new AdminCreateUserRequest(
+                    "New", "User", "new.user@x.com", "Password1!",
+                    role == null ? null : Role.valueOf(role), "default"));
+        }
+
+        @Test
+        @DisplayName("201 Created when ADMIN creates a SELLER")
+        void admin_can_create_seller() throws Exception {
+            UserSummaryResponse created = new UserSummaryResponse(
+                    42L, "new.user@x.com", "New", "User", Role.SELLER, "default", true);
+            when(service.createUser(any(), any())).thenReturn(created);
+
+            mockMvc.perform(post(BASE)
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body("SELLER")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id", is(42)))
+                    .andExpect(jsonPath("$.email", is("new.user@x.com")))
+                    .andExpect(jsonPath("$.role", is("SELLER")));
+        }
+
+        @Test
+        @DisplayName("201 Created when ADMIN creates another ADMIN")
+        void admin_can_create_admin() throws Exception {
+            UserSummaryResponse created = new UserSummaryResponse(
+                    43L, "new.user@x.com", "New", "User", Role.ADMIN, "default", true);
+            when(service.createUser(any(), any())).thenReturn(created);
+
+            mockMvc.perform(post(BASE)
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body("ADMIN")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.role", is("ADMIN")));
+        }
+
+        @Test
+        @DisplayName("403 Forbidden for USER role")
+        void user_cannot_create_users() throws Exception {
+            mockMvc.perform(post(BASE)
+                            .with(user(userPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body("USER")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("401 Unauthorized for anonymous request")
+        void anonymous_gets_401() throws Exception {
+            mockMvc.perform(post(BASE)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body("USER")))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when role is missing")
+        void rejects_missing_role() throws Exception {
+            mockMvc.perform(post(BASE)
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"firstname\":\"A\",\"lastname\":\"B\","
+                                    + "\"email\":\"a@b.com\",\"password\":\"Password1!\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.role", is("Role is required.")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when role value is not a valid enum")
+        void rejects_invalid_role_value() throws Exception {
+            mockMvc.perform(post(BASE)
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"firstname\":\"A\",\"lastname\":\"B\","
+                                    + "\"email\":\"a@b.com\",\"password\":\"Password1!\","
+                                    + "\"role\":\"SUPERADMIN\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.bad.request")));
+        }
+
+        @Test
+        @DisplayName("409 Conflict when email already exists")
+        void rejects_duplicate_email() throws Exception {
+            when(service.createUser(any(), any())).thenThrow(new UserAlreadyExistsException(
+                    "A user with email [new.user@x.com] already exists.",
+                    "auth.user.already.exists"));
+
+            mockMvc.perform(post(BASE)
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body("USER")))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode", is("auth.user.already.exists")));
+        }
+    }
+
+    // -------------------------------------------------------
+    // PATCH /api/v1/auth/users/{userId}
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("PATCH /api/v1/auth/users/{userId}")
+    class UpdateUser {
+
+        @Test
+        @DisplayName("200 OK when ADMIN edits a user's name")
+        void admin_can_edit_user() throws Exception {
+            UserSummaryResponse updated = new UserSummaryResponse(
+                    2L, "user@x.com", "Renamed", "Smith", Role.USER, "t1", true);
+            when(service.updateUser(any(), any(), any())).thenReturn(updated);
+
+            mockMvc.perform(patch(BASE + "/2")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new AdminUpdateUserRequest("Renamed", null, null))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.firstname", is("Renamed")));
+        }
+
+        @Test
+        @DisplayName("403 Forbidden for USER role")
+        void user_cannot_edit_users() throws Exception {
+            mockMvc.perform(patch(BASE + "/2")
+                            .with(user(userPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new AdminUpdateUserRequest("X", null, null))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when body has no fields (service guard)")
+        void rejects_empty_body() throws Exception {
+            when(service.updateUser(any(), any(), any()))
+                    .thenThrow(new IllegalArgumentException("At least one field required"));
+
+            mockMvc.perform(patch(BASE + "/2")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.bad.request")));
+        }
+
+        @Test
+        @DisplayName("409 Conflict when new email is taken")
+        void rejects_taken_email() throws Exception {
+            when(service.updateUser(any(), any(), any())).thenThrow(new UserAlreadyExistsException(
+                    "That email address is already in use by another account.",
+                    "auth.account.email.taken"));
+
+            mockMvc.perform(patch(BASE + "/2")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new AdminUpdateUserRequest(null, null, "taken@x.com"))))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode", is("auth.account.email.taken")));
+        }
+    }
+
+    // -------------------------------------------------------
+    // PATCH /api/v1/auth/users/{userId}/status
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("PATCH /api/v1/auth/users/{userId}/status")
+    class UpdateUserStatus {
+
+        @Test
+        @DisplayName("200 OK when ADMIN deactivates a user")
+        void admin_can_deactivate_user() throws Exception {
+            UserSummaryResponse disabled = new UserSummaryResponse(
+                    2L, "user@x.com", "Bob", "Smith", Role.USER, "t1", false);
+            when(service.setUserStatus(any(), anyLong(), anyLong(), anyBoolean()))
+                    .thenReturn(disabled);
+
+            mockMvc.perform(patch(BASE + "/2/status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateUserStatusRequest(false))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.accountEnabled", is(false)));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when ADMIN deactivates self")
+        void admin_cannot_deactivate_self() throws Exception {
+            when(service.setUserStatus(any(), anyLong(), anyLong(), anyBoolean()))
+                    .thenThrow(new AdminActionNotAllowedException(
+                            "Admins cannot deactivate their own account.",
+                            "auth.admin.self.deactivate.denied"));
+
+            mockMvc.perform(patch(BASE + "/1/status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateUserStatusRequest(false))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.admin.self.deactivate.denied")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when enabled flag is missing")
+        void rejects_missing_enabled_flag() throws Exception {
+            mockMvc.perform(patch(BASE + "/2/status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.enabled", is("Enabled flag is required.")));
+        }
+
+        @Test
+        @DisplayName("403 Forbidden for USER role")
+        void user_cannot_change_status() throws Exception {
+            mockMvc.perform(patch(BASE + "/2/status")
+                            .with(user(userPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateUserStatusRequest(false))))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    // -------------------------------------------------------
+    // DELETE /api/v1/auth/users/{userId}
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("DELETE /api/v1/auth/users/{userId}")
+    class DeleteUser {
+
+        @Test
+        @DisplayName("204 No Content when ADMIN deletes a user")
+        void admin_can_delete_user() throws Exception {
+            mockMvc.perform(delete(BASE + "/2").with(user(adminPrincipal)))
+                    .andExpect(status().isNoContent());
+
+            verify(service).deleteUser("admin@x.com", 1L, 2L);
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when ADMIN deletes self")
+        void admin_cannot_delete_self() throws Exception {
+            doThrow(new AdminActionNotAllowedException(
+                    "Admins cannot delete their own account.",
+                    "auth.admin.self.delete.denied"))
+                    .when(service).deleteUser(any(), anyLong(), anyLong());
+
+            mockMvc.perform(delete(BASE + "/1").with(user(adminPrincipal)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.admin.self.delete.denied")));
+        }
+
+        @Test
+        @DisplayName("403 Forbidden for USER role")
+        void user_cannot_delete_users() throws Exception {
+            mockMvc.perform(delete(BASE + "/2").with(user(userPrincipal)))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("401 Unauthorized for anonymous request")
+        void anonymous_gets_401() throws Exception {
+            mockMvc.perform(delete(BASE + "/2"))
                     .andExpect(status().isUnauthorized());
         }
     }

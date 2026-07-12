@@ -29,6 +29,8 @@ import org.mockito.quality.Strictness;
 import org.springframework.context.MessageSource;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -326,6 +328,42 @@ class AuthServiceTest {
                         InvalidCredentialsException e = (InvalidCredentialsException) ex;
                         assertThat(e.getHttpStatus().value()).isEqualTo(401);
                         assertThat(e.getMessageKey()).isEqualTo("auth.login.invalid.credentials");
+                    });
+
+            verify(tokenRepository, never()).revokeAllUserTokens(anyLong());
+        }
+
+        @Test
+        @DisplayName("disabled account throws InvalidCredentialsException (HTTP 401), not a 500")
+        void disabledAccountThrows() {
+            LoginRequest req = new LoginRequest("john.doe@example.com", "password123");
+            when(authManager.authenticate(any()))
+                    .thenThrow(new DisabledException("User is disabled"));
+
+            assertThatThrownBy(() -> authService.login(req))
+                    .isInstanceOf(InvalidCredentialsException.class)
+                    .satisfies(ex -> {
+                        InvalidCredentialsException e = (InvalidCredentialsException) ex;
+                        assertThat(e.getHttpStatus().value()).isEqualTo(401);
+                        assertThat(e.getMessageKey()).isEqualTo("auth.user.disabled");
+                    });
+
+            verify(tokenRepository, never()).revokeAllUserTokens(anyLong());
+        }
+
+        @Test
+        @DisplayName("locked account throws InvalidCredentialsException (HTTP 401), not a 500")
+        void lockedAccountThrows() {
+            LoginRequest req = new LoginRequest("john.doe@example.com", "password123");
+            when(authManager.authenticate(any()))
+                    .thenThrow(new LockedException("User is locked"));
+
+            assertThatThrownBy(() -> authService.login(req))
+                    .isInstanceOf(InvalidCredentialsException.class)
+                    .satisfies(ex -> {
+                        InvalidCredentialsException e = (InvalidCredentialsException) ex;
+                        assertThat(e.getHttpStatus().value()).isEqualTo(401);
+                        assertThat(e.getMessageKey()).isEqualTo("auth.user.locked");
                     });
 
             verify(tokenRepository, never()).revokeAllUserTokens(anyLong());

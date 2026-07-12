@@ -120,6 +120,13 @@ public class AuthGlobalExceptionHandler {
         return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
     }
 
+    @ExceptionHandler(AdminActionNotAllowedException.class)
+    public ResponseEntity<Map<String, Object>> handleAdminActionNotAllowed(
+            AdminActionNotAllowedException ex, WebRequest req) {
+        log.warn("[AuthHandler] Admin action not allowed: key=[{}]", ex.getMessageKey());
+        return build(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), req);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(
             AccessDeniedException ex, WebRequest req) {
@@ -132,6 +139,16 @@ public class AuthGlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleBadArgument(
             IllegalArgumentException ex, WebRequest req) {
         log.warn("[AuthHandler] Bad argument: {}", ex.getMessage());
+        String msg = messageSource.getMessage("auth.bad.request", null, LocaleContextHolder.getLocale());
+        return build(HttpStatus.BAD_REQUEST, msg, "auth.bad.request", req);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(
+            org.springframework.http.converter.HttpMessageNotReadableException ex, WebRequest req) {
+        // e.g. POST /users with "role": "SUPERADMIN" — an invalid enum value or malformed JSON
+        // body is a client error (400), never an internal failure (500).
+        log.warn("[AuthHandler] Unreadable request body: {}", req.getDescription(false));
         String msg = messageSource.getMessage("auth.bad.request", null, LocaleContextHolder.getLocale());
         return build(HttpStatus.BAD_REQUEST, msg, "auth.bad.request", req);
     }

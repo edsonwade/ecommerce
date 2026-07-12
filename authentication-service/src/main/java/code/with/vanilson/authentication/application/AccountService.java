@@ -107,9 +107,20 @@ public class AccountService {
     public void deleteAccount(Long userId, String rawPassword) {
         User user = findUser(userId);
         requireValidPassword(rawPassword, user);
+        softDeleteAndAnonymize(user);
+    }
 
-        // Soft delete + anonymize (GDPR-style): orders/payments keep their history, the real
-        // email is freed for future re-registration, and login stays a generic 401.
+    /**
+     * Soft delete + anonymize (GDPR-style): orders/payments keep their history, the real
+     * email is freed for future re-registration, and login stays a generic 401.
+     * <p>
+     * Shared by the self-service flow above (password-proved) and by the admin flow in
+     * {@code UserManagementService.deleteUser} (admin authority, no password) — single
+     * source of truth for what "deleting a user" means.
+     * </p>
+     */
+    @Transactional
+    public void softDeleteAndAnonymize(User user) {
         user.setAccountEnabled(false);
         user.setEmail("deleted-" + user.getId() + "@removed.local");
         user.setFirstname("Deleted");
