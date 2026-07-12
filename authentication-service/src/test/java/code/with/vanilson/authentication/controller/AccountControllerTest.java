@@ -91,7 +91,7 @@ class AccountControllerTest {
 
     private AccountResponse account() {
         return new AccountResponse(7L, "Ana", "Silva", "ana@x.com", "USER",
-                LocalDateTime.of(2026, 1, 1, 0, 0));
+                LocalDateTime.of(2026, 1, 1, 0, 0), null);
     }
 
     @Nested @DisplayName("GET /me")
@@ -103,6 +103,27 @@ class AccountControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.email", is("ana@x.com")))
                     .andExpect(jsonPath("$.role", is("USER")));
+        }
+
+        @Test
+        @DisplayName("omits sellerStatus entirely for a non-seller (NON_NULL)")
+        void non_seller_omits_seller_status() throws Exception {
+            when(service.getAccount(7L)).thenReturn(account());
+            mockMvc.perform(get(BASE + "/me").with(user(userPrincipal)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("exposes the live sellerStatus for a seller so the SPA can poll it")
+        void seller_status_is_returned() throws Exception {
+            when(service.getAccount(8L)).thenReturn(new AccountResponse(
+                    8L, "Sam", "Seller", "seller@x.com", "SELLER",
+                    LocalDateTime.of(2026, 1, 1, 0, 0), "APPROVED"));
+            mockMvc.perform(get(BASE + "/me").with(user(sellerPrincipal)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.role", is("SELLER")))
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
         }
 
         @Test
@@ -131,7 +152,7 @@ class AccountControllerTest {
             when(service.updateAccount(eq(7L), any(UpdateAccountRequest.class)))
                     .thenReturn(new AccountUpdateResponse(
                             new AccountResponse(7L, "Ana", "Silva", "new@x.com", "USER",
-                                    LocalDateTime.of(2026, 1, 1, 0, 0)), tokens));
+                                    LocalDateTime.of(2026, 1, 1, 0, 0), null), tokens));
             mockMvc.perform(patch(BASE + "/me").with(user(userPrincipal))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"firstname\":\"Ana\",\"lastname\":\"Silva\","

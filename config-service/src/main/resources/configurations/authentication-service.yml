@@ -102,8 +102,15 @@ application:
   security:
     jwt:
       secret-key: ${JWT_SECRET}
-      expiration: 86400000         # 24 hours in ms
-      refresh-expiration: 604800000 # 7 days in ms
+      # Access token is deliberately short-lived (15 min). It carries authorization claims
+      # (role, sellerStatus) that must not outlive a status change: when an admin SUSPENDS a
+      # seller we revoke their refresh tokens, but the already-issued *access* token stays
+      # cryptographically valid until it expires. A 15-min ceiling bounds that window (was 24h,
+      # which let a suspended seller keep writing for a full day). The SPA renews silently via
+      # the refresh interceptor, and each renewal re-reads the live sellerStatus from the DB —
+      # so approval/suspension take effect within one token cycle without a re-login.
+      expiration: ${JWT_ACCESS_EXPIRATION:900000}   # 15 minutes in ms
+      refresh-expiration: 604800000                 # 7 days in ms
 
 springdoc:
   api-docs:

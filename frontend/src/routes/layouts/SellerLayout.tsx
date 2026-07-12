@@ -5,6 +5,7 @@ import Navbar from '@components/layout/Navbar';
 import Sidebar from '@components/layout/Sidebar';
 import { useUIStore } from '@stores/ui.store';
 import { useAuthStore } from '@stores/auth.store';
+import { useSellerStatusSync } from '@hooks/useSellerStatusSync';
 import { ROUTES } from '@utils/constants';
 import {
   Dashboard,
@@ -30,6 +31,10 @@ export default function SellerLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  // Reconcile the seller's baked JWT status with their live status so approval/suspension
+  // take effect here without a manual logout/login.
+  useSellerStatusSync();
+
   return (
     <MotionConfig reducedMotion="user">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -47,8 +52,9 @@ export default function SellerLayout() {
           >
             {sellerStatus === 'PENDING_APPROVAL' && (
               <Alert severity="warning" sx={{ mb: 3 }}>
-                Your seller account is pending approval. You can browse your dashboard,
-                but product management is locked until an administrator approves you.
+                Your seller account is pending approval. You can browse your dashboard, but
+                product management is locked until an administrator approves you. This page
+                unlocks automatically the moment you're approved — no need to sign out.
               </Alert>
             )}
             {sellerStatus === 'SUSPENDED' && (

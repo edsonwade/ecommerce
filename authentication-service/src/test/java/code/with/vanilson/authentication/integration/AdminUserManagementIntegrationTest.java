@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -490,6 +491,59 @@ class AdminUserManagementIntegrationTest {
             mockMvc.perform(post(BASE + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(json("email", email, "password", "SellerPass1!")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
+        }
+
+        @Test
+        @DisplayName("approval takes effect WITHOUT a re-login: /me reflects APPROVED and the "
+                + "existing refresh token rotates to an APPROVED token pair")
+        void approvalReflectedWithoutRelogin() throws Exception {
+            String email = uniqueEmail();
+
+            MvcResult registered = mockMvc.perform(post(BASE + "/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("firstname", "Pending", "lastname", "Seller",
+                                    "email", email, "password", "SellerPass1!",
+                                    "role", "SELLER")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.sellerStatus", is("PENDING_APPROVAL")))
+                    .andReturn();
+            long sellerId = bodyOf(registered).get("userId").asLong();
+
+            // The seller signs in ONCE while still pending — this is the session that must
+            // survive approval without a logout/login round-trip.
+            MvcResult login = mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("email", email, "password", "SellerPass1!")))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            String pendingAccess = bodyOf(login).get("accessToken").asText();
+            String refreshToken  = bodyOf(login).get("refreshToken").asText();
+
+            // /me with the pre-approval token shows PENDING (the SPA polls this).
+            mockMvc.perform(get(BASE + "/account/me")
+                            .header("Authorization", "Bearer " + pendingAccess))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("PENDING_APPROVAL")));
+
+            // Admin approves — no token revocation on APPROVED.
+            mockMvc.perform(patch(USERS + "/" + sellerId + "/seller-status")
+                            .header("Authorization", "Bearer " + adminToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json("status", "APPROVED")))
+                    .andExpect(status().isOk());
+
+            // Without re-authenticating: /me is a live DB read, so it already reports APPROVED.
+            mockMvc.perform(get(BASE + "/account/me")
+                            .header("Authorization", "Bearer " + pendingAccess))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
+
+            // And the still-valid refresh token rotates to a token pair whose sellerStatus is
+            // APPROVED — the mechanism the SPA uses to unlock writes without a logout/login.
+            mockMvc.perform(post(BASE + "/refresh")
+                            .header("Authorization", "Bearer " + refreshToken))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
         }

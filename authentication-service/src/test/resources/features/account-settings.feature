@@ -25,6 +25,18 @@ Feature: Account settings — edit own data and delete own account
     Then login with the new email "settings.chpw@bdd.com" and password "NewPassw0rd!2" succeeds
     And login with the old email "settings.chpw@bdd.com" and password "Passw0rd!1" fails with 401
 
+  Scenario: A seller reads their live approval status from their own account
+    # Backs the SPA poll that unlocks selling after approval without a re-login:
+    # GET /account/me is a live DB read, so it always reflects the current sellerStatus.
+    Given a self-registered seller "seller.status@bdd.com" with password "Passw0rd!1"
+    When the seller fetches their account
+    Then the account view shows sellerStatus "PENDING_APPROVAL"
+
+  Scenario: A non-seller account exposes no sellerStatus field
+    Given a registered user "plain.status@bdd.com" with password "Passw0rd!1"
+    When the seller fetches their account
+    Then the account view omits sellerStatus
+
   Scenario: Delete my account, then re-register with the same email
     Given a registered user "settings.delete@bdd.com" with password "Passw0rd!1"
     When the user deletes their account with password "Passw0rd!1"
