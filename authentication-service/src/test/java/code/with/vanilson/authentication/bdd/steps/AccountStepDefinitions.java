@@ -64,6 +64,14 @@ public class AccountStepDefinitions {
                 .post(BASE + "/login").then().extract().response();
     }
 
+    private Response registerSeller(String email, String password) {
+        return given().contentType(ContentType.JSON)
+                .body(String.format(
+                        "{\"firstname\":\"Sell\",\"lastname\":\"Bdd\",\"role\":\"SELLER\","
+                        + "\"email\":\"%s\",\"password\":\"%s\"}", email, password))
+                .post(BASE + "/register").then().extract().response();
+    }
+
     // ------------------------------------------------------------------
 
     @Given("a registered user {string} with password {string}")
@@ -71,6 +79,32 @@ public class AccountStepDefinitions {
         Response r = register(uniqueEmail(emailSeed), password);
         assertThat(r.statusCode()).isEqualTo(201);
         accessToken = r.jsonPath().getString("accessToken");
+    }
+
+    @Given("a self-registered seller {string} with password {string}")
+    public void aSelfRegisteredSeller(String emailSeed, String password) {
+        Response r = registerSeller(uniqueEmail(emailSeed), password);
+        assertThat(r.statusCode()).isEqualTo(201);
+        accessToken = r.jsonPath().getString("accessToken");
+    }
+
+    @When("the seller fetches their account")
+    public void fetchesAccount() {
+        lastResponse = given()
+                .header("Authorization", "Bearer " + accessToken)
+                .get(BASE + "/account/me").then().extract().response();
+    }
+
+    @Then("the account view shows sellerStatus {string}")
+    public void accountShowsSellerStatus(String expected) {
+        assertThat(lastResponse.statusCode()).isEqualTo(200);
+        assertThat(lastResponse.jsonPath().getString("sellerStatus")).isEqualTo(expected);
+    }
+
+    @Then("the account view omits sellerStatus")
+    public void accountOmitsSellerStatus() {
+        assertThat(lastResponse.statusCode()).isEqualTo(200);
+        assertThat(lastResponse.jsonPath().getString("sellerStatus")).isNull();
     }
 
     @When("the user updates their name to {string} {string}")

@@ -37,6 +37,9 @@ export interface AccountResponse {
   email: string;
   role: Role;
   createdAt: string;
+  /** Live seller-approval status (backend omits it for non-sellers). The seller UI polls
+   *  this so approval/suspension take effect without a re-login. */
+  sellerStatus?: SellerStatus;
 }
 
 export interface UpdateAccountRequest {

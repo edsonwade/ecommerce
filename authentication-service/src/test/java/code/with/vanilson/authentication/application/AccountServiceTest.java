@@ -1,6 +1,7 @@
 package code.with.vanilson.authentication.application;
 
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidAccountPasswordException;
 import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
@@ -67,6 +68,27 @@ class AccountServiceTest {
             assertThat(res.id()).isEqualTo(7L);
             assertThat(res.email()).isEqualTo("ana@x.com");
             assertThat(res.role()).isEqualTo("USER");
+        }
+
+        @Test
+        @DisplayName("leaves sellerStatus null for a non-seller account")
+        void non_seller_has_null_seller_status() {
+            when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+            assertThat(service.getAccount(7L).sellerStatus()).isNull();
+        }
+
+        @Test
+        @DisplayName("exposes the live sellerStatus for a seller (drives the SPA poll → no re-login)")
+        void seller_status_is_mapped_from_the_entity() {
+            User seller = User.builder()
+                    .id(8L).firstname("Sam").lastname("Seller")
+                    .email("seller@x.com").password("$2a$10$hash")
+                    .role(Role.SELLER).tenantId("default")
+                    .sellerStatus(SellerStatus.PENDING_APPROVAL)
+                    .accountEnabled(true).accountLocked(false)
+                    .build();
+            when(userRepository.findById(8L)).thenReturn(Optional.of(seller));
+            assertThat(service.getAccount(8L).sellerStatus()).isEqualTo("PENDING_APPROVAL");
         }
     }
 

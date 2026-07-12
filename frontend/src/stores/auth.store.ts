@@ -24,6 +24,8 @@ interface AuthState {
   }) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setEmail: (email: string) => void;
+  /** Update the seller-approval status in place (driven by the live status poll). */
+  setSellerStatus: (sellerStatus: SellerStatus | null) => void;
   clearAuth: () => void;
 }
 
@@ -55,6 +57,8 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken, refreshToken }),
 
       setEmail: (email) => set({ email }),
+
+      setSellerStatus: (sellerStatus) => set({ sellerStatus: sellerStatus ?? null }),
 
       clearAuth: () =>
         set({
