@@ -17,6 +17,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -136,6 +138,15 @@ public class AuthService {
         try {
             authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
+        } catch (DisabledException ex) {
+            // Deactivated account — the pre-auth check throws before the password is verified.
+            // This is an authentication failure (401), not an internal error (500).
+            throw new InvalidCredentialsException(
+                    msg("auth.user.disabled", request.email()), "auth.user.disabled");
+        } catch (LockedException ex) {
+            // Locked account — likewise a 401, not a 500.
+            throw new InvalidCredentialsException(
+                    msg("auth.user.locked", request.email()), "auth.user.locked");
         } catch (BadCredentialsException ex) {
             throw new InvalidCredentialsException(
                     msg("auth.login.invalid.credentials"), "auth.login.invalid.credentials");
