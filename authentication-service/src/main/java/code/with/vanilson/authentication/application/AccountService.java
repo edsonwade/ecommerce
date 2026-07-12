@@ -77,7 +77,8 @@ public class AccountService {
 
         return new AccountUpdateResponse(AccountResponse.from(saved),
                 AuthResponse.of(accessJwt, refreshJwt, String.valueOf(saved.getId()),
-                        saved.getEmail(), saved.getRole().name(), saved.getTenantId()));
+                        saved.getEmail(), saved.getRole().name(), saved.getTenantId(),
+                        saved.getSellerStatus() != null ? saved.getSellerStatus().name() : null));
     }
 
     @Transactional
@@ -100,7 +101,8 @@ public class AccountService {
         log.info("[AccountService] Password changed for userId=[{}] — sessions rotated", saved.getId());
 
         return AuthResponse.of(accessJwt, refreshJwt, String.valueOf(saved.getId()),
-                saved.getEmail(), saved.getRole().name(), saved.getTenantId());
+                saved.getEmail(), saved.getRole().name(), saved.getTenantId(),
+                saved.getSellerStatus() != null ? saved.getSellerStatus().name() : null);
     }
 
     @Transactional

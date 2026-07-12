@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Role, PageResponse } from './types';
+import type { Role, SellerStatus, PageResponse } from './types';
 
 export interface AdminUser {
   id: number;
@@ -9,6 +9,8 @@ export interface AdminUser {
   role: Role;
   tenantId: string;
   accountEnabled: boolean;
+  /** null for non-sellers; PENDING_APPROVAL / APPROVED / SUSPENDED for sellers. */
+  sellerStatus: SellerStatus | null;
 }
 
 /** POST /auth/users — mirrors backend AdminCreateUserRequest (tenantId optional, defaults "default"). */
@@ -57,5 +59,10 @@ export const usersApi = {
   updateRole: (userId: number, role: Role) =>
     apiClient
       .patch<AdminUser>(`/auth/users/${userId}/role`, { role })
+      .then((r) => r.data),
+
+  setSellerStatus: (userId: number, status: SellerStatus) =>
+    apiClient
+      .patch<AdminUser>(`/auth/users/${userId}/seller-status`, { status })
       .then((r) => r.data),
 };

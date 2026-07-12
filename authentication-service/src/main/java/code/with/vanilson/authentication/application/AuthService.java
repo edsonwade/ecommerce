@@ -1,6 +1,7 @@
 package code.with.vanilson.authentication.application;
 
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.exception.InvalidCredentialsException;
 import code.with.vanilson.authentication.exception.InvalidTokenException;
@@ -107,6 +108,9 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.password()))
                 .role(userRole)
                 .tenantId(StringUtils.hasText(request.tenantId()) ? request.tenantId() : "default")
+                // Self-registered sellers await admin approval before they may write products;
+                // admin-created sellers (UserManagementService.createUser) are born APPROVED.
+                .sellerStatus(userRole == Role.SELLER ? SellerStatus.PENDING_APPROVAL : null)
                 .accountEnabled(true)
                 .accountLocked(false)
                 .build();
@@ -124,7 +128,8 @@ public class AuthService {
 
         return AuthResponse.of(accessJwt, refreshJwt,
                 String.valueOf(saved.getId()), saved.getEmail(),
-                saved.getRole().name(), saved.getTenantId());
+                saved.getRole().name(), saved.getTenantId(),
+                saved.getSellerStatus() != null ? saved.getSellerStatus().name() : null);
     }
 
     // -------------------------------------------------------
@@ -175,7 +180,8 @@ public class AuthService {
         log.info(msg("auth.log.login.success", user.getId(), user.getEmail()));
         return AuthResponse.of(accessJwt, refreshJwt,
                 String.valueOf(user.getId()), user.getEmail(),
-                user.getRole().name(), user.getTenantId());
+                user.getRole().name(), user.getTenantId(),
+                user.getSellerStatus() != null ? user.getSellerStatus().name() : null);
     }
 
     /**

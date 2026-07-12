@@ -58,6 +58,7 @@ export default function LoginPage() {
         email: res.email,
         role: res.role,
         tenantId: res.tenantId,
+        sellerStatus: res.sellerStatus ?? null,
       });
       addToast({ message: `Welcome back, ${res.email}`, variant: 'success' });
       const defaultDest =

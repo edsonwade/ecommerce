@@ -102,6 +102,11 @@ public class JwtService {
         claims.put("tenantId", user.getTenantId());
         claims.put("role", user.getRole().name());
         claims.put("tokenType", "ACCESS");
+        // Seller approval flow: only SELLER accounts carry a sellerStatus; the claim is
+        // omitted entirely for other roles so old consumers see no shape change.
+        if (user.getSellerStatus() != null) {
+            claims.put("sellerStatus", user.getSellerStatus().name());
+        }
 
         String token = buildToken(claims, user.getEmail(), accessTokenExpiry);
         log.info(msg("auth.jwt.generated", user.getId(), user.getTenantId()));

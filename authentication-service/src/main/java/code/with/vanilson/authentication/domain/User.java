@@ -99,6 +99,15 @@ public class User {
     @Column(name = "postal_code", length = 64)
     private String postalCode;
 
+    /**
+     * Seller approval lifecycle — only meaningful when role == SELLER, null otherwise.
+     * Self-registered sellers are born PENDING_APPROVAL; admin-created sellers APPROVED.
+     * Existing sellers were grandfathered to APPROVED by migration V6.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "seller_status", length = 30)
+    private SellerStatus sellerStatus;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean accountLocked = false;

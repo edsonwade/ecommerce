@@ -63,7 +63,11 @@ class ProductServiceOwnershipTest {
     }
 
     private void authAs(long userId, String role) {
-        var principal = new SecurityPrincipal("u@x.com", userId, "t1", role);
+        authAs(userId, role, null);
+    }
+
+    private void authAs(long userId, String role, String sellerStatus) {
+        var principal = new SecurityPrincipal("u@x.com", userId, "t1", role, sellerStatus);
         var auth = new UsernamePasswordAuthenticationToken(
                 principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
         SecurityContextHolder.getContext().setAuthentication(auth);
@@ -227,6 +231,115 @@ class ProductServiceOwnershipTest {
             productService.deleteProduct(3);
 
             verify(productRepository).deleteById(3);
+        }
+    }
+
+    // -------------------------------------------------------
+    // Seller approval write-guard (Fase 2)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("seller approval write-guard")
+    class SellerApprovalWriteGuard {
+
+        private Product newProduct() {
+            return productOwnedBy(0, null);
+        }
+
+        @Test
+        @DisplayName("PENDING_APPROVAL seller cannot create — 403 seller.not.approved")
+        void pending_seller_cannot_create() {
+            authAs(7L, "SELLER", "PENDING_APPROVAL");
+
+            assertThatThrownBy(() -> productService.createProduct(newProduct()))
+                    .isInstanceOf(ProductForbiddenException.class)
+                    .satisfies(ex -> assertThat(
+                            ((ProductForbiddenException) ex).getMessageKey())
+                            .isEqualTo("seller.not.approved"));
+
+            verify(productRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("SUSPENDED seller cannot create — 403 seller.suspended")
+        void suspended_seller_cannot_create() {
+            authAs(7L, "SELLER", "SUSPENDED");
+
+            assertThatThrownBy(() -> productService.createProduct(newProduct()))
+                    .isInstanceOf(ProductForbiddenException.class)
+                    .satisfies(ex -> assertThat(
+                            ((ProductForbiddenException) ex).getMessageKey())
+                            .isEqualTo("seller.suspended"));
+
+            verify(productRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("APPROVED seller creates normally")
+        void approved_seller_can_create() {
+            authAs(7L, "SELLER", "APPROVED");
+            when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(productMapper.toProductRequest(any())).thenReturn(
+                    new ProductRequest(0, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99), 1));
+
+            productService.createProduct(newProduct());
+
+            verify(productRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("seller with old token (null claim) still creates — grandfathered compat")
+        void null_claim_seller_can_create() {
+            authAs(7L, "SELLER", null);
+            when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(productMapper.toProductRequest(any())).thenReturn(
+                    new ProductRequest(0, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99), 1));
+
+            productService.createProduct(newProduct());
+
+            verify(productRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("ADMIN is never gated by seller status")
+        void admin_is_never_gated() {
+            authAs(1L, "ADMIN", null);
+            when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(productMapper.toProductRequest(any())).thenReturn(
+                    new ProductRequest(0, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99), 1));
+
+            productService.createProduct(newProduct());
+
+            verify(productRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("PENDING_APPROVAL seller cannot update even their OWN product")
+        void pending_seller_cannot_update_own_product() {
+            authAs(7L, "SELLER", "PENDING_APPROVAL");
+
+            assertThatThrownBy(() -> productService.updateProduct(1,
+                    new Product(1, "Updated", "Desc", 5.0, BigDecimal.ONE)))
+                    .isInstanceOf(ProductForbiddenException.class)
+                    .satisfies(ex -> assertThat(
+                            ((ProductForbiddenException) ex).getMessageKey())
+                            .isEqualTo("seller.not.approved"));
+
+            verify(productRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("SUSPENDED seller cannot delete even their OWN product")
+        void suspended_seller_cannot_delete_own_product() {
+            authAs(5L, "SELLER", "SUSPENDED");
+
+            assertThatThrownBy(() -> productService.deleteProduct(3))
+                    .isInstanceOf(ProductForbiddenException.class)
+                    .satisfies(ex -> assertThat(
+                            ((ProductForbiddenException) ex).getMessageKey())
+                            .isEqualTo("seller.suspended"));
+
+            verify(productRepository, never()).deleteById(any());
         }
     }
 

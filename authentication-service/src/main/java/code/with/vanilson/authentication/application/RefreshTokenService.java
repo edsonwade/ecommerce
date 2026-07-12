@@ -85,7 +85,8 @@ public class RefreshTokenService {
 
         return AuthResponse.of(newAccessJwt, newRefreshJwt,
                 String.valueOf(user.getId()), user.getEmail(),
-                user.getRole().name(), user.getTenantId());
+                user.getRole().name(), user.getTenantId(),
+                user.getSellerStatus() != null ? user.getSellerStatus().name() : null);
     }
 
     /**

@@ -219,7 +219,7 @@ class AuthControllerTest {
         void sellerRegistrationReturns201WithSellerRole() throws Exception {
             AuthResponse sellerResponse = AuthResponse.of(
                     "seller.access.token", "seller.refresh.token",
-                    "2", "seller@example.com", "SELLER", "default");
+                    "2", "seller@example.com", "SELLER", "default", "PENDING_APPROVAL");
             when(authService.register(any())).thenReturn(sellerResponse);
 
             mockMvc.perform(post(BASE + "/register")
@@ -230,6 +230,7 @@ class AuthControllerTest {
                             "role", "SELLER")))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.role", is("SELLER")))
+                    .andExpect(jsonPath("$.sellerStatus", is("PENDING_APPROVAL")))
                     .andExpect(jsonPath("$.accessToken", is("seller.access.token")));
         }
 

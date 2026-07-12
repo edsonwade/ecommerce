@@ -1,9 +1,10 @@
 import { Outlet } from 'react-router-dom';
-import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, useMediaQuery, useTheme } from '@mui/material';
 import { MotionConfig } from 'framer-motion';
 import Navbar from '@components/layout/Navbar';
 import Sidebar from '@components/layout/Sidebar';
 import { useUIStore } from '@stores/ui.store';
+import { useAuthStore } from '@stores/auth.store';
 import { ROUTES } from '@utils/constants';
 import {
   Dashboard,
@@ -25,6 +26,7 @@ const SELLER_NAV = [
 
 export default function SellerLayout() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUIStore();
+  const sellerStatus = useAuthStore((s) => s.sellerStatus);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -43,6 +45,18 @@ export default function SellerLayout() {
             component="main"
             sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, md: 4 } }}
           >
+            {sellerStatus === 'PENDING_APPROVAL' && (
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                Your seller account is pending approval. You can browse your dashboard,
+                but product management is locked until an administrator approves you.
+              </Alert>
+            )}
+            {sellerStatus === 'SUSPENDED' && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                Your seller account is suspended. Product management is blocked —
+                contact support to restore access.
+              </Alert>
+            )}
             <Outlet />
           </Box>
         </Box>

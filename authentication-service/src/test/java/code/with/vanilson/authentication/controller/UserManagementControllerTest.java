@@ -3,6 +3,7 @@ package code.with.vanilson.authentication.controller;
 import code.with.vanilson.authentication.application.AdminCreateUserRequest;
 import code.with.vanilson.authentication.application.AdminUpdateUserRequest;
 import code.with.vanilson.authentication.application.UpdateRoleRequest;
+import code.with.vanilson.authentication.application.UpdateSellerStatusRequest;
 import code.with.vanilson.authentication.application.UpdateUserStatusRequest;
 import code.with.vanilson.authentication.application.UserManagementService;
 import code.with.vanilson.authentication.application.UserSummaryResponse;
@@ -11,6 +12,7 @@ import code.with.vanilson.authentication.exception.UserAlreadyExistsException;
 import code.with.vanilson.authentication.config.JwtAuthFilter;
 import code.with.vanilson.authentication.config.SecurityConfig;
 import code.with.vanilson.authentication.domain.Role;
+import code.with.vanilson.authentication.domain.SellerStatus;
 import code.with.vanilson.authentication.domain.User;
 import code.with.vanilson.authentication.domain.UserDetailsAdapter;
 import code.with.vanilson.authentication.exception.AuthUserNotFoundException;
@@ -110,7 +112,7 @@ class UserManagementControllerTest {
         @DisplayName("200 with user list for ADMIN")
         void admin_can_list_users() throws Exception {
             UserSummaryResponse summary = new UserSummaryResponse(
-                    2L, "user@x.com", "Bob", "Smith", Role.USER, "t1", true);
+                    2L, "user@x.com", "Bob", "Smith", Role.USER, "t1", true, null);
             when(service.listUsers(any())).thenReturn(new PageImpl<>(List.of(summary)));
 
             mockMvc.perform(get(BASE).with(user(adminPrincipal)))
@@ -152,7 +154,8 @@ class UserManagementControllerTest {
         @DisplayName("201 Created when ADMIN creates a SELLER")
         void admin_can_create_seller() throws Exception {
             UserSummaryResponse created = new UserSummaryResponse(
-                    42L, "new.user@x.com", "New", "User", Role.SELLER, "default", true);
+                    42L, "new.user@x.com", "New", "User", Role.SELLER, "default", true,
+                    SellerStatus.APPROVED);
             when(service.createUser(any(), any())).thenReturn(created);
 
             mockMvc.perform(post(BASE)
@@ -162,14 +165,15 @@ class UserManagementControllerTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.id", is(42)))
                     .andExpect(jsonPath("$.email", is("new.user@x.com")))
-                    .andExpect(jsonPath("$.role", is("SELLER")));
+                    .andExpect(jsonPath("$.role", is("SELLER")))
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
         }
 
         @Test
         @DisplayName("201 Created when ADMIN creates another ADMIN")
         void admin_can_create_admin() throws Exception {
             UserSummaryResponse created = new UserSummaryResponse(
-                    43L, "new.user@x.com", "New", "User", Role.ADMIN, "default", true);
+                    43L, "new.user@x.com", "New", "User", Role.ADMIN, "default", true, null);
             when(service.createUser(any(), any())).thenReturn(created);
 
             mockMvc.perform(post(BASE)
@@ -251,7 +255,7 @@ class UserManagementControllerTest {
         @DisplayName("200 OK when ADMIN edits a user's name")
         void admin_can_edit_user() throws Exception {
             UserSummaryResponse updated = new UserSummaryResponse(
-                    2L, "user@x.com", "Renamed", "Smith", Role.USER, "t1", true);
+                    2L, "user@x.com", "Renamed", "Smith", Role.USER, "t1", true, null);
             when(service.updateUser(any(), any(), any())).thenReturn(updated);
 
             mockMvc.perform(patch(BASE + "/2")
@@ -316,7 +320,7 @@ class UserManagementControllerTest {
         @DisplayName("200 OK when ADMIN deactivates a user")
         void admin_can_deactivate_user() throws Exception {
             UserSummaryResponse disabled = new UserSummaryResponse(
-                    2L, "user@x.com", "Bob", "Smith", Role.USER, "t1", false);
+                    2L, "user@x.com", "Bob", "Smith", Role.USER, "t1", false, null);
             when(service.setUserStatus(any(), anyLong(), anyLong(), anyBoolean()))
                     .thenReturn(disabled);
 
@@ -366,6 +370,125 @@ class UserManagementControllerTest {
                             .content(objectMapper.writeValueAsString(
                                     new UpdateUserStatusRequest(false))))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    // -------------------------------------------------------
+    // PATCH /api/v1/auth/users/{userId}/seller-status
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("PATCH /api/v1/auth/users/{userId}/seller-status")
+    class UpdateSellerStatus {
+
+        @Test
+        @DisplayName("200 OK when ADMIN approves a pending seller")
+        void admin_can_approve_seller() throws Exception {
+            UserSummaryResponse approved = new UserSummaryResponse(
+                    2L, "seller@x.com", "Sella", "Vendor", Role.SELLER, "default", true,
+                    SellerStatus.APPROVED);
+            when(service.setSellerStatus(any(), anyLong(), any())).thenReturn(approved);
+
+            mockMvc.perform(patch(BASE + "/2/seller-status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateSellerStatusRequest(SellerStatus.APPROVED))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("APPROVED")));
+
+            verify(service).setSellerStatus("admin@x.com", 2L, SellerStatus.APPROVED);
+        }
+
+        @Test
+        @DisplayName("200 OK when ADMIN suspends a seller")
+        void admin_can_suspend_seller() throws Exception {
+            UserSummaryResponse suspended = new UserSummaryResponse(
+                    2L, "seller@x.com", "Sella", "Vendor", Role.SELLER, "default", true,
+                    SellerStatus.SUSPENDED);
+            when(service.setSellerStatus(any(), anyLong(), any())).thenReturn(suspended);
+
+            mockMvc.perform(patch(BASE + "/2/seller-status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateSellerStatusRequest(SellerStatus.SUSPENDED))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sellerStatus", is("SUSPENDED")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when target is not a SELLER")
+        void rejects_non_seller_target() throws Exception {
+            when(service.setSellerStatus(any(), anyLong(), any()))
+                    .thenThrow(new AdminActionNotAllowedException(
+                            "User [3] is not a SELLER — seller status does not apply.",
+                            "auth.seller.status.not.seller"));
+
+            mockMvc.perform(patch(BASE + "/3/seller-status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateSellerStatusRequest(SellerStatus.APPROVED))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.seller.status.not.seller")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when status is missing")
+        void rejects_missing_status() throws Exception {
+            mockMvc.perform(patch(BASE + "/2/seller-status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.status", is("Seller status is required.")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when status value is not a valid enum")
+        void rejects_invalid_status_value() throws Exception {
+            mockMvc.perform(patch(BASE + "/2/seller-status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"BANNED\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("auth.bad.request")));
+        }
+
+        @Test
+        @DisplayName("404 Not Found when target user does not exist")
+        void returns_404_for_missing_user() throws Exception {
+            when(service.setSellerStatus(any(), anyLong(), any()))
+                    .thenThrow(new AuthUserNotFoundException(
+                            "User 99 not found", "auth.user.not.found"));
+
+            mockMvc.perform(patch(BASE + "/99/seller-status")
+                            .with(user(adminPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateSellerStatusRequest(SellerStatus.APPROVED))))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("403 Forbidden for USER role")
+        void user_cannot_change_seller_status() throws Exception {
+            mockMvc.perform(patch(BASE + "/2/seller-status")
+                            .with(user(userPrincipal))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateSellerStatusRequest(SellerStatus.APPROVED))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("401 Unauthorized for anonymous request")
+        void anonymous_gets_401() throws Exception {
+            mockMvc.perform(patch(BASE + "/2/seller-status")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateSellerStatusRequest(SellerStatus.APPROVED))))
+                    .andExpect(status().isUnauthorized());
         }
     }
 
@@ -424,7 +547,8 @@ class UserManagementControllerTest {
         @DisplayName("200 with updated user when ADMIN promotes a USER to SELLER")
         void admin_can_promote_user() throws Exception {
             UserSummaryResponse updated = new UserSummaryResponse(
-                    2L, "user@x.com", "Bob", "Smith", Role.SELLER, "t1", true);
+                    2L, "user@x.com", "Bob", "Smith", Role.SELLER, "t1", true,
+                    SellerStatus.APPROVED);
             when(service.updateRole(any(), any(), any(), any())).thenReturn(updated);
 
             mockMvc.perform(patch(BASE + "/2/role")

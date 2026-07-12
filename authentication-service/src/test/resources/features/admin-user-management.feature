@@ -48,3 +48,32 @@ Feature: Admin user management — create users with any role
     And the admin creates a user "deleted.user@bdd.com" with password "Password1!" and role "USER"
     When the admin deletes that user
     Then login with the created email and password "Password1!" fails with 401
+
+  Scenario: Admin-created seller is born approved
+    Given the platform admin is logged in
+    When the admin creates a user "approved.seller@bdd.com" with password "SellerPass1!" and role "SELLER"
+    Then the user creation succeeds with role "SELLER"
+    And the user creation shows seller status "APPROVED"
+
+  Scenario: Self-registered seller is born pending approval
+    When someone registers publicly as seller "pending.seller@bdd.com" with password "SellerPass1!"
+    Then the registration response shows seller status "PENDING_APPROVAL"
+
+  Scenario: Admin approves a pending seller who keeps their login
+    Given the platform admin is logged in
+    And someone registers publicly as seller "flow.seller@bdd.com" with password "SellerPass1!"
+    When the admin sets that seller's status to "APPROVED"
+    Then the seller status response shows "APPROVED"
+    And login with the created email and password "SellerPass1!" succeeds with role "SELLER"
+
+  Scenario: Admin suspends a seller
+    Given the platform admin is logged in
+    And the admin creates a user "suspend.seller@bdd.com" with password "SellerPass1!" and role "SELLER"
+    When the admin sets that seller's status to "SUSPENDED"
+    Then the seller status response shows "SUSPENDED"
+
+  Scenario: Seller status does not apply to a regular user
+    Given the platform admin is logged in
+    And the admin creates a user "plain.target@bdd.com" with password "Password1!" and role "USER"
+    When the admin sets that seller's status to "APPROVED"
+    Then the user creation fails with 400 and error code "auth.seller.status.not.seller"

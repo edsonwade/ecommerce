@@ -27,7 +27,7 @@ import {
   type AdminCreateUserPayload,
   type AdminUpdateUserPayload,
 } from '@api/users.api';
-import type { Role } from '@api/types';
+import type { Role, SellerStatus } from '@api/types';
 import { normalizeError } from '@api/client';
 import RoleBadge from '@components/layout/RoleBadge';
 import DataTable, { type Column } from '@components/data-display/DataTable';
@@ -55,6 +55,18 @@ const editSchema = z.object({
 type CreateFormValues = z.infer<typeof createSchema>;
 type EditFormValues = z.infer<typeof editSchema>;
 
+const SELLER_STATUS_LABEL: Record<SellerStatus, string> = {
+  PENDING_APPROVAL: 'Pending',
+  APPROVED: 'Approved',
+  SUSPENDED: 'Suspended',
+};
+
+const SELLER_STATUS_COLOR: Record<SellerStatus, 'warning' | 'success' | 'error'> = {
+  PENDING_APPROVAL: 'warning',
+  APPROVED: 'success',
+  SUSPENDED: 'error',
+};
+
 export default function UserManagement() {
   const qc = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
@@ -64,6 +76,7 @@ export default function UserManagement() {
   const [editTarget, setEditTarget] = useState<AdminUser | null>(null);
   const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: USERS_KEY,
@@ -125,6 +138,26 @@ export default function UserManagement() {
     onError: (err: unknown) => {
       addToast({ message: normalizeError(err).message, variant: 'error' });
       setStatusTarget(null);
+    },
+  });
+
+  const sellerStatusMut = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: SellerStatus }) =>
+      usersApi.setSellerStatus(id, status),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: USERS_KEY });
+      const message =
+        vars.status === 'APPROVED'
+          ? 'Seller approved'
+          : vars.status === 'SUSPENDED'
+            ? 'Seller suspended'
+            : 'Seller moved back to review';
+      addToast({ message, variant: 'success' });
+      setSuspendTarget(null);
+    },
+    onError: (err: unknown) => {
+      addToast({ message: normalizeError(err).message, variant: 'error' });
+      setSuspendTarget(null);
     },
   });
 
@@ -235,6 +268,63 @@ export default function UserManagement() {
           <MenuItem value="ADMIN">ADMIN</MenuItem>
         </Select>
       ),
+    },
+    {
+      key: 'sellerStatus',
+      label: 'Seller status',
+      render: (r) => {
+        if (r.role !== 'SELLER') {
+          return (
+            <Typography variant="caption" color="text.disabled">
+              —
+            </Typography>
+          );
+        }
+        const status: SellerStatus = r.sellerStatus ?? 'APPROVED';
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Chip
+              size="small"
+              variant="outlined"
+              label={SELLER_STATUS_LABEL[status]}
+              color={SELLER_STATUS_COLOR[status]}
+            />
+            {status === 'PENDING_APPROVAL' && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="success"
+                disabled={sellerStatusMut.isPending}
+                onClick={() => sellerStatusMut.mutate({ id: r.id, status: 'APPROVED' })}
+              >
+                Approve
+              </Button>
+            )}
+            {status === 'APPROVED' && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                disabled={sellerStatusMut.isPending}
+                onClick={() => setSuspendTarget(r)}
+              >
+                Suspend
+              </Button>
+            )}
+            {status === 'SUSPENDED' && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="success"
+                disabled={sellerStatusMut.isPending}
+                onClick={() => sellerStatusMut.mutate({ id: r.id, status: 'APPROVED' })}
+              >
+                Reactivate
+              </Button>
+            )}
+          </Box>
+        );
+      },
     },
     {
       key: 'status',
@@ -462,6 +552,21 @@ export default function UserManagement() {
           statusMut.mutate({ id: statusTarget.id, enabled: !statusTarget.accountEnabled })
         }
         onCancel={() => setStatusTarget(null)}
+      />
+
+      {/* Suspend seller confirmation */}
+      <ConfirmDialog
+        open={!!suspendTarget}
+        title="Suspend seller?"
+        description={`${suspendTarget?.email ?? ''} will be signed out everywhere and blocked from managing products until reactivated. Their catalog stays visible.`}
+        confirmLabel="Suspend"
+        destructive
+        loading={sellerStatusMut.isPending}
+        onConfirm={() =>
+          suspendTarget &&
+          sellerStatusMut.mutate({ id: suspendTarget.id, status: 'SUSPENDED' })
+        }
+        onCancel={() => setSuspendTarget(null)}
       />
 
       {/* Delete confirmation */}

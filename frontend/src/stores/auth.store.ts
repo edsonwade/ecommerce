@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Role } from '../api/types';
+import type { Role, SellerStatus } from '../api/types';
 
 interface AuthState {
   accessToken: string | null;
@@ -9,6 +9,8 @@ interface AuthState {
   email: string | null;
   role: Role | null;
   tenantId: string | null;
+  /** Only sellers carry a status; null for other roles (and for pre-Fase-2 sessions). */
+  sellerStatus: SellerStatus | null;
   isAuthenticated: boolean;
 
   setAuth: (payload: {
@@ -18,6 +20,7 @@ interface AuthState {
     email: string;
     role: Role;
     tenantId: string;
+    sellerStatus?: SellerStatus | null;
   }) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setEmail: (email: string) => void;
@@ -33,10 +36,20 @@ export const useAuthStore = create<AuthState>()(
       email: null,
       role: null,
       tenantId: null,
+      sellerStatus: null,
       isAuthenticated: false,
 
-      setAuth: ({ accessToken, refreshToken, userId, email, role, tenantId }) =>
-        set({ accessToken, refreshToken, userId, email, role, tenantId, isAuthenticated: true }),
+      setAuth: ({ accessToken, refreshToken, userId, email, role, tenantId, sellerStatus }) =>
+        set({
+          accessToken,
+          refreshToken,
+          userId,
+          email,
+          role,
+          tenantId,
+          sellerStatus: sellerStatus ?? null,
+          isAuthenticated: true,
+        }),
 
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }),
@@ -51,6 +64,7 @@ export const useAuthStore = create<AuthState>()(
           email: null,
           role: null,
           tenantId: null,
+          sellerStatus: null,
           isAuthenticated: false,
         }),
     }),
@@ -66,6 +80,7 @@ export const useAuthStore = create<AuthState>()(
         email: state.email,
         role: state.role,
         tenantId: state.tenantId,
+        sellerStatus: state.sellerStatus,
         isAuthenticated: state.isAuthenticated,
       }),
     }
