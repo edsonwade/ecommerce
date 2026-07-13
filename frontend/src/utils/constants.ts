@@ -25,6 +25,7 @@ export const ROUTES = {
   ADMIN_TENANTS: '/admin/tenants',
   ADMIN_TENANT: (id: string) => `/admin/tenants/${id}`,
   ADMIN_USERS: '/admin/users',
+  ADMIN_PRODUCTS: '/admin/products',
   ADMIN_PAYMENTS: '/admin/payments',
   ADMIN_ANALYTICS: '/admin/analytics',
   ADMIN_ACCOUNT: '/admin/account',
