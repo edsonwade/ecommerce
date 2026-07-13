@@ -451,7 +451,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
       GATEWAY_MAX_CONCURRENT: 5000
       GATEWAY_TENANT_SERVICE_BASE_URL: http://tenant-service:8095
-      GATEWAY_PUBLIC_PATHS: /api/v1/auth/**,/actuator/**,/fallback/**,/api/v1/products,/api/v1/products/**
+      GATEWAY_PUBLIC_PATHS: /api/v1/auth/**,/actuator/**,/fallback/**,/api/v1/products,/api/v1/products/**,/api/v1/categories,/api/v1/categories/**
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
