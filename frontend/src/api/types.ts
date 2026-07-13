@@ -68,6 +68,12 @@ export interface CategoryResponse {
   description: string;
 }
 
+// Fase 4: payload for ADMIN category create/update.
+export interface CategoryRequest {
+  name: string;
+  description?: string;
+}
+
 // ── Product ──
 export interface ProductRequest {
   id?: number;

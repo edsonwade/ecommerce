@@ -95,4 +95,15 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
      * @return page of products in the given status
      */
     Page<Product> findByStatus(ProductStatus status, Pageable pageable);
+
+    /**
+     * Fase 4: counts products referencing a category. Backs the category delete-guard —
+     * a category still referenced by any product must not be deleted (would orphan the FK
+     * or, with cascade, delete live products), so the service returns 409 when this is &gt; 0.
+     * Traverses {@code Product.category.id}.
+     *
+     * @param categoryId the category primary key
+     * @return number of products pointing at that category
+     */
+    long countByCategoryId(Integer categoryId);
 }
