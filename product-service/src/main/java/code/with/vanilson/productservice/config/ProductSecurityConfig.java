@@ -53,6 +53,10 @@ public class ProductSecurityConfig {
                 // ADMIN role is enforced via @PreAuthorize on the controller method.
                 .requestMatchers(HttpMethod.GET, "/api/v1/products/admin").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
+                // Fase 4: category catalogue is publicly readable (the storefront dropdown);
+                // create/update/delete fall through to authenticated() below and are locked
+                // to ADMIN via @PreAuthorize on CategoryController.
+                .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
