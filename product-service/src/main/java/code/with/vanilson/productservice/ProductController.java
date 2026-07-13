@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -75,6 +76,34 @@ public class ProductController {
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC)
             @Parameter(hidden = true) Pageable pageable) {
         return ResponseEntity.ok(productService.getMyProducts(pageable));
+    }
+
+    @Operation(summary = "List ALL products for administration (paginated, every status and seller)",
+               description = "Fase 3: ADMIN-only catalogue including SUSPENDED products, unlike the public "
+                       + "list which is ACTIVE-only. Matched literally before the /{id} template.")
+    @ApiResponse(responseCode = "200", description = "Admin product list retrieved successfully")
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<ProductResponse>> getAllProductsForAdmin(
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC)
+            @Parameter(hidden = true) Pageable pageable) {
+        return ResponseEntity.ok(productService.getAllProductsForAdmin(pageable));
+    }
+
+    @Operation(summary = "Set a product's lifecycle status (suspend / reactivate)",
+               description = "Fase 3: ADMIN suspends a product (hidden from the public catalogue, "
+                       + "unpurchasable) or reactivates it.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Status updated"),
+        @ApiResponse(responseCode = "400", description = "Invalid status value"),
+        @ApiResponse(responseCode = "404", description = "Product not found")
+    })
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> updateProductStatus(
+            @PathVariable int id,
+            @RequestBody @Valid UpdateProductStatusRequest request) {
+        return ResponseEntity.ok(productService.updateProductStatus(id, request.status()));
     }
 
     @Operation(summary = "Get product by ID")

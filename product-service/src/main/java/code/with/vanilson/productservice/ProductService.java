@@ -92,9 +92,12 @@ public class ProductService {
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
         filterActivator.activateFilter();
         String sellerScope = currentSellerScope();
+        // Fase 3 (D4): the public cross-seller catalogue only ever lists ACTIVE products.
+        // A SELLER browsing their scoped catalogue keeps seeing their own suspended ones
+        // (it is their management view); ADMIN's unfiltered view is GET /products/admin.
         Page<ProductResponse> page = (sellerScope != null
                 ? productRepository.findByCreatedBy(sellerScope, pageable)
-                : productRepository.findAll(pageable))
+                : productRepository.findByStatus(ProductStatus.ACTIVE, pageable))
                 .map(productMapper::fromProduct);
         log.info(resolve("product.log.all.found", page.getTotalElements()));
         return page;
@@ -142,18 +145,50 @@ public class ProductService {
      * @param id product ID
      * @return ProductResponse DTO
      */
-    @Cacheable(value = CACHE_PRODUCTS, key = "#root.target.cacheTenantKey() + ':' + #id")
+    @Cacheable(value = CACHE_PRODUCTS, key = "#root.target.cacheTenantKey() + ':' + #id",
+            // Fase 3: a SUSPENDED detail is caller-dependent (owner/ADMIN see it, everyone
+            // else 404s) but the cache key carries no caller identity — caching it would
+            // serve the owner's copy to anonymous callers. Suspended responses therefore
+            // never enter the cache; every such read hits the DB and re-runs the check.
+            unless = "#result.status() == T(code.with.vanilson.productservice.ProductStatus).SUSPENDED")
     public ProductResponse getProductById(int id) {
         Optional<Product> found = TenantContext.isPresent()
                 ? productRepository.findByIdAndTenantId(id, TenantContext.getCurrentTenantId())
                 : productRepository.findById(id);
         return found
                 .map(product -> {
+                    // Fase 3 (D4): a suspended product is invisible to the public — 404,
+                    // indistinguishable from a nonexistent one (no existence leak). Its
+                    // owner and ADMIN keep seeing it.
+                    if (product.getStatus() == ProductStatus.SUSPENDED && !canSeeSuspended(product)) {
+                        throw new ProductNotFoundException(
+                                resolve("product.not.found", id), "product.not.found");
+                    }
                     log.info(resolve("product.log.found.by.id", id, product.getName()));
                     return productMapper.fromProduct(product);
                 })
                 .orElseThrow(() -> new ProductNotFoundException(
                         resolve("product.not.found", id), "product.not.found"));
+    }
+
+    /**
+     * Fase 3 Task 3.4: the ADMIN catalogue — every product, every status, every seller.
+     * <p>
+     * Deliberately NOT cached: the shared list caches are keyed for the public
+     * (ACTIVE-only) and seller-scoped views; mixing an all-statuses page into them would
+     * either collide or demand yet another discriminator for a low-traffic admin screen.
+     * Role enforcement lives on the controller (@PreAuthorize ADMIN) + an authenticated
+     * matcher in {@code ProductSecurityConfig} placed BEFORE the public GET rule.
+     *
+     * @param pageable pagination and sort parameters
+     * @return page of every product, suspended ones included
+     */
+    public Page<ProductResponse> getAllProductsForAdmin(Pageable pageable) {
+        filterActivator.activateFilter();
+        Page<ProductResponse> page = productRepository.findAll(pageable)
+                .map(productMapper::fromProduct);
+        log.info(resolve("product.log.admin.list", page.getTotalElements()));
+        return page;
     }
 
     /** Returns all product categories (id + name + description). */
@@ -188,6 +223,11 @@ public class ProductService {
         String sellerScope = currentSellerScope();
         if (sellerScope != null) {
             spec = spec.and((root, cq, cb) -> cb.equal(root.get("createdBy"), sellerScope));
+        } else {
+            // Fase 3 (D4 — explicit predicate): the public cross-seller search only ever
+            // surfaces ACTIVE products. A seller searching their own scoped catalogue
+            // keeps seeing their suspended ones (management view).
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("status"), ProductStatus.ACTIVE));
         }
 
         if (query != null && !query.isBlank()) {
@@ -267,6 +307,33 @@ public class ProductService {
         Product saved = productRepository.save(existing);
         log.info(resolve("product.log.updated", saved.getId(), saved.getName()));
         return productMapper.toProductRequest(saved);
+    }
+
+    /**
+     * Fase 3 Task 3.4: ADMIN sets a product's lifecycle status (suspend / reactivate).
+     * <p>
+     * Cache eviction is load-bearing here: a product suspended while its ACTIVE detail
+     * or a catalogue page containing it sits in Redis would keep being served to the
+     * public until TTL — so both caches are evicted, mirroring {@link #updateProduct}.
+     * Role enforcement is @PreAuthorize(ADMIN) on the controller; no seller guard applies.
+     *
+     * @param id     product ID
+     * @param status the new status (ACTIVE | SUSPENDED)
+     * @return the updated product
+     */
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CACHE_PRODUCTS, allEntries = true),
+        @CacheEvict(value = CACHE_PRODUCT_LIST, allEntries = true)
+    })
+    public ProductResponse updateProductStatus(int id, ProductStatus status) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(
+                        resolve("product.not.found", id), "product.not.found"));
+        product.setStatus(status);
+        Product saved = productRepository.save(product);
+        log.info(resolve("product.log.status.changed", saved.getId(), status));
+        return productMapper.fromProduct(saved);
     }
 
     /**
@@ -414,6 +481,25 @@ public class ProductService {
     private String currentSellerScope() {
         SecurityPrincipal p = currentPrincipal();
         return (p != null && p.isSeller()) ? String.valueOf(p.userId()) : null;
+    }
+
+    /**
+     * Fase 3: who may see a SUSPENDED product's detail — its owner (the seller that
+     * created it, keyed off {@code createdBy} like every ownership check in this class)
+     * and ADMIN. Everyone else gets the same 404 a nonexistent product would produce.
+     *
+     * @param product the suspended product being read
+     * @return true when the current caller is the owner or an ADMIN
+     */
+    private boolean canSeeSuspended(Product product) {
+        SecurityPrincipal p = currentPrincipal();
+        if (p == null) {
+            return false;
+        }
+        if ("ADMIN".equals(p.role())) {
+            return true;
+        }
+        return String.valueOf(p.userId()).equals(product.getCreatedBy());
     }
 
     /**

@@ -5,13 +5,16 @@ import code.with.vanilson.productservice.exception.ProductForbiddenException;
 import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ProductNullException;
 import code.with.vanilson.productservice.exception.ProductPurchaseException;
+import code.with.vanilson.productservice.ProductStatus;
 import code.with.vanilson.tenantcontext.exception.MissingTenantException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.security.access.AccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -114,6 +117,32 @@ public class ProductGlobalExceptionHandler {
                 "product.validation.failed", request);
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    /**
+     * Malformed / unreadable request body (Jackson binding failures). A bad enum literal
+     * for a field like {@code status} arrives here as an {@link InvalidFormatException} —
+     * a client error (400), not a server fault (was falling through to the 500 catch-all).
+     * When the offending target is {@link ProductStatus} we return the precise
+     * {@code product.status.invalid} message; otherwise a generic malformed-body message.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleNotReadable(
+            HttpMessageNotReadableException ex, WebRequest request) {
+        Throwable cause = ex.getMostSpecificCause();
+        if (cause instanceof InvalidFormatException ife
+                && ife.getTargetType() != null
+                && ife.getTargetType().isEnum()
+                && ProductStatus.class.equals(ife.getTargetType())) {
+            log.warn("[ProductExceptionHandler] Invalid product status value in request body");
+            String message = messageSource.getMessage(
+                    "product.status.invalid", null, LocaleContextHolder.getLocale());
+            return buildResponse(HttpStatus.BAD_REQUEST, message, "product.status.invalid", request);
+        }
+        log.warn("[ProductExceptionHandler] Unreadable request body: {}", cause.getMessage());
+        String message = messageSource.getMessage(
+                "product.request.unreadable", null, LocaleContextHolder.getLocale());
+        return buildResponse(HttpStatus.BAD_REQUEST, message, "product.request.unreadable", request);
     }
 
     @ExceptionHandler(MissingTenantException.class)

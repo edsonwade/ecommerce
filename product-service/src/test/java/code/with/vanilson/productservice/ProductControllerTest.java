@@ -79,7 +79,7 @@ public class ProductControllerTest {
         // Set up test data
         product = new Product(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0));
         productResponse = new ProductResponse(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1,
-                "Category Name", "Category Description", "1", null);
+                "Category Name", "Category Description", "1", null, ProductStatus.ACTIVE);
         productRequest = new ProductRequest(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1);
 
         // Mapper always returns the test product so service mocks receive a non-null Product
@@ -118,6 +118,32 @@ public class ProductControllerTest {
 
         // Verify: Ensure productService.getAllProducts(pageable) was called
         verify(productService).getAllProducts(any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Fase 3: product JSON exposes the lifecycle status field (ACTIVE)")
+    public void testProductResponseExposesStatus() throws Exception {
+        when(productService.getProductById(1)).thenReturn(productResponse);
+
+        mockMvc.perform(get("/api/v1/products/1")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("Fase 3: hidden (suspended) product detail surfaces as plain 404 — no existence leak")
+    public void testSuspendedHiddenDetailIs404() throws Exception {
+        // The service signals a suspended-and-hidden product with the SAME exception as a
+        // nonexistent one; the web layer must render it as a regular 404.
+        when(productService.getProductById(77)).thenThrow(
+                new ProductNotFoundException("Product with ID [77] not found.", "product.not.found"));
+
+        mockMvc.perform(get("/api/v1/products/77")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -208,6 +234,23 @@ public class ProductControllerTest {
 
         // Verify: Ensure productService.purchaseProducts(purchaseRequests) was called
         verify(productService).purchaseProducts(purchaseRequests);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("Fase 3: purchase of a SUSPENDED product surfaces as 422 with the product.suspended reason")
+    public void testPurchaseSuspendedProductIs422() throws Exception {
+        List<ProductPurchaseRequest> purchaseRequests = new ArrayList<>();
+        purchaseRequests.add(new ProductPurchaseRequest(1, 2));
+        when(productService.purchaseProducts(purchaseRequests)).thenThrow(
+                new code.with.vanilson.productservice.exception.ProductPurchaseException(
+                        "Product with ID [1] is suspended and cannot be purchased.", "product.suspended"));
+
+        mockMvc.perform(post("/api/v1/products/purchase")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJsonString(purchaseRequests)))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

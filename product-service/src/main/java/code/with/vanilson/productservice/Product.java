@@ -5,6 +5,8 @@ import code.with.vanilson.tenantcontext.TenantFilterConstants;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -14,7 +16,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
@@ -22,7 +23,6 @@ import org.hibernate.annotations.ParamDef;
 
 import java.math.BigDecimal;
 
-@NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
 @Builder
@@ -70,12 +70,33 @@ public class Product {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    /**
+     * Fase 3: lifecycle status. SUSPENDED products are hidden from public reads and
+     * rejected on the purchase path; ACTIVE behaves exactly as before this field existed.
+     * Java default mirrors the DB default in {@code V12__add_status_to_product.sql} so a
+     * newly built entity is born ACTIVE regardless of which constructor created it.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private ProductStatus status = ProductStatus.ACTIVE;
+
+    // Fase 3: Lombok's @Builder.Default moves the field initializer into the builder
+    // ONLY — it is stripped from every constructor, so without setting it here each
+    // hand-written constructor (and the no-args one JPA uses) would leave status null,
+    // then fail the NOT NULL column on save. Every constructor therefore stamps ACTIVE
+    // explicitly so a product is genuinely "born ACTIVE regardless of how it was built".
+    public Product() {
+        this.status = ProductStatus.ACTIVE;
+    }
+
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.availableQuantity = availableQuantity;
         this.price = price;
+        this.status = ProductStatus.ACTIVE;
     }
 
     public Product(String name, String description, double availableQuantity, BigDecimal price) {
@@ -83,6 +104,7 @@ public class Product {
         this.description = description;
         this.availableQuantity = availableQuantity;
         this.price = price;
+        this.status = ProductStatus.ACTIVE;
     }
 
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price,
@@ -93,6 +115,7 @@ public class Product {
         this.availableQuantity = availableQuantity;
         this.price = price;
         this.category = category;
+        this.status = ProductStatus.ACTIVE;
     }
 
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price,
@@ -104,6 +127,7 @@ public class Product {
         this.price = price;
         this.category = category;
         this.tenantId = tenantId;
+        this.status = ProductStatus.ACTIVE;
     }
 
 }

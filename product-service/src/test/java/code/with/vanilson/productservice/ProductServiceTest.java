@@ -82,9 +82,11 @@ class ProductServiceTest {
         product2 = new Product(2, "Headphones","Noise Cancelling",15.0, BigDecimal.valueOf(250.00),  category);
 
         response1 = new ProductResponse(1, "Laptop",    "Gaming Laptop",  5.0,
-                BigDecimal.valueOf(1200.00), 1, "Electronics", "Electronic items", "1", null);
+                BigDecimal.valueOf(1200.00), 1, "Electronics", "Electronic items", "1", null,
+                ProductStatus.ACTIVE);
         response2 = new ProductResponse(2, "Headphones","Noise Cancelling",15.0,
-                BigDecimal.valueOf(250.00), 1, "Electronics", "Electronic items", "1", null);
+                BigDecimal.valueOf(250.00), 1, "Electronics", "Electronic items", "1", null,
+                ProductStatus.ACTIVE);
 
         // MessageSource stub: returns the key itself so tests are portable.
         // lenient() because tenant-scoping tests (e.g. cacheTenantKeyDiscriminatesTenant)
@@ -121,7 +123,8 @@ class ProductServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             Page<Product> page = new PageImpl<>(List.of(product1, product2), pageable, 2);
 
-            when(productRepository.findAll(pageable)).thenReturn(page);
+            // Fase 3: the public list is ACTIVE-only (findByStatus), no longer findAll.
+            when(productRepository.findByStatus(ProductStatus.ACTIVE, pageable)).thenReturn(page);
             when(productMapper.fromProduct(product1)).thenReturn(response1);
             when(productMapper.fromProduct(product2)).thenReturn(response2);
 
@@ -139,7 +142,7 @@ class ProductServiceTest {
         @DisplayName("should return empty page when no products exist")
         void shouldReturnEmptyPageWhenNoProducts() {
             Pageable pageable = PageRequest.of(0, 10);
-            when(productRepository.findAll(pageable)).thenReturn(Page.empty());
+            when(productRepository.findByStatus(ProductStatus.ACTIVE, pageable)).thenReturn(Page.empty());
 
             Page<ProductResponse> result = productService.getAllProducts(pageable);
 
@@ -320,7 +323,8 @@ class ProductServiceTest {
         @DisplayName("getAllProducts activates the Hibernate tenant filter before querying")
         void getAllProductsActivatesTenantFilter() {
             TenantContext.setCurrentTenantId("tenant-a");
-            when(productRepository.findAll(any(Pageable.class))).thenReturn(Page.empty());
+            when(productRepository.findByStatus(any(ProductStatus.class), any(Pageable.class)))
+                    .thenReturn(Page.empty());
 
             productService.getAllProducts(PageRequest.of(0, 10));
 
@@ -582,6 +586,35 @@ class ProductServiceTest {
             assertThatThrownBy(() -> productService.purchaseProducts(requests))
                     .isInstanceOf(ProductPurchaseException.class)
                     .hasMessageContaining("product.purchase.insufficient.stock");
+        }
+
+        @Test
+        @DisplayName("Fase 3: should reject a SUSPENDED product with product.suspended and not touch stock")
+        void shouldThrowWhenProductSuspended() {
+            product1.setStatus(ProductStatus.SUSPENDED);
+            List<ProductPurchaseRequest> requests = List.of(new ProductPurchaseRequest(1, 2.0));
+            when(productRepository.findAllByIdInOrderById(List.of(1))).thenReturn(List.of(product1));
+
+            assertThatThrownBy(() -> productService.purchaseProducts(requests))
+                    .isInstanceOf(ProductPurchaseException.class)
+                    .hasMessageContaining("product.suspended");
+
+            // The suspension check runs BEFORE any deduction — stock stays untouched.
+            verify(productRepository, never()).save(any(Product.class));
+            assertThat(product1.getAvailableQuantity()).isEqualTo(5.0);
+        }
+
+        @Test
+        @DisplayName("Fase 3: suspension outranks insufficient stock as the rejection reason")
+        void suspendedReasonOutranksInsufficientStock() {
+            // Suspended AND short on stock — the reason must be suspension.
+            product1.setStatus(ProductStatus.SUSPENDED);
+            List<ProductPurchaseRequest> requests = List.of(new ProductPurchaseRequest(1, 10.0));
+            when(productRepository.findAllByIdInOrderById(List.of(1))).thenReturn(List.of(product1));
+
+            assertThatThrownBy(() -> productService.purchaseProducts(requests))
+                    .isInstanceOf(ProductPurchaseException.class)
+                    .hasMessageContaining("product.suspended");
         }
 
         @Test

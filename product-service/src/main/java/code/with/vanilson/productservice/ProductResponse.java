@@ -12,6 +12,8 @@ public record ProductResponse(
         String categoryName,
         String categoryDescription,
         String createdBy,
-        String imageUrl) {
+        String imageUrl,
+        /* Fase 3: lifecycle status (ACTIVE | SUSPENDED). Additive — old clients ignore it. */
+        ProductStatus status) {
 
 }

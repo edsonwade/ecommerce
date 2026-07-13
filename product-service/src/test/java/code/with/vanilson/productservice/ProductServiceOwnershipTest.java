@@ -366,37 +366,37 @@ class ProductServiceOwnershipTest {
         }
 
         @Test
-        @DisplayName("getAllProducts: guest (no principal) sees the full catalogue (findAll)")
+        @DisplayName("getAllProducts: guest (no principal) sees the ACTIVE catalogue (findByStatus) — Fase 3")
         void guest_sees_full_catalog() {
-            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+            when(productRepository.findByStatus(ProductStatus.ACTIVE, pageable)).thenReturn(Page.empty(pageable));
 
             productService.getAllProducts(pageable);
 
-            verify(productRepository).findAll(pageable);
+            verify(productRepository).findByStatus(ProductStatus.ACTIVE, pageable);
             verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("getAllProducts: customer (USER) sees the full catalogue")
+        @DisplayName("getAllProducts: customer (USER) sees the ACTIVE catalogue — Fase 3")
         void customer_sees_full_catalog() {
             authAs(3L, "USER");
-            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+            when(productRepository.findByStatus(ProductStatus.ACTIVE, pageable)).thenReturn(Page.empty(pageable));
 
             productService.getAllProducts(pageable);
 
-            verify(productRepository).findAll(pageable);
+            verify(productRepository).findByStatus(ProductStatus.ACTIVE, pageable);
             verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("getAllProducts: ADMIN sees the full catalogue")
+        @DisplayName("getAllProducts: ADMIN's public list is also ACTIVE-only (full view = /products/admin) — Fase 3")
         void admin_sees_full_catalog() {
             authAs(1L, "ADMIN");
-            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+            when(productRepository.findByStatus(ProductStatus.ACTIVE, pageable)).thenReturn(Page.empty(pageable));
 
             productService.getAllProducts(pageable);
 
-            verify(productRepository).findAll(pageable);
+            verify(productRepository).findByStatus(ProductStatus.ACTIVE, pageable);
             verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
         }
 
@@ -408,6 +408,171 @@ class ProductServiceOwnershipTest {
 
             SecurityContextHolder.clearContext();
             assertThat(productService.catalogScopeKey()).isEqualTo("all");
+        }
+    }
+
+    // -------------------------------------------------------
+    // Fase 3 — admin status management (Task 3.4)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("admin status management (Fase 3 Task 3.4)")
+    class AdminStatusManagement {
+
+        private final Pageable pageable = PageRequest.of(0, 20);
+
+        @Test
+        @DisplayName("updateProductStatus: sets SUSPENDED, saves, and returns the mapped response")
+        void update_status_suspends_and_saves() {
+            authAs(1L, "ADMIN");
+            Product target = productOwnedBy(5, "7");
+            when(productRepository.findById(5)).thenReturn(Optional.of(target));
+            when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(productMapper.fromProduct(any(Product.class))).thenAnswer(inv -> {
+                Product p = inv.getArgument(0);
+                return new ProductResponse(p.getId(), p.getName(), p.getDescription(),
+                        p.getAvailableQuantity(), p.getPrice(), 1, "Electronics", "Devices",
+                        p.getCreatedBy(), null, p.getStatus());
+            });
+
+            ProductResponse response = productService.updateProductStatus(5, ProductStatus.SUSPENDED);
+
+            assertThat(response.status()).isEqualTo(ProductStatus.SUSPENDED);
+            ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+            verify(productRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(ProductStatus.SUSPENDED);
+        }
+
+        @Test
+        @DisplayName("updateProductStatus: reactivation flips SUSPENDED back to ACTIVE")
+        void update_status_reactivates() {
+            authAs(1L, "ADMIN");
+            Product target = productOwnedBy(5, "7");
+            target.setStatus(ProductStatus.SUSPENDED);
+            when(productRepository.findById(5)).thenReturn(Optional.of(target));
+            when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(productMapper.fromProduct(any(Product.class))).thenAnswer(inv -> {
+                Product p = inv.getArgument(0);
+                return new ProductResponse(p.getId(), p.getName(), p.getDescription(),
+                        p.getAvailableQuantity(), p.getPrice(), 1, "Electronics", "Devices",
+                        p.getCreatedBy(), null, p.getStatus());
+            });
+
+            ProductResponse response = productService.updateProductStatus(5, ProductStatus.ACTIVE);
+
+            assertThat(response.status()).isEqualTo(ProductStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("updateProductStatus: unknown product → ProductNotFoundException")
+        void update_status_missing_product_404() {
+            authAs(1L, "ADMIN");
+            when(productRepository.findById(99)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.updateProductStatus(99, ProductStatus.SUSPENDED))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("getAllProductsForAdmin: unfiltered findAll — suspended products included")
+        void admin_list_is_unfiltered() {
+            authAs(1L, "ADMIN");
+            when(productRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+
+            productService.getAllProductsForAdmin(pageable);
+
+            verify(productRepository).findAll(pageable);
+            verify(productRepository, never()).findByStatus(any(ProductStatus.class), any(Pageable.class));
+            verify(productRepository, never()).findByCreatedBy(anyString(), any(Pageable.class));
+        }
+    }
+
+    // -------------------------------------------------------
+    // Fase 3 — suspended product detail visibility (Task 3.2)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("suspended detail visibility — owner/ADMIN only (Fase 3)")
+    class SuspendedDetailVisibility {
+
+        private Product suspendedOwnedBy7() {
+            Product p = productOwnedBy(5, "7");
+            p.setStatus(ProductStatus.SUSPENDED);
+            return p;
+        }
+
+        private ProductResponse suspendedResponse() {
+            return new ProductResponse(5, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99),
+                    1, "Electronics", "Devices", "7", null, ProductStatus.SUSPENDED);
+        }
+
+        @Test
+        @DisplayName("anonymous caller: suspended detail → 404 (no existence leak)")
+        void anonymous_gets_404_for_suspended() {
+            when(productRepository.findById(5)).thenReturn(Optional.of(suspendedOwnedBy7()));
+
+            assertThatThrownBy(() -> productService.getProductById(5))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("customer (USER, not owner): suspended detail → 404")
+        void other_user_gets_404_for_suspended() {
+            authAs(3L, "USER");
+            when(productRepository.findById(5)).thenReturn(Optional.of(suspendedOwnedBy7()));
+
+            assertThatThrownBy(() -> productService.getProductById(5))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("another SELLER (not owner): suspended detail → 404")
+        void other_seller_gets_404_for_suspended() {
+            authAs(8L, "SELLER", "APPROVED");
+            when(productRepository.findById(5)).thenReturn(Optional.of(suspendedOwnedBy7()));
+
+            assertThatThrownBy(() -> productService.getProductById(5))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("owner SELLER: keeps seeing their own suspended product")
+        void owner_sees_own_suspended() {
+            authAs(7L, "SELLER", "APPROVED");
+            Product suspended = suspendedOwnedBy7();
+            when(productRepository.findById(5)).thenReturn(Optional.of(suspended));
+            when(productMapper.fromProduct(suspended)).thenReturn(suspendedResponse());
+
+            ProductResponse response = productService.getProductById(5);
+
+            assertThat(response.status()).isEqualTo(ProductStatus.SUSPENDED);
+        }
+
+        @Test
+        @DisplayName("ADMIN: sees any suspended product")
+        void admin_sees_suspended() {
+            authAs(1L, "ADMIN");
+            Product suspended = suspendedOwnedBy7();
+            when(productRepository.findById(5)).thenReturn(Optional.of(suspended));
+            when(productMapper.fromProduct(suspended)).thenReturn(suspendedResponse());
+
+            ProductResponse response = productService.getProductById(5);
+
+            assertThat(response.status()).isEqualTo(ProductStatus.SUSPENDED);
+        }
+
+        @Test
+        @DisplayName("ACTIVE product: visible to everyone exactly as before (regression)")
+        void active_product_unaffected() {
+            Product active = productOwnedBy(6, "7");
+            when(productRepository.findById(6)).thenReturn(Optional.of(active));
+            when(productMapper.fromProduct(active)).thenReturn(new ProductResponse(
+                    6, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99),
+                    1, "Electronics", "Devices", "7", null, ProductStatus.ACTIVE));
+
+            ProductResponse response = productService.getProductById(6);
+
+            assertThat(response.status()).isEqualTo(ProductStatus.ACTIVE);
         }
     }
 }

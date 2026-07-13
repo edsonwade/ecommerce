@@ -94,10 +94,107 @@ class ProductControllerSecurityTest {
         void get_by_id_is_public() throws Exception {
             when(productService.getProductById(anyInt()))
                     .thenReturn(new ProductResponse(
-                            1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "system", null));
+                            1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "system", null,
+                            ProductStatus.ACTIVE));
 
             mockMvc.perform(get(BASE + "/1").header(TENANT_HDR, TENANT_VAL))
                     .andExpect(status().isOk());
+        }
+    }
+
+    // -------------------------------------------------------
+    // Fase 3 — admin endpoints (Task 3.4)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("Fase 3 admin endpoints — ADMIN only")
+    class AdminEndpoints {
+
+        @Test
+        @DisplayName("GET /products/admin: anonymous → 401 (matcher wins over public GET /**)")
+        void admin_list_anonymous_401() throws Exception {
+            mockMvc.perform(get(BASE + "/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        @DisplayName("GET /products/admin: USER → 403")
+        void admin_list_user_403() throws Exception {
+            mockMvc.perform(get(BASE + "/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "SELLER")
+        @DisplayName("GET /products/admin: SELLER → 403")
+        void admin_list_seller_403() throws Exception {
+            mockMvc.perform(get(BASE + "/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("GET /products/admin: ADMIN → 200")
+        void admin_list_admin_200() throws Exception {
+            when(productService.getAllProductsForAdmin(any()))
+                    .thenReturn(org.springframework.data.domain.Page.empty());
+
+            mockMvc.perform(get(BASE + "/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @WithMockUser(roles = "SELLER")
+        @DisplayName("PATCH /products/{id}/status: SELLER (even the owner) → 403")
+        void patch_status_seller_403() throws Exception {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"SUSPENDED\"}"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("PATCH /products/{id}/status: ADMIN → 200")
+        void patch_status_admin_200() throws Exception {
+            when(productService.updateProductStatus(1, ProductStatus.SUSPENDED))
+                    .thenReturn(new ProductResponse(
+                            1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "7", null,
+                            ProductStatus.SUSPENDED));
+
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"SUSPENDED\"}"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("PATCH /products/{id}/status: invalid enum literal → 400")
+        void patch_status_invalid_400() throws Exception {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"PAUSED\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("PATCH /products/{id}/status: null status → 400 (bean validation)")
+        void patch_status_null_400() throws Exception {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":null}"))
+                    .andExpect(status().isBadRequest());
         }
     }
 

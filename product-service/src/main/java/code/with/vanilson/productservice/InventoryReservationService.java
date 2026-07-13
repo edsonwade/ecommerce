@@ -86,6 +86,19 @@ public class InventoryReservationService {
             log.info(msg("product.log.purchase.item",
                     product.getId(), item.quantity(), product.getAvailableQuantity()));
 
+            // Fase 3: a SUSPENDED product cannot be purchased. Checked BEFORE the stock
+            // check (a suspended product's reason must be suspension, not stock) and on
+            // the FOUND product — never a 404, so the Kafka consumer's catch publishes
+            // inventory.insufficient with this product's details and the saga cancels
+            // the order cleanly. One check here covers BOTH callers (REST + Kafka).
+            if (product.getStatus() == ProductStatus.SUSPENDED) {
+                throw new ProductPurchaseException(
+                        msg("product.suspended", product.getId()),
+                        "product.suspended",
+                        product.getId(), product.getName(),
+                        item.quantity(), product.getAvailableQuantity());
+            }
+
             if (product.getAvailableQuantity() < item.quantity()) {
                 throw new ProductPurchaseException(
                         msg("product.purchase.insufficient.stock",
