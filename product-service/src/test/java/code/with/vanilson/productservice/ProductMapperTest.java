@@ -30,6 +30,53 @@ class ProductMapperTest {
         category = new Category(1, "Game", "Game for kids");
     }
 
+    // -------------------------------------------------------
+    // Fase 3 — ProductStatus (Task 3.1)
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("Fase 3: a product is born ACTIVE regardless of which constructor built it")
+    void testProductStatus_DefaultsToActive() {
+        // manual convenience constructor
+        Product byConstructor =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+        assertEquals(ProductStatus.ACTIVE, byConstructor.getStatus());
+
+        // no-args constructor
+        assertEquals(ProductStatus.ACTIVE, new Product().getStatus());
+
+        // Lombok builder (@Builder.Default)
+        Product byBuilder = Product.builder()
+                .name("Built").description("Via builder")
+                .availableQuantity(1.0).price(BigDecimal.ONE)
+                .category(category)
+                .build();
+        assertEquals(ProductStatus.ACTIVE, byBuilder.getStatus());
+    }
+
+    @Test
+    @DisplayName("Fase 3: toProductResp carries the status into the response (default ACTIVE)")
+    void testToProductResp_CarriesDefaultActiveStatus() {
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+
+        ProductResponse response = productMapper.toProductResp(product);
+
+        assertEquals(ProductStatus.ACTIVE, response.status());
+    }
+
+    @Test
+    @DisplayName("Fase 3: toProductResp carries an explicit SUSPENDED status into the response")
+    void testToProductResp_CarriesSuspendedStatus() {
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+        product.setStatus(ProductStatus.SUSPENDED);
+
+        ProductResponse response = productMapper.toProductResp(product);
+
+        assertEquals(ProductStatus.SUSPENDED, response.status());
+    }
+
     @Test
     @DisplayName("Convert Product to ProductRequest - Expect success")
     void testToProductRequest_Success() {

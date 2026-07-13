@@ -6,6 +6,7 @@ import type {
   ProductResponse,
   ProductPurchaseRequest,
   ProductPurchaseResponse,
+  ProductStatus,
 } from './types';
 
 export interface SearchParams {
@@ -49,6 +50,19 @@ export const productsApi = {
 
   getCategories: () =>
     apiClient.get<CategoryResponse[]>('/products/categories').then((r) => r.data),
+
+  // Fase 3 (admin): full catalogue including SUSPENDED products — the public
+  // getAll/search endpoints only ever return ACTIVE ones.
+  getAllAdmin: (page = 0, size = 20, signal?: AbortSignal) =>
+    apiClient
+      .get<PageResponse<ProductResponse>>('/products/admin', { params: { page, size }, signal })
+      .then((r) => r.data),
+
+  // Fase 3 (admin): suspend / reactivate a product.
+  setStatus: (id: number, status: ProductStatus) =>
+    apiClient
+      .patch<ProductResponse>(`/products/${id}/status`, { status })
+      .then((r) => r.data),
 
   search: (params: SearchParams) =>
     apiClient

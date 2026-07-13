@@ -83,4 +83,16 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
      * @return the product only if it belongs to {@code tenantId}, otherwise empty
      */
     java.util.Optional<Product> findByIdAndTenantId(Integer id, String tenantId);
+
+    /**
+     * Fase 3 (D4 — explicit predicate): the public catalogue lists only products in the
+     * given status (in practice {@code ACTIVE}). Derived query — unlike {@code em.find},
+     * the Hibernate tenant {@code @Filter} applies to it, so tenant isolation on the list
+     * path is preserved. Backed by {@code idx_product_status} (migration V12).
+     *
+     * @param status   the lifecycle status to filter by
+     * @param pageable pagination and sort parameters
+     * @return page of products in the given status
+     */
+    Page<Product> findByStatus(ProductStatus status, Pageable pageable);
 }

@@ -48,6 +48,10 @@ public class ProductSecurityConfig {
                 // Seller's own catalogue must be authenticated — matched BEFORE the public
                 // GET /** rule below (first match wins). Role is enforced via @PreAuthorize.
                 .requestMatchers(HttpMethod.GET, "/api/v1/products/mine").authenticated()
+                // Fase 3: admin catalogue (all statuses/sellers) must be authenticated —
+                // also BEFORE the public GET /** rule, or it would be world-readable.
+                // ADMIN role is enforced via @PreAuthorize on the controller method.
+                .requestMatchers(HttpMethod.GET, "/api/v1/products/admin").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
                 .anyRequest().authenticated()
             )

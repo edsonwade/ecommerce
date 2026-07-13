@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import code.with.vanilson.productservice.ProductResponse;
+import code.with.vanilson.productservice.ProductStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
@@ -54,8 +55,8 @@ class PageImplRedisSerializerTest {
     @Test
     void pageImpl_roundTrip_preservesContentAndPagination() throws Exception {
         List<ProductResponse> products = List.of(
-                new ProductResponse(1, "Laptop", "A laptop", 10.0, new BigDecimal("999.99"), 1, "Electronics", "Devices", "admin", null),
-                new ProductResponse(2, "Phone", "A phone", 5.0, new BigDecimal("499.99"), 1, "Electronics", "Devices", "admin", null)
+                new ProductResponse(1, "Laptop", "A laptop", 10.0, new BigDecimal("999.99"), 1, "Electronics", "Devices", "admin", null, ProductStatus.ACTIVE),
+                new ProductResponse(2, "Phone", "A phone", 5.0, new BigDecimal("499.99"), 1, "Electronics", "Devices", "admin", null, ProductStatus.ACTIVE)
         );
         PageImpl<ProductResponse> original = new PageImpl<>(products, PageRequest.of(0, 20), 106);
 
@@ -79,7 +80,7 @@ class PageImplRedisSerializerTest {
     @Test
     void pageImpl_secondPage_preservesPaginationMetadata() throws Exception {
         List<ProductResponse> products = List.of(
-                new ProductResponse(21, "Tablet", "A tablet", 3.0, new BigDecimal("299.99"), 2, "Tech", "Gadgets", "seller", null)
+                new ProductResponse(21, "Tablet", "A tablet", 3.0, new BigDecimal("299.99"), 2, "Tech", "Gadgets", "seller", null, ProductStatus.ACTIVE)
         );
         PageImpl<ProductResponse> page2 = new PageImpl<>(products, PageRequest.of(1, 20), 106);
 

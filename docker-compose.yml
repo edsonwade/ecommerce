@@ -355,7 +355,7 @@ services:
     ports:
       - "8888:8888"
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseG1GC"
       SPRING_PROFILES_ACTIVE: native
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
       SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCHLOCATIONS: "file:/app/configurations"
@@ -390,7 +390,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -434,7 +434,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -502,7 +502,7 @@ services:
       mailhog:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -610,7 +610,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -660,7 +660,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -713,7 +713,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -765,7 +765,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -812,7 +812,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -866,7 +866,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -903,6 +903,33 @@ services:
       retries: 8
       start_period: 60s
     restart: on-failure
+
+  # ============================================================
+  # STARTUP WARM-UP (one-shot, fail-open)
+  # Issues the real hot-path requests once after the gateway is
+  # healthy so the FIRST user never pays JIT/pool cold-start
+  # (measured 0.9–3.3s per endpoint — see
+  # docs/engineering/production-latency-test-2026-07-12.md).
+  # Exits 0 always; the stack keeps running after it finishes.
+  # ============================================================
+  warmup:
+    image: curlimages/curl:8.7.1
+    container_name: warmup
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      gateway-api-service:
+        condition: service_healthy
+    environment:
+      GATEWAY_URL: http://gateway-api-service:8222
+      WARMUP_TENANT_ID: ${APP_ADMIN_TENANT_ID:-default}
+      WARMUP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@obsidian.com}
+      WARMUP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-Admin@123!}
+    volumes:
+      - ./scripts/warmup.sh:/warmup.sh:ro
+    entrypoint: [ "sh", "/warmup.sh" ]
+    networks: [ services-net ]
+    restart: "no"
 
 # ============================================================
 # NETWORKS — Segmented for security

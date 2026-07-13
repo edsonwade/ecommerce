@@ -650,6 +650,8 @@ Copy `.env.example` to `.env` and configure:
 | [Release Notes v2.0.0](docs/releases/RELEASE_NOTES_v2.0.0.md) | Latest release changelog |
 | [HA Zero-Downtime Deploy Runbook](docs/runbooks/ha-zero-downtime-deploy.md) | Rolling-update procedure for the HA compose stack (gates, proof protocol, troubleshooting) |
 | [Monitoring & Alerting Runbook](docs/runbooks/monitoring-runbook.md) | Scrape security model, verification procedure, alert rules, real incident case studies |
+| [Startup Warm-up Runbook](docs/runbooks/startup-warmup.md) | Cold-start fix (2026-07-12): G1GC on all services + one-shot warmup container that pre-pays JIT/pool init |
+| [Production Latency Test 2026-07-12](docs/engineering/production-latency-test-2026-07-12.md) | Measured latency evidence: warm ops 40–350 ms, cold-start 0.9–3.3 s, saga ~6 s, Windows-Docker network floor |
 | [HA Deploy Proof (F2)](docs/deploy-proof-f2.log) | Zero-downtime rolling-restart validation log (348/348 requests OK) |
 
 ### Utility Scripts
@@ -660,6 +662,7 @@ Copy `.env.example` to `.env` and configure:
 | `scripts/backup-postgres.sh` / `scripts/restore-postgres.sh` | PostgreSQL dump and restore (all 4 databases) |
 | `scripts/backup-mongo.sh` / `scripts/restore-mongo.sh` | MongoDB dump and restore |
 | `scripts/generate-tls-certs.sh` | Generate self-signed TLS certificates and keystores |
+| `scripts/warmup.sh` | One-shot startup warm-up (runs automatically via the `warmup` compose service; fail-open) |
 | `vault/scripts/vault-init.sh` | Initialize Vault, configure secrets engines and policies |
 | `vault/scripts/rotate-credentials.sh` | Rotate Kafka, Redis, database passwords |
 

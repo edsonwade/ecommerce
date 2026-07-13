@@ -275,6 +275,37 @@ class InventoryReservationConsumerTest {
         }
 
         @Test
+        @DisplayName("Fase 3: SUSPENDED product → inventory.insufficient published, stock untouched, offset acked")
+        void suspendedProductPublishesInsufficientAndDeductsNothing() {
+            // The product EXISTS and has plenty of stock — but it is suspended. The
+            // consumer must FIND it (not 404 it) and cancel the saga with the same
+            // insufficient event, carrying the real product details.
+            laptop.setStatus(code.with.vanilson.productservice.ProductStatus.SUSPENDED);
+            OrderRequestedEvent request = new OrderRequestedEvent(
+                    "evt-007", CORRELATION_ID, "cust-001", "ana@example.com",
+                    "Ana", "Silva",
+                    List.of(new OrderRequestedEvent.ProductPurchaseItem(1, 2.0)),
+                    BigDecimal.valueOf(2400.00), "CREDIT_CARD",
+                    ORDER_REFERENCE, "tenant-test-001", 42, Instant.now(), 1
+            );
+            when(productRepository.findAllByIdInOrderById(List.of(1)))
+                    .thenReturn(List.of(laptop));
+
+            consumer.onOrderRequested(request, 0, 0L, acknowledgment);
+
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            verify(kafkaTemplate).send(eq(TOPIC_INSUFFICIENT), eq(CORRELATION_ID), captor.capture());
+            InventoryInsufficientEvent published = (InventoryInsufficientEvent) captor.getValue();
+            assertThat(published.productId()).isEqualTo(1);
+            assertThat(published.productName()).isEqualTo("Laptop");
+
+            // No deduction, no reserved event, offset committed.
+            verify(productRepository, times(0)).save(any());
+            verify(kafkaTemplate, times(0)).send(eq(TOPIC_RESERVED), anyString(), any());
+            verify(acknowledgment, times(1)).acknowledge();
+        }
+
+        @Test
         @DisplayName("should acknowledge Kafka offset even on insufficient stock (no requeue)")
         void shouldAcknowledgeOffsetOnInsufficientStock() {
             OrderRequestedEvent overRequest = new OrderRequestedEvent(

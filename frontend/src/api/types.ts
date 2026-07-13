@@ -78,6 +78,9 @@ export interface ProductRequest {
   categoryId: number;
 }
 
+/** Fase 3: product lifecycle status — SUSPENDED products are hidden from the public catalogue. */
+export type ProductStatus = 'ACTIVE' | 'SUSPENDED';
+
 export interface ProductResponse {
   id: number;
   name: string;
@@ -89,6 +92,8 @@ export interface ProductResponse {
   categoryDescription: string;
   createdBy?: string;
   imageUrl?: string;
+  /** Fase 3: optional — older cached payloads may not carry it. */
+  status?: ProductStatus;
 }
 
 export interface ProductPurchaseRequest {
