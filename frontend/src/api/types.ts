@@ -147,7 +147,17 @@ export interface CartResponse {
 
 // ── Order ──
 export type PaymentMethod = 'PAYPAL' | 'CREDIT_CARD' | 'VISA' | 'MASTER_CARD' | 'BITCOIN';
-export type OrderStatus = 'REQUESTED' | 'INVENTORY_RESERVED' | 'CONFIRMED' | 'CANCELLED';
+export type OrderStatus =
+  | 'REQUESTED'
+  | 'INVENTORY_RESERVED'
+  | 'CONFIRMED'
+  | 'CANCELLED'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'REFUNDED';
+
+/** Fase 5: the only statuses a seller/admin may set via PATCH /orders/{id}/status. */
+export type FulfillmentStatus = 'SHIPPED' | 'DELIVERED';
 
 export interface OrderRequest {
   reference?: string;

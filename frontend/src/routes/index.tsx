@@ -61,6 +61,7 @@ const TenantDetailPage = () => lazy_page(() => import('@pages/admin/TenantDetail
 const UsersPage = () => lazy_page(() => import('@pages/admin/UsersPage'));
 const AdminProductsPage = () => lazy_page(() => import('@pages/admin/AdminProductsPage'));
 const AdminCategoriesPage = () => lazy_page(() => import('@pages/admin/AdminCategoriesPage'));
+const AdminOrdersPage = () => lazy_page(() => import('@pages/admin/AdminOrdersPage'));
 const PaymentsPage = () => lazy_page(() => import('@pages/admin/PaymentsPage'));
 const AnalyticsPage = () => lazy_page(() => import('@pages/admin/AnalyticsPage'));
 
@@ -135,6 +136,7 @@ export const router = createBrowserRouter([
           { path: '/admin/users', element: <UsersPage /> },
           { path: '/admin/products', element: <AdminProductsPage /> },
           { path: '/admin/categories', element: <AdminCategoriesPage /> },
+          { path: '/admin/orders', element: <AdminOrdersPage /> },
           { path: '/admin/payments', element: <PaymentsPage /> },
           { path: '/admin/analytics', element: <AnalyticsPage /> },
           { path: '/admin/account', element: <AccountSettingsPage /> },

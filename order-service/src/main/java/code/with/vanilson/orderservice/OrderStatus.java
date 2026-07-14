@@ -12,10 +12,17 @@ package code.with.vanilson.orderservice;
  * <p>
  * PENDING_PAYMENT: payment-service was unreachable — order is persisted,
  * payment retried from DLQ when payment-service recovers.
+ * <p>
+ * Fase 5 (fulfillment) extends the machine PAST confirmation. CONFIRMED is no longer
+ * terminal — a seller/admin advances it manually:
+ * CONFIRMED → SHIPPED → DELIVERED, and any of CONFIRMED/SHIPPED/DELIVERED → REFUNDED
+ * (refund arrives via the saga in Fase 6). REFUNDED and CANCELLED are terminal.
+ * The saga path (Kafka) still only ever drives an order up to CONFIRMED/CANCELLED;
+ * SHIPPED/DELIVERED are reachable ONLY through the manual PATCH endpoint (Task 5.2).
  * </p>
  *
  * @author vamuhong
- * @version 3.0
+ * @version 4.0
  */
 public enum OrderStatus {
 
@@ -44,12 +51,25 @@ public enum OrderStatus {
     PENDING_PAYMENT,
 
     /** Saga took too long to complete — order cancelled. */
-    TIMEOUT;
+    TIMEOUT,
+
+    /** Fulfillment: seller/admin marked the confirmed order as shipped. */
+    SHIPPED,
+
+    /** Fulfillment: order delivered to the customer. */
+    DELIVERED,
+
+    /** Order refunded (Fase 6, arrives via the payment saga). Terminal. */
+    REFUNDED;
 
     /**
-     * Explicit allowed transitions. CONFIRMED and CANCELLED are terminal.
+     * Explicit allowed transitions. CANCELLED and REFUNDED are terminal.
      * REQUESTED may jump straight to CONFIRMED/CANCELLED because the current
      * choreography does not persist the intermediate saga states.
+     * <p>
+     * Fase 5: CONFIRMED is no longer terminal — it advances through the fulfillment
+     * chain (SHIPPED → DELIVERED) via the manual status endpoint, and any post-confirmation
+     * state can be REFUNDED.
      */
     public boolean canTransitionTo(OrderStatus target) {
         return switch (this) {
@@ -74,7 +94,10 @@ public enum OrderStatus {
                     || target == CANCELLED
                     || target == TIMEOUT;
             case PAYMENT_FAILED, INVENTORY_INSUFFICIENT, TIMEOUT -> target == CANCELLED;
-            case CONFIRMED, CANCELLED -> false;
+            case CONFIRMED -> target == SHIPPED || target == REFUNDED;
+            case SHIPPED -> target == DELIVERED || target == REFUNDED;
+            case DELIVERED -> target == REFUNDED;
+            case CANCELLED, REFUNDED -> false;
         };
     }
 }

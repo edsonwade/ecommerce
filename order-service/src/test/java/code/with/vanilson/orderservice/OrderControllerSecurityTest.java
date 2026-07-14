@@ -36,6 +36,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -312,6 +313,80 @@ class OrderControllerSecurityTest {
                             .header(TENANT_HDR, TENANT_VAL)
                             .with(authentication(authAs(42L, "USER"))))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    // -------------------------------------------------------
+    // PATCH /orders/{id}/status — fulfillment (SELLER or ADMIN) — Fase 5
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("PATCH /orders/{id}/status — fulfillment (SELLER or ADMIN)")
+    class PatchStatus {
+
+        private static final String STATUS_BODY = "{\"status\":\"SHIPPED\"}";
+
+        @Test
+        @DisplayName("401 when unauthenticated")
+        void unauthenticated_gets_401() throws Exception {
+            mockMvc.perform(patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(STATUS_BODY))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("403 when USER tries to advance fulfillment status")
+        void user_cannot_update_status() throws Exception {
+            mockMvc.perform(patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(STATUS_BODY)
+                            .with(authentication(authAs(42L, "USER"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("200 when SELLER advances status (service authorises line ownership)")
+        void seller_updates_status() throws Exception {
+            when(orderService.updateStatusManually(anyInt(), any())).thenReturn(
+                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "SHIPPED"));
+
+            mockMvc.perform(patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(STATUS_BODY)
+                            .with(authentication(authAs(7L, "SELLER"))))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("200 when ADMIN advances status")
+        void admin_updates_status() throws Exception {
+            when(orderService.updateStatusManually(anyInt(), any())).thenReturn(
+                    new OrderResponse(1, "REF-001", BigDecimal.valueOf(100), "CREDIT_CARD", "42", "SHIPPED"));
+
+            mockMvc.perform(patch(BASE + "/1/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(STATUS_BODY)
+                            .with(authentication(authAs(1L, "ADMIN"))))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("403 when SELLER does not own a line (service throws)")
+        void seller_without_line_gets_403() throws Exception {
+            doThrow(new OrderForbiddenException("order.status.update.forbidden", "order.status.update.forbidden"))
+                    .when(orderService).updateStatusManually(anyInt(), any());
+
+            mockMvc.perform(patch(BASE + "/9/status")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(STATUS_BODY)
+                            .with(authentication(authAs(7L, "SELLER"))))
+                    .andExpect(status().isForbidden());
         }
     }
 }

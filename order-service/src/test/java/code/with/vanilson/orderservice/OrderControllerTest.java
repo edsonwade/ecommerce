@@ -1,6 +1,8 @@
 package code.with.vanilson.orderservice;
 
 import code.with.vanilson.orderservice.exception.CustomerServiceUnavailableException;
+import code.with.vanilson.orderservice.exception.OrderForbiddenException;
+import code.with.vanilson.orderservice.exception.OrderIllegalStateTransitionException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
 import code.with.vanilson.orderservice.payment.PaymentMethod;
 import code.with.vanilson.orderservice.product.ProductPurchaseRequest;
@@ -27,8 +29,10 @@ import java.util.Locale;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -283,6 +287,113 @@ class OrderControllerTest {
             mockMvc.perform(get("/api/v1/orders/{order-id}", 999)
                             .header("X-Tenant-ID", "test-tenant-123"))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    // -------------------------------------------------------
+    // PATCH /api/v1/orders/{order-id}/status  (Fase 5 fulfillment)
+    // -------------------------------------------------------
+    @Nested
+    @DisplayName("PATCH /api/v1/orders/{order-id}/status")
+    class UpdateOrderStatus {
+
+        @Test
+        @DisplayName("should return 200 with updated order when status is SHIPPED")
+        void shouldReturn200WhenShipped() throws Exception {
+            OrderResponse shipped = new OrderResponse(
+                    42, "REF-001", BigDecimal.valueOf(299.99), "CREDIT_CARD", "cust-001", "SHIPPED");
+            when(orderService.updateStatusManually(eq(42), eq(OrderStatus.SHIPPED))).thenReturn(shipped);
+
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 42)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateOrderStatusRequest(OrderStatus.SHIPPED))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id", is(42)))
+                    .andExpect(jsonPath("$.status", is("SHIPPED")));
+        }
+
+        @Test
+        @DisplayName("should return 400 when status value is unknown (bad enum body)")
+        void shouldReturn400WhenStatusValueUnknown() throws Exception {
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 42)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"PAUSED\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("order.status.invalid")));
+        }
+
+        @Test
+        @DisplayName("should return 400 when status is missing (@NotNull)")
+        void shouldReturn400WhenStatusMissing() throws Exception {
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 42)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("should return 400 when status not settable via this endpoint")
+        void shouldReturn400WhenStatusNotAllowed() throws Exception {
+            when(orderService.updateStatusManually(eq(42), eq(OrderStatus.CONFIRMED)))
+                    .thenThrow(new code.with.vanilson.orderservice.exception.OrderValidationException(
+                            "not allowed", "order.status.update.not.allowed"));
+
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 42)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateOrderStatusRequest(OrderStatus.CONFIRMED))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is("order.status.update.not.allowed")));
+        }
+
+        @Test
+        @DisplayName("should return 403 when seller does not own a line in the order")
+        void shouldReturn403WhenSellerNotOwner() throws Exception {
+            when(orderService.updateStatusManually(eq(42), eq(OrderStatus.SHIPPED)))
+                    .thenThrow(new OrderForbiddenException("forbidden", "order.status.update.forbidden"));
+
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 42)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateOrderStatusRequest(OrderStatus.SHIPPED))))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.errorCode", is("order.status.update.forbidden")));
+        }
+
+        @Test
+        @DisplayName("should return 404 when order does not exist")
+        void shouldReturn404WhenOrderMissing() throws Exception {
+            when(orderService.updateStatusManually(eq(999), eq(OrderStatus.SHIPPED)))
+                    .thenThrow(new OrderNotFoundException("not found", "order.not.found"));
+
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 999)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateOrderStatusRequest(OrderStatus.SHIPPED))))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("should return 409 when the transition is illegal (maps OrderBaseException status)")
+        void shouldReturn409WhenIllegalTransition() throws Exception {
+            when(orderService.updateStatusManually(eq(42), eq(OrderStatus.DELIVERED)))
+                    .thenThrow(new OrderIllegalStateTransitionException(
+                            "illegal", "order.status.transition.invalid"));
+
+            mockMvc.perform(patch("/api/v1/orders/{order-id}/status", 42)
+                            .header("X-Tenant-ID", "test-tenant-123")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new UpdateOrderStatusRequest(OrderStatus.DELIVERED))))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode", is("order.status.transition.invalid")));
         }
     }
 }

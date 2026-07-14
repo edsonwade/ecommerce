@@ -1,14 +1,18 @@
 package code.with.vanilson.orderservice.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import code.with.vanilson.orderservice.OrderStatus;
 import code.with.vanilson.tenantcontext.exception.MissingTenantException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -150,6 +154,45 @@ public class OrderGlobalExceptionHandler {
             MissingTenantException ex, WebRequest request) {
         log.warn("[OrderExceptionHandler] Missing tenant: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), "order.tenant.missing", request);
+    }
+
+    /**
+     * Fallback for any {@link OrderBaseException} subtype that lacks a dedicated handler
+     * (e.g. {@link OrderIllegalStateTransitionException} → 409). Maps the exception's own
+     * {@code httpStatus} + message key — without this the subtype would fall through to the
+     * generic {@code Exception} handler and be masked as a 500. Specific handlers above still
+     * win by type specificity, so their behaviour is unchanged.
+     */
+    @ExceptionHandler(OrderBaseException.class)
+    public ResponseEntity<Map<String, Object>> handleOrderBase(
+            OrderBaseException ex, WebRequest request) {
+        log.warn("[OrderExceptionHandler] Order error: key=[{}] status=[{}] message=[{}]",
+                ex.getMessageKey(), ex.getHttpStatus().value(), ex.getMessage());
+        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
+    /**
+     * Handles an unreadable/malformed JSON body. The common case on the fulfillment endpoint is
+     * an unknown {@link OrderStatus} name (e.g. {@code {"status":"PAUSED"}}), which Jackson raises
+     * as {@link InvalidFormatException} — mapped to {@code 400 order.status.invalid}. Any other
+     * unreadable body → generic {@code 400 order.request.unreadable}. Without this the request
+     * would fall to the 500 catch-all.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(
+            HttpMessageNotReadableException ex, WebRequest request) {
+        if (ex.getCause() instanceof InvalidFormatException ife
+                && ife.getTargetType() != null
+                && ife.getTargetType().isAssignableFrom(OrderStatus.class)) {
+            String message = messageSource.getMessage(
+                    "order.status.invalid", null, LocaleContextHolder.getLocale());
+            log.warn("[OrderExceptionHandler] Invalid order status value in request body");
+            return buildResponse(HttpStatus.BAD_REQUEST, message, "order.status.invalid", request);
+        }
+        String message = messageSource.getMessage(
+                "order.request.unreadable", null, LocaleContextHolder.getLocale());
+        log.warn("[OrderExceptionHandler] Unreadable request body: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, message, "order.request.unreadable", request);
     }
 
     /**

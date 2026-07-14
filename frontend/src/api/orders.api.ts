@@ -1,5 +1,6 @@
 import apiClient from './client';
 import type {
+  FulfillmentStatus,
   OrderCreateResponse,
   OrderLineResponse,
   OrderRequest,
@@ -42,4 +43,12 @@ export const ordersApi = {
 
   getMyOrders: (signal?: AbortSignal) =>
     apiClient.get<OrderResponse[]>('/orders/my', { signal }).then((r) => r.data),
+
+  // Fase 5 — SELLER (must own a line in the order) or ADMIN (any order) advances
+  // fulfillment. Backend accepts only SHIPPED/DELIVERED here; the saga still owns
+  // CONFIRMED/CANCELLED and refunds arrive via the payment saga.
+  updateStatus: (orderId: number, status: FulfillmentStatus) =>
+    apiClient
+      .patch<OrderResponse>(`/orders/${orderId}/status`, { status })
+      .then((r) => r.data),
 };

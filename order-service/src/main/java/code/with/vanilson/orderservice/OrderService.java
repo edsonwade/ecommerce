@@ -10,8 +10,11 @@ import code.with.vanilson.orderservice.exception.OrderDuplicateReferenceExceptio
 import code.with.vanilson.orderservice.exception.OrderForbiddenException;
 import code.with.vanilson.orderservice.exception.OrderIllegalStateTransitionException;
 import code.with.vanilson.orderservice.exception.OrderNotFoundException;
+import code.with.vanilson.orderservice.exception.OrderValidationException;
+import code.with.vanilson.orderservice.event.OrderStatusChangedEvent;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.context.ApplicationEventPublisher;
 import code.with.vanilson.orderservice.kafka.OrderRequestedEvent;
 import code.with.vanilson.orderservice.orderLine.OrderLineRequest;
 import code.with.vanilson.orderservice.orderLine.OrderLineService;
@@ -31,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,6 +72,7 @@ public class OrderService {
     private final ObjectMapper                 objectMapper;
     private final TenantHibernateFilterActivator filterActivator;
     private final MeterRegistry                meterRegistry;
+    private final ApplicationEventPublisher    eventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         OrderMapper orderMapper,
@@ -77,7 +82,8 @@ public class OrderService {
                         OutboxRepository outboxRepository,
                         MessageSource messageSource,
                         TenantHibernateFilterActivator filterActivator,
-                        MeterRegistry meterRegistry) {
+                        MeterRegistry meterRegistry,
+                        ApplicationEventPublisher eventPublisher) {
         this.orderRepository    = orderRepository;
         this.orderMapper        = orderMapper;
         this.customerClient     = customerClient;
@@ -87,6 +93,7 @@ public class OrderService {
         this.messageSource      = messageSource;
         this.filterActivator    = filterActivator;
         this.meterRegistry      = meterRegistry;
+        this.eventPublisher     = eventPublisher;
         // ObjectMapper with JSR310 for Instant serialisation
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
@@ -243,6 +250,83 @@ public class OrderService {
             order.setStatus(newStatus);
             orderRepository.save(order);
         });
+    }
+
+    // -------------------------------------------------------
+    // MANUAL FULFILLMENT STATUS UPDATE (Fase 5) — seller/admin driven
+    // -------------------------------------------------------
+
+    /**
+     * Advances an order's fulfillment status via the manual endpoint
+     * ({@code PATCH /api/v1/orders/{id}/status}). Distinct from {@link #updateStatus} (the
+     * Kafka saga path): this is caller-authorised and keyed by the internal {@code orderId}.
+     * <p>
+     * Rules:
+     * <ul>
+     *   <li><b>Whitelist</b> — only {@code SHIPPED} / {@code DELIVERED} are settable here; the saga
+     *       remains the only path to CONFIRMED/CANCELLED and refunds arrive via the payment saga
+     *       (Fase 6), so any other target → {@code 400 order.status.update.not.allowed}.</li>
+     *   <li><b>Authorisation</b> — ADMIN may advance any order; a SELLER must own at least one line
+     *       in it ({@code order_line.seller_id}), else {@code 403 order.status.update.forbidden}.</li>
+     *   <li><b>Transition</b> — must satisfy {@link OrderStatus#canTransitionTo}
+     *       (e.g. DELIVERED before SHIPPED → {@code 409 order.status.transition.invalid}).</li>
+     * </ul>
+     * Records the fulfillment timestamp and republishes {@link OrderStatusChangedEvent} so the
+     * existing SSE stream / notification listeners react exactly as they do for saga updates.
+     * Idempotent: re-sending the current status is a no-op that returns the order unchanged.
+     */
+    @Transactional
+    public OrderResponse updateStatusManually(Integer orderId, OrderStatus newStatus) {
+        if (newStatus != OrderStatus.SHIPPED && newStatus != OrderStatus.DELIVERED) {
+            throw new OrderValidationException(
+                    msg("order.status.update.not.allowed", newStatus),
+                    "order.status.update.not.allowed");
+        }
+
+        filterActivator.activateFilter();
+        Order order = (TenantContext.isPresent()
+                ? orderRepository.findByOrderIdAndTenantId(orderId, TenantContext.getCurrentTenantId())
+                : orderRepository.findById(orderId))
+                .orElseThrow(() -> new OrderNotFoundException(
+                        msg("order.not.found", orderId), "order.not.found"));
+
+        SecurityPrincipal principal = currentPrincipal();
+        if (principal != null && !"ADMIN".equals(principal.role())) {
+            boolean sellerOwnsLine = principal.isSeller()
+                    && orderLineService.sellerOwnsLineInOrder(orderId, String.valueOf(principal.userId()));
+            if (!sellerOwnsLine) {
+                throw new OrderForbiddenException(
+                        msg("order.status.update.forbidden"), "order.status.update.forbidden");
+            }
+        }
+
+        OrderStatus current = order.getStatus();
+        if (current == newStatus) {
+            log.info("[OrderService] Manual status already {} — no-op: orderId=[{}]", newStatus, orderId);
+            CustomerSnapshot snap = snapshotRepository.findById(order.getCustomerId()).orElse(null);
+            return orderMapper.fromOrder(order, snap);
+        }
+        if (!current.canTransitionTo(newStatus)) {
+            throw new OrderIllegalStateTransitionException(
+                    msg("order.status.transition.invalid", current, newStatus, order.getCorrelationId()),
+                    "order.status.transition.invalid");
+        }
+
+        order.setStatus(newStatus);
+        if (newStatus == OrderStatus.SHIPPED) {
+            order.setShippedAt(LocalDateTime.now());
+        } else {
+            order.setDeliveredAt(LocalDateTime.now());
+        }
+        Order saved = orderRepository.save(order);
+
+        log.info("[OrderService] Manual fulfillment update: orderId=[{}] {} → {}",
+                orderId, current, newStatus);
+        eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                saved.getCorrelationId(), newStatus.name(), saved.getReference(), Instant.now()));
+
+        CustomerSnapshot snapshot = snapshotRepository.findById(saved.getCustomerId()).orElse(null);
+        return orderMapper.fromOrder(saved, snapshot);
     }
 
     // -------------------------------------------------------
