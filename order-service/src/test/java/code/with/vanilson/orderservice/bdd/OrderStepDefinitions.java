@@ -85,7 +85,8 @@ public class OrderStepDefinitions {
 
         orderService = new OrderService(
                 orderRepository, orderMapper, customerClient, snapshotRepository,
-                orderLineService, outboxRepository, messageSource, filterActivator, meterRegistry);
+                orderLineService, outboxRepository, messageSource, filterActivator, meterRegistry,
+                mock(org.springframework.context.ApplicationEventPublisher.class));
 
         TenantContext.setCurrentTenantId("test-tenant");
 

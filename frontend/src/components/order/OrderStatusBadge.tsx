@@ -6,6 +6,10 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string }> = {
   INVENTORY_RESERVED: { label: 'Inventory Reserved', color: 'var(--status-warning)' },
   CONFIRMED: { label: 'Confirmed', color: 'var(--status-success)' },
   CANCELLED: { label: 'Cancelled', color: 'var(--status-error)' },
+  // Fase 5 — fulfillment states set by a seller/admin after the saga confirms the order.
+  SHIPPED: { label: 'Shipped', color: 'var(--status-info)' },
+  DELIVERED: { label: 'Delivered', color: 'var(--status-success)' },
+  REFUNDED: { label: 'Refunded', color: 'var(--status-warning)' },
 };
 
 export default function OrderStatusBadge({ status }: { status: OrderStatus | string }) {

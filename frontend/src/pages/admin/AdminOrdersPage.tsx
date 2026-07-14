@@ -1,24 +1,23 @@
 import { useState } from 'react';
-import { Button, Container, Typography } from '@mui/material';
+import { Box, Button, Container, Typography } from '@mui/material';
 import { LocalShipping, TaskAlt } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ordersApi } from '@api/orders.api';
 import { normalizeError } from '@api/client';
-import { QUERY_KEYS, ROUTES } from '@utils/constants';
-import DataTable from '@components/data-display/DataTable';
+import DataTable, { type Column } from '@components/data-display/DataTable';
 import { TableSkeleton } from '@components/feedback/LoadingSkeleton';
 import ConfirmDialog from '@components/feedback/ConfirmDialog';
 import OrderStatusBadge from '@components/order/OrderStatusBadge';
 import { useUIStore } from '@stores/ui.store';
+import { QUERY_KEYS } from '@utils/constants';
 import { formatCurrency } from '@utils/format';
 import type { FulfillmentStatus, OrderResponse } from '@api/types';
 
 /**
- * Fase 5 — the seller advances fulfillment on orders containing their own products.
- * The backend enforces line-ownership (403 otherwise); the UI only offers the single
- * legal next step for the current status: CONFIRMED → SHIPPED → DELIVERED.
+ * Fase 5 — /admin/orders: every order across the platform (GET /orders is ADMIN-only).
+ * An admin may advance fulfillment on ANY order, unlike a seller who must own a line.
+ * Only the single legal next step is offered: CONFIRMED → SHIPPED → DELIVERED.
  */
 function nextStep(status: string): { label: string; to: FulfillmentStatus } | null {
   if (status === 'CONFIRMED') return { label: 'Mark shipped', to: 'SHIPPED' };
@@ -26,25 +25,24 @@ function nextStep(status: string): { label: string; to: FulfillmentStatus } | nu
   return null;
 }
 
-export default function OrderManagement() {
-  const navigate = useNavigate();
+export default function AdminOrdersPage() {
   const qc = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
 
   const [target, setTarget] = useState<{ order: OrderResponse; to: FulfillmentStatus } | null>(null);
 
   const { data: orders, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.SELLER_ORDERS],
-    queryFn: ({ signal }) => ordersApi.getSeller(signal),
-    staleTime: 30 * 1000,
+    queryKey: [QUERY_KEYS.ADMIN_ORDERS],
+    queryFn: ({ signal }) => ordersApi.getAll(signal),
+    staleTime: 30_000,
   });
 
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: number; status: FulfillmentStatus }) =>
       ordersApi.updateStatus(id, status),
     onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: [QUERY_KEYS.ADMIN_ORDERS] });
       qc.invalidateQueries({ queryKey: [QUERY_KEYS.SELLER_ORDERS] });
-      // The customer's own order views reflect the same status.
       qc.invalidateQueries({ queryKey: [QUERY_KEYS.ORDERS] });
       addToast({
         message: vars.status === 'SHIPPED' ? 'Order marked as shipped' : 'Order marked as delivered',
@@ -58,21 +56,36 @@ export default function OrderManagement() {
     },
   });
 
-  const COLUMNS = [
+  const COLUMNS: Column<OrderResponse>[] = [
     {
       key: 'reference',
       label: 'Reference',
-      render: (r: OrderResponse) => (
+      render: (r) => (
         <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'primary.main' }}>
           {r.reference}
         </Typography>
       ),
     },
     {
+      key: 'customerId',
+      label: 'Customer',
+      render: (r) => {
+        const name = [r.customerFirstname, r.customerLastname].filter(Boolean).join(' ');
+        return (
+          <Box>
+            {name && <Typography variant="body2">{name}</Typography>}
+            <Typography variant="caption" sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary' }}>
+              {r.customerId}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
       key: 'amount',
       label: 'Amount',
-      align: 'right' as const,
-      render: (r: OrderResponse) => (
+      align: 'right',
+      render: (r) => (
         <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>
           {formatCurrency(r.amount)}
         </Typography>
@@ -80,28 +93,14 @@ export default function OrderManagement() {
     },
     { key: 'paymentMethod', label: 'Payment' },
     {
-      key: 'customerId',
-      label: 'Customer',
-      render: (r: OrderResponse) => {
-        const name = [r.customerFirstname, r.customerLastname].filter(Boolean).join(' ');
-        return name ? (
-          <Typography variant="body2">{name}</Typography>
-        ) : (
-          <Typography variant="caption" sx={{ fontFamily: 'var(--font-mono)', color: 'text.secondary' }}>
-            {r.customerId.slice(0, 12)}…
-          </Typography>
-        );
-      },
-    },
-    {
       key: 'status',
       label: 'Status',
-      render: (r: OrderResponse) => <OrderStatusBadge status={r.status} />,
+      render: (r) => <OrderStatusBadge status={r.status} />,
     },
     {
       key: 'fulfillment',
       label: 'Fulfillment',
-      render: (r: OrderResponse) => {
+      render: (r) => {
         const step = nextStep(r.status);
         if (!step) return <Typography variant="caption" color="text.secondary">—</Typography>;
         return (
@@ -118,17 +117,18 @@ export default function OrderManagement() {
   ];
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <Typography variant="h3" sx={{ fontFamily: 'var(--font-serif)', mb: 4 }}>Orders</Typography>
+        <Typography variant="h3" sx={{ fontFamily: 'var(--font-serif)', mb: 1 }}>Orders</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Every order across the platform. Fulfillment can be advanced on any order —
+          sellers can only advance orders containing their own products.
+        </Typography>
+
         {isLoading ? (
           <TableSkeleton rows={8} cols={6} />
         ) : (
-          <DataTable
-            columns={COLUMNS}
-            rows={orders ?? []}
-            onView={(row) => navigate(ROUTES.SELLER_ORDER_DETAIL(row.id))}
-          />
+          <DataTable columns={COLUMNS} rows={orders ?? []} />
         )}
 
         <ConfirmDialog

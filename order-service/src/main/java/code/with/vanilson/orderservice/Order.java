@@ -150,6 +150,16 @@ public class Order {
     @Builder.Default
     private OrderStatus status = OrderStatus.REQUESTED;
 
+    /**
+     * Fase 5 (fulfillment) — set when a seller/admin marks the order SHIPPED / DELIVERED
+     * via the manual status endpoint. Nullable: legacy and not-yet-shipped orders have none.
+     */
+    @Column(name = "shipped_at")
+    private LocalDateTime shippedAt;
+
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<OrderLine> orderLines;
 

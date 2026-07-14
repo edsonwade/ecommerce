@@ -72,7 +72,8 @@ class OrderServiceFindByIdTest {
         lenient().when(snapshotRepository.findById(anyString())).thenReturn(Optional.empty());
 
         orderService = new OrderService(orderRepository, orderMapper, customerClient, snapshotRepository,
-                orderLineService, outboxRepository, messageSource, filterActivator, meterRegistry);
+                orderLineService, outboxRepository, messageSource, filterActivator, meterRegistry,
+                mock(org.springframework.context.ApplicationEventPublisher.class));
     }
 
     @AfterEach
