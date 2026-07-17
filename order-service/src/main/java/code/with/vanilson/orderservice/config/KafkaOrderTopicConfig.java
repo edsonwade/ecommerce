@@ -86,6 +86,28 @@ public class KafkaOrderTopicConfig {
     }
 
     // -------------------------------------------------------
+    // Fase 6 — Refund topics
+    // -------------------------------------------------------
+
+    /** Published by payment-service after a successful refund → consumed by order-service */
+    @Bean public NewTopic paymentRefundedTopic() {
+        return TopicBuilder.name("payment.refunded").partitions(10).replicas(1).build();
+    }
+
+    @Bean public NewTopic paymentRefundedDlq() {
+        return TopicBuilder.name("payment.refunded.DLQ").partitions(3).replicas(1).build();
+    }
+
+    /** Published by order-service's outbox after a payment refund is applied → consumed by product-service (restock) */
+    @Bean public NewTopic orderRefundedTopic() {
+        return TopicBuilder.name("order.refunded").partitions(10).replicas(1).build();
+    }
+
+    @Bean public NewTopic orderRefundedDlq() {
+        return TopicBuilder.name("order.refunded.DLQ").partitions(3).replicas(1).build();
+    }
+
+    // -------------------------------------------------------
     // Phase 2 — Customer snapshot topics
     // -------------------------------------------------------
 

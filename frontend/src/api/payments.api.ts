@@ -6,4 +6,8 @@ export const paymentsApi = {
 
   getById: (id: number) =>
     apiClient.get<PaymentResponse>(`/payments/${id}`).then((r) => r.data),
+
+  // Fase 6 — ADMIN, one-shot: refunding an already-REFUNDED payment returns 409.
+  refund: (id: number) =>
+    apiClient.post<PaymentResponse>(`/payments/${id}/refund`).then((r) => r.data),
 };

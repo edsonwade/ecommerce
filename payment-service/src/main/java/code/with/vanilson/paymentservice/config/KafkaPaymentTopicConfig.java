@@ -38,4 +38,11 @@ public class KafkaPaymentTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    // Fase 6 note: "payment.refunded" is a SAGA topic (feeds order-service's REFUNDED
+    // transition) — per this codebase's established convention, saga topics are declared
+    // centrally in order-service's KafkaOrderTopicConfig (which already declares
+    // payment.authorized/payment.failed despite payment-service being their producer), not
+    // here. This file only owns payment-service's own non-saga topic (payment-topic, for
+    // email notifications). See KafkaOrderTopicConfig.paymentRefundedTopic().
 }

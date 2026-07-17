@@ -83,6 +83,14 @@ public class PaymentGlobalExceptionHandler {
         return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
     }
 
+    @ExceptionHandler(PaymentConflictException.class)
+    public ResponseEntity<Map<String, Object>> handlePaymentConflict(
+            PaymentConflictException ex, WebRequest request) {
+        log.warn("[PaymentExceptionHandler] Conflict: key=[{}] message=[{}]",
+                ex.getMessageKey(), ex.getMessage());
+        return buildResponse(ex.getHttpStatus(), ex.getMessage(), ex.getMessageKey(), request);
+    }
+
     /**
      * Handles Bean Validation errors (@Valid on request bodies).
      */

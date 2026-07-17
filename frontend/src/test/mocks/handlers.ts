@@ -107,7 +107,7 @@ const CUSTOMER: CustomerResponse = {
 };
 
 const PAYMENT: PaymentResponse = {
-  id: 1,
+  paymentId: 1,
   amount: 59.98,
   paymentMethod: 'CREDIT_CARD',
   orderId: 1,

@@ -1,18 +1,25 @@
 package code.with.vanilson.paymentservice.application;
 
 import code.with.vanilson.paymentservice.domain.Payment;
+import code.with.vanilson.paymentservice.domain.PaymentStatus;
+import code.with.vanilson.paymentservice.exception.PaymentConflictException;
 import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
+import code.with.vanilson.paymentservice.infrastructure.kafka.PaymentRefundedEvent;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.messaging.PaymentNotificationRequest;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
 import code.with.vanilson.tenantcontext.TenantContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -52,19 +59,24 @@ import java.util.stream.Collectors;
 @Service
 public class PaymentService {
 
+    private static final String TOPIC_REFUNDED = "payment.refunded";
+
     private final PaymentRepository paymentRepository;
     private final PaymentMapper paymentMapper;
     private final NotificationProducer notificationProducer;
     private final MessageSource messageSource;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public PaymentService(PaymentRepository paymentRepository,
                           PaymentMapper paymentMapper,
                           NotificationProducer notificationProducer,
-                          MessageSource messageSource) {
+                          MessageSource messageSource,
+                          @Qualifier("paymentSagaKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
         this.paymentRepository = paymentRepository;
         this.paymentMapper = paymentMapper;
         this.notificationProducer = notificationProducer;
         this.messageSource = messageSource;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     /**
@@ -154,6 +166,51 @@ public class PaymentService {
                 });
     }
 
+    /**
+     * Refunds a payment (Fase 6 — basic refunds). ADMIN-triggered via
+     * {@code POST /api/v1/payments/{payment-id}/refund}.
+     * <p>
+     * Guards:
+     * <ul>
+     *   <li>404 {@code payment.refund.not.found} — no such payment.</li>
+     *   <li>409 {@code payment.refund.invalid.status} — already REFUNDED (refund is one-shot;
+     *       a second attempt is rejected before any write, so no CHECK constraint is needed).</li>
+     * </ul>
+     * On success: sets {@code REFUNDED}, saves, then publishes {@code payment.refunded}
+     * (Kafka publish outside the persisted state — same "commit first, publish after"
+     * discipline as {@link #processNewPayment}). order-service is the single authority on
+     * order status; this service only reports that the payment side is done.
+     *
+     * @param paymentId the payment to refund
+     * @return the updated PaymentResponse (status REFUNDED)
+     */
+    @Transactional
+    public PaymentResponse refundPayment(Integer paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(
+                        messageSource.getMessage("payment.refund.not.found",
+                                new Object[]{paymentId}, LocaleContextHolder.getLocale()),
+                        "payment.refund.not.found"));
+
+        if (payment.getStatus() == PaymentStatus.REFUNDED) {
+            throw new PaymentConflictException(
+                    messageSource.getMessage("payment.refund.invalid.status",
+                            new Object[]{paymentId}, LocaleContextHolder.getLocale()),
+                    "payment.refund.invalid.status");
+        }
+
+        payment.setStatus(PaymentStatus.REFUNDED);
+        Payment saved = paymentRepository.save(payment);
+
+        log.info(messageSource.getMessage("payment.log.refunded",
+                new Object[]{saved.getPaymentId(), saved.getOrderReference()},
+                LocaleContextHolder.getLocale()));
+
+        publishPaymentRefunded(saved);
+
+        return paymentMapper.toResponse(saved);
+    }
+
     // -------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------
@@ -213,5 +270,23 @@ public class PaymentService {
                 request.customer().email()
         );
         notificationProducer.sendNotification(notification);
+    }
+
+    /**
+     * Publishes {@code payment.refunded} keyed by orderReference (same partition-key
+     * convention as {@code PaymentSagaConsumer}'s saga events, so consumers processing the
+     * same order stay ordered).
+     */
+    private void publishPaymentRefunded(Payment payment) {
+        PaymentRefundedEvent event = new PaymentRefundedEvent(
+                UUID.randomUUID().toString(),
+                payment.getPaymentId(),
+                payment.getOrderId(),
+                payment.getOrderReference(),
+                payment.getAmount(),
+                Instant.now(),
+                1
+        );
+        kafkaTemplate.send(TOPIC_REFUNDED, payment.getOrderReference(), event);
     }
 }
