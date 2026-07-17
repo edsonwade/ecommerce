@@ -62,6 +62,7 @@ class PaymentServiceTest {
     @Mock private PaymentMapper       paymentMapper;
     @Mock private NotificationProducer notificationProducer;
     @Mock private MessageSource       messageSource;
+    @Mock private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -102,7 +103,7 @@ class PaymentServiceTest {
 
         savedResponse = new PaymentResponse(
                 1, BigDecimal.valueOf(199.99), "CREDIT_CARD",
-                42, "ORD-2024-001", LocalDateTime.now());
+                42, "ORD-2024-001", LocalDateTime.now(), "AUTHORIZED");
 
         // MessageSource: return key itself so we can check calls without exact message strings
         when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
@@ -300,6 +301,68 @@ class PaymentServiceTest {
                     .as("Result must be an empty list, not null")
                     .isNotNull()
                     .isEmpty();
+        }
+    }
+
+    // -------------------------------------------------------
+    // refundPayment (Fase 6)
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("refundPayment")
+    class RefundPayment {
+
+        @Test
+        @DisplayName("should refund an AUTHORIZED payment, save REFUNDED, and publish payment.refunded")
+        void shouldRefundAuthorizedPaymentAndPublish() {
+            savedPayment.setStatus(code.with.vanilson.paymentservice.domain.PaymentStatus.AUTHORIZED);
+            when(paymentRepository.findById(1)).thenReturn(Optional.of(savedPayment));
+            when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(paymentMapper.toResponse(any(Payment.class))).thenReturn(savedResponse);
+
+            PaymentResponse result = paymentService.refundPayment(1);
+
+            assertThat(result).isNotNull();
+
+            ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+            verify(paymentRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus())
+                    .as("Payment must be set to REFUNDED before saving")
+                    .isEqualTo(code.with.vanilson.paymentservice.domain.PaymentStatus.REFUNDED);
+
+            ArgumentCaptor<code.with.vanilson.paymentservice.infrastructure.kafka.PaymentRefundedEvent> eventCaptor =
+                    ArgumentCaptor.forClass(code.with.vanilson.paymentservice.infrastructure.kafka.PaymentRefundedEvent.class);
+            verify(kafkaTemplate).send(org.mockito.ArgumentMatchers.eq("payment.refunded"),
+                    org.mockito.ArgumentMatchers.eq("ORD-2024-001"), eventCaptor.capture());
+            assertThat(eventCaptor.getValue().paymentId()).isEqualTo(1);
+            assertThat(eventCaptor.getValue().orderReference()).isEqualTo("ORD-2024-001");
+        }
+
+        @Test
+        @DisplayName("should throw PaymentNotFoundException (404) when payment does not exist")
+        void shouldThrowNotFoundWhenPaymentMissing() {
+            when(paymentRepository.findById(99)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> paymentService.refundPayment(99))
+                    .isInstanceOf(PaymentNotFoundException.class)
+                    .hasMessageContaining("payment.refund.not.found");
+
+            verify(paymentRepository, never()).save(any());
+            verify(kafkaTemplate, never()).send(anyString(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should throw PaymentConflictException (409) when payment is already REFUNDED")
+        void shouldThrowConflictWhenAlreadyRefunded() {
+            savedPayment.setStatus(code.with.vanilson.paymentservice.domain.PaymentStatus.REFUNDED);
+            when(paymentRepository.findById(1)).thenReturn(Optional.of(savedPayment));
+
+            assertThatThrownBy(() -> paymentService.refundPayment(1))
+                    .isInstanceOf(code.with.vanilson.paymentservice.exception.PaymentConflictException.class)
+                    .hasMessageContaining("payment.refund.invalid.status");
+
+            verify(paymentRepository, never()).save(any());
+            verify(kafkaTemplate, never()).send(anyString(), any(), any());
         }
     }
 }

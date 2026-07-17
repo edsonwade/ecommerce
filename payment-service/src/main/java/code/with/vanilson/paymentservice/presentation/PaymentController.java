@@ -75,4 +75,15 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> findById(@PathVariable("payment-id") Integer paymentId) {
         return ResponseEntity.ok(paymentService.findById(paymentId));
     }
+
+    /**
+     * Refunds a payment (Fase 6 — basic refunds). 404 if the payment does not exist;
+     * 409 if it was already refunded (one-shot). Publishes {@code payment.refunded} for
+     * order-service to pick up.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{payment-id}/refund")
+    public ResponseEntity<PaymentResponse> refundPayment(@PathVariable("payment-id") Integer paymentId) {
+        return ResponseEntity.ok(paymentService.refundPayment(paymentId));
+    }
 }

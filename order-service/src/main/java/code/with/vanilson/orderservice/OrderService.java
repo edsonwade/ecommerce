@@ -253,6 +253,78 @@ public class OrderService {
     }
 
     // -------------------------------------------------------
+    // REFUND (Fase 6) — driven by payment.refunded, consumed by PaymentRefundConsumer
+    // -------------------------------------------------------
+
+    /**
+     * Applies a payment refund to the owning order: transitions it to {@code REFUNDED} and
+     * writes an {@code order.refunded} outbox row in the SAME transaction (outbox pattern —
+     * product-service's restock consumer picks it up from there).
+     * <p>
+     * {@code PaymentRefundedEvent} carries neither {@code correlationId} nor {@code tenantId}
+     * (payment-service stores neither), so the order is looked up by its own PK
+     * ({@code orderId}) and both values are read off the found row.
+     * <p>
+     * Idempotent: a redelivered event on an already-REFUNDED order is a no-op (no second
+     * outbox row). Failure semantics (documented, Fase 6 basic scope): if the order can't
+     * transition (e.g. already CANCELLED), this throws and the caller
+     * ({@code PaymentRefundConsumer}) does NOT acknowledge — Kafka retries, then DLQs. The
+     * payment stays REFUNDED regardless; reconciling that split is out of basic scope.
+     *
+     * @param orderId    the order's internal PK (Payment.orderId — NOT the correlationId)
+     * @param eventId    the source PaymentRefundedEvent's eventId (becomes the outbox eventId)
+     * @param occurredAt when payment-service processed the refund
+     */
+    @Transactional
+    public void applyRefund(Integer orderId, String eventId, Instant occurredAt) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(
+                        msg("order.not.found", orderId), "order.not.found"));
+
+        if (order.getStatus() == OrderStatus.REFUNDED) {
+            log.info("[OrderService] Order already REFUNDED — skipping duplicate refund: orderId=[{}]", orderId);
+            return;
+        }
+        if (!order.getStatus().canTransitionTo(OrderStatus.REFUNDED)) {
+            throw new OrderIllegalStateTransitionException(
+                    msg("order.status.transition.invalid", order.getStatus(), OrderStatus.REFUNDED, order.getCorrelationId()),
+                    "order.status.transition.invalid");
+        }
+
+        order.setStatus(OrderStatus.REFUNDED);
+        Order saved = orderRepository.save(order);
+
+        persistOrderRefundedOutboxEvent(saved, eventId, occurredAt);
+
+        log.info("[OrderService] Order REFUNDED: orderId=[{}] correlationId=[{}]",
+                orderId, saved.getCorrelationId());
+        eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                saved.getCorrelationId(), OrderStatus.REFUNDED.name(), saved.getReference(), Instant.now()));
+    }
+
+    private void persistOrderRefundedOutboxEvent(Order order, String sourceEventId, Instant occurredAt) {
+        code.with.vanilson.orderservice.kafka.OrderRefundedEvent event =
+                new code.with.vanilson.orderservice.kafka.OrderRefundedEvent(
+                        sourceEventId, order.getCorrelationId(), order.getReference(), occurredAt, 1);
+        try {
+            String payload = objectMapper.writeValueAsString(event);
+            OutboxEvent outbox = OutboxEvent.builder()
+                    .eventId(sourceEventId)
+                    .correlationId(order.getCorrelationId())
+                    .tenantId(order.getTenantId())
+                    .topic("order.refunded")
+                    .payload(payload)
+                    .partitionKey(order.getCorrelationId())
+                    .status(OutboxEvent.OutboxStatus.PENDING)
+                    .build();
+            outboxRepository.save(outbox);
+        } catch (JsonProcessingException ex) {
+            log.error("[OrderService] Failed to serialise OrderRefundedEvent: {}", ex.getMessage(), ex);
+            throw new RuntimeException("Failed to create outbox event for refund: " + order.getCorrelationId(), ex);
+        }
+    }
+
+    // -------------------------------------------------------
     // MANUAL FULFILLMENT STATUS UPDATE (Fase 5) — seller/admin driven
     // -------------------------------------------------------
 

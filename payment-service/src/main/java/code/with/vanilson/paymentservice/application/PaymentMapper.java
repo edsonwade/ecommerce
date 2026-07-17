@@ -60,7 +60,8 @@ public class PaymentMapper {
                 payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : null,
                 payment.getOrderId(),
                 payment.getOrderReference(),
-                payment.getCreatedDate()
+                payment.getCreatedDate(),
+                payment.getStatus() != null ? payment.getStatus().name() : null
         );
     }
 }

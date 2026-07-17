@@ -85,7 +85,7 @@ class PaymentControllerSecurityTest {
     }
 
     private PaymentResponse samplePayment() {
-        return new PaymentResponse(1, BigDecimal.valueOf(100), "CREDIT_CARD", 1, "REF-001", LocalDateTime.now());
+        return new PaymentResponse(1, BigDecimal.valueOf(100), "CREDIT_CARD", 1, "REF-001", LocalDateTime.now(), "AUTHORIZED");
     }
 
     // -------------------------------------------------------
@@ -208,6 +208,51 @@ class PaymentControllerSecurityTest {
             when(paymentService.findById(anyInt())).thenReturn(samplePayment());
 
             mockMvc.perform(get(BASE + "/1")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(1L, "ADMIN"))))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    // -------------------------------------------------------
+    // POST /payments/{id}/refund — ADMIN only
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("POST /payments/{id}/refund — ADMIN only")
+    class RefundPayment {
+
+        @Test
+        @DisplayName("401 when unauthenticated")
+        void unauthenticated_gets_401() throws Exception {
+            mockMvc.perform(post(BASE + "/1/refund").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("403 when USER tries to refund")
+        void user_cannot_refund() throws Exception {
+            mockMvc.perform(post(BASE + "/1/refund")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(42L, "USER"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("403 when SELLER tries to refund")
+        void seller_cannot_refund() throws Exception {
+            mockMvc.perform(post(BASE + "/1/refund")
+                            .header(TENANT_HDR, TENANT_VAL)
+                            .with(authentication(authAs(5L, "SELLER"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("200 when ADMIN refunds a payment")
+        void admin_can_refund_payment() throws Exception {
+            when(paymentService.refundPayment(anyInt())).thenReturn(samplePayment());
+
+            mockMvc.perform(post(BASE + "/1/refund")
                             .header(TENANT_HDR, TENANT_VAL)
                             .with(authentication(authAs(1L, "ADMIN"))))
                     .andExpect(status().isOk());

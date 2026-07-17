@@ -103,4 +103,14 @@ public class Payment {
      */
     @Column(name = "tenant_id", nullable = false, updatable = false)
     private String tenantId;
+
+    /**
+     * Fase 6 (basic refunds). {@code AUTHORIZED} by default (migration {@code V1.4}
+     * grandfathers every existing row); {@code REFUNDED} is terminal, set once by
+     * {@code PaymentService.refundPayment}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private PaymentStatus status = PaymentStatus.AUTHORIZED;
 }

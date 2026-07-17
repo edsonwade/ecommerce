@@ -5,6 +5,7 @@ import code.with.vanilson.paymentservice.application.PaymentResponse;
 import code.with.vanilson.paymentservice.application.PaymentService;
 import code.with.vanilson.paymentservice.domain.CustomerData;
 import code.with.vanilson.paymentservice.domain.PaymentMethod;
+import code.with.vanilson.paymentservice.exception.PaymentConflictException;
 import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
 import code.with.vanilson.tenantcontext.TenantHibernateFilterActivator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,7 +98,8 @@ class PaymentControllerTest {
                 "CREDIT_CARD",
                 42,
                 "ORD-2024-001",
-                LocalDateTime.of(2024, 1, 15, 10, 30)
+                LocalDateTime.of(2024, 1, 15, 10, 30),
+                "AUTHORIZED"
         );
 
         // Return the message key itself — keeps assertions decoupled from actual message text.
@@ -321,6 +323,54 @@ class PaymentControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.timestamp").exists())
                     .andExpect(jsonPath("$.status").value(404));
+        }
+    }
+
+    // -------------------------------------------------------
+    // POST /api/v1/payments/{payment-id}/refund
+    // -------------------------------------------------------
+
+    @Nested
+    @DisplayName("POST /api/v1/payments/{payment-id}/refund")
+    class RefundPayment {
+
+        @Test
+        @DisplayName("should return 200 with REFUNDED payment when refund succeeds")
+        void shouldReturn200OnSuccessfulRefund() throws Exception {
+            PaymentResponse refunded = new PaymentResponse(
+                    1, BigDecimal.valueOf(199.99), "CREDIT_CARD", 42, "ORD-2024-001",
+                    LocalDateTime.now(), "REFUNDED");
+            when(paymentService.refundPayment(1)).thenReturn(refunded);
+
+            mockMvc.perform(post("/api/v1/payments/1/refund")
+                            .header("X-Tenant-ID", "test-tenant-123"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.paymentId").value(1))
+                    .andExpect(jsonPath("$.status").value("REFUNDED"));
+        }
+
+        @Test
+        @DisplayName("should return 404 when payment does not exist")
+        void shouldReturn404WhenPaymentMissing() throws Exception {
+            when(paymentService.refundPayment(999))
+                    .thenThrow(new PaymentNotFoundException("Not found", "payment.refund.not.found"));
+
+            mockMvc.perform(post("/api/v1/payments/999/refund")
+                            .header("X-Tenant-ID", "test-tenant-123"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value("payment.refund.not.found"));
+        }
+
+        @Test
+        @DisplayName("should return 409 when payment is already refunded")
+        void shouldReturn409WhenAlreadyRefunded() throws Exception {
+            when(paymentService.refundPayment(1))
+                    .thenThrow(new PaymentConflictException("Already refunded", "payment.refund.invalid.status"));
+
+            mockMvc.perform(post("/api/v1/payments/1/refund")
+                            .header("X-Tenant-ID", "test-tenant-123"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode").value("payment.refund.invalid.status"));
         }
     }
 }

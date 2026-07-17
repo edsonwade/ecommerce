@@ -250,13 +250,17 @@ export interface OrderLineResponse {
 }
 
 // ── Payment ──
+export type PaymentStatus = 'AUTHORIZED' | 'REFUNDED';
+
+/** Backend JSON key is `paymentId` (PaymentResponse record, no @JsonProperty alias) — not `id`. */
 export interface PaymentResponse {
-  id: number;
+  paymentId: number;
   amount: number;
   paymentMethod: string;
   orderId: number;
   orderReference: string;
   createdDate: string;
+  status?: PaymentStatus;
 }
 
 // ── Customer ──

@@ -7,6 +7,8 @@ import code.with.vanilson.paymentservice.application.PaymentService;
 import code.with.vanilson.paymentservice.domain.CustomerData;
 import code.with.vanilson.paymentservice.domain.Payment;
 import code.with.vanilson.paymentservice.domain.PaymentMethod;
+import code.with.vanilson.paymentservice.domain.PaymentStatus;
+import code.with.vanilson.paymentservice.exception.PaymentConflictException;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
 import code.with.vanilson.tenantcontext.TenantContext;
@@ -36,6 +38,7 @@ public class PaymentStepDefinitions {
     private NotificationProducer notificationProducer;
     private PaymentMapper paymentMapper;
     private MessageSource messageSource;
+    private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     private PaymentRequest paymentRequest;
     private Integer savedPaymentId;
@@ -43,14 +46,20 @@ public class PaymentStepDefinitions {
     private boolean duplicateScenario;
     private String currentOrderRef;
 
+    // Refund scenario state (Fase 6)
+    private static final Integer REFUND_PAYMENT_ID = 42;
+    private Payment refundTargetPayment;
+    private code.with.vanilson.paymentservice.application.PaymentResponse refundResult;
+
     @Before
     public void setUp() {
         paymentRepository = Mockito.mock(PaymentRepository.class);
         notificationProducer = Mockito.mock(NotificationProducer.class);
         paymentMapper = Mockito.mock(PaymentMapper.class);
         messageSource = Mockito.mock(MessageSource.class);
+        kafkaTemplate = Mockito.mock(org.springframework.kafka.core.KafkaTemplate.class);
 
-        paymentService = new PaymentService(paymentRepository, paymentMapper, notificationProducer, messageSource);
+        paymentService = new PaymentService(paymentRepository, paymentMapper, notificationProducer, messageSource, kafkaTemplate);
 
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -84,7 +93,7 @@ public class PaymentStepDefinitions {
                 .build();
 
         PaymentResponse response = new PaymentResponse(
-                1, BigDecimal.valueOf(amount), "CREDIT_CARD", 1, orderRef, LocalDateTime.now());
+                1, BigDecimal.valueOf(amount), "CREDIT_CARD", 1, orderRef, LocalDateTime.now(), "AUTHORIZED");
 
         lenient().when(paymentMapper.toPayment(any())).thenReturn(payment);
         lenient().when(paymentMapper.toResponse(any())).thenReturn(response);
@@ -147,6 +156,70 @@ public class PaymentStepDefinitions {
         // In the new idempotent implementation, it returns the existing ID instead of throwing an error
         assertThat(caughtException).isNull();
         assertThat(savedPaymentId).isEqualTo(1);
+        verify(paymentRepository, never()).save(any(Payment.class));
+    }
+
+    // -------------------------------------------------------
+    // Refund (Fase 6)
+    // -------------------------------------------------------
+
+    @Given("an authorized payment exists for order {string}")
+    public void an_authorized_payment_exists(String orderRef) {
+        refundTargetPayment = Payment.builder()
+                .paymentId(REFUND_PAYMENT_ID)
+                .orderId(7)
+                .orderReference(orderRef)
+                .amount(BigDecimal.valueOf(75.00))
+                .paymentMethod(PaymentMethod.CREDIT_CARD)
+                .status(PaymentStatus.AUTHORIZED)
+                .build();
+        when(paymentRepository.findById(REFUND_PAYMENT_ID)).thenReturn(Optional.of(refundTargetPayment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentMapper.toResponse(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            return new code.with.vanilson.paymentservice.application.PaymentResponse(
+                    p.getPaymentId(), p.getAmount(), p.getPaymentMethod().name(),
+                    p.getOrderId(), p.getOrderReference(), LocalDateTime.now(), p.getStatus().name());
+        });
+    }
+
+    @Given("an already-refunded payment exists for order {string}")
+    public void an_already_refunded_payment_exists(String orderRef) {
+        refundTargetPayment = Payment.builder()
+                .paymentId(REFUND_PAYMENT_ID)
+                .orderId(7)
+                .orderReference(orderRef)
+                .amount(BigDecimal.valueOf(75.00))
+                .paymentMethod(PaymentMethod.CREDIT_CARD)
+                .status(PaymentStatus.REFUNDED)
+                .build();
+        when(paymentRepository.findById(REFUND_PAYMENT_ID)).thenReturn(Optional.of(refundTargetPayment));
+    }
+
+    @When("the payment is refunded")
+    public void the_payment_is_refunded() {
+        try {
+            refundResult = paymentService.refundPayment(REFUND_PAYMENT_ID);
+        } catch (Exception e) {
+            caughtException = e;
+        }
+    }
+
+    @Then("the payment status becomes {string}")
+    public void the_payment_status_becomes(String status) {
+        assertThat(caughtException).isNull();
+        assertThat(refundResult).isNotNull();
+        assertThat(refundResult.status()).isEqualTo(status);
+    }
+
+    @Then("a payment.refunded event is published")
+    public void a_payment_refunded_event_is_published() {
+        verify(kafkaTemplate).send(eq("payment.refunded"), anyString(), any());
+    }
+
+    @Then("the refund is rejected as already processed")
+    public void the_refund_is_rejected_as_already_processed() {
+        assertThat(caughtException).isInstanceOf(PaymentConflictException.class);
         verify(paymentRepository, never()).save(any(Payment.class));
     }
 }

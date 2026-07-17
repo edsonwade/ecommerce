@@ -23,6 +23,7 @@ public record PaymentResponse(
         String paymentMethod,
         Integer orderId,
         String orderReference,
-        LocalDateTime createdDate
+        LocalDateTime createdDate,
+        String status
 ) {
 }
