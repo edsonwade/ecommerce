@@ -7,15 +7,24 @@ import code.with.vanilson.paymentservice.domain.PaymentMethod;
 import code.with.vanilson.paymentservice.domain.PaymentStatus;
 import code.with.vanilson.paymentservice.exception.PaymentConflictException;
 import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxEvent;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxRepository;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
 import code.with.vanilson.tenantcontext.TenantContext;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -23,17 +32,23 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * PaymentRefundIntegrationTest — Fase 6 (basic refunds) against real PostgreSQL.
+ * PaymentRefundIntegrationTest — Fase 6 + 6.1 against real PostgreSQL + EmbeddedKafka.
  * <p>
- * Proves the {@code V1.4} migration end-to-end: a payment persisted before the refund
- * carries {@code status=AUTHORIZED} (the column default), a refund flips it to
- * {@code REFUNDED} in the real row, and a second refund attempt is rejected with 409
- * without mutating the already-refunded row.
+ * Fase 6: a refund flips the persisted payment AUTHORIZED → REFUNDED, and a second
+ * attempt is rejected with 409 without re-mutating the row.
+ * <p>
+ * Fase 6.1 (outbox): the refund no longer sends to Kafka on the request thread — it
+ * writes a {@code payment.refunded} row to the transactional outbox in the same TX, and
+ * {@code PaymentOutboxPublisher} (scheduled) drains it to the broker. Proven here by
+ * asserting the outbox row exists (status-independent — the scheduler may already have
+ * flipped it PENDING→PUBLISHED) AND that a real consumer receives the event.
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
@@ -42,7 +57,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                 "spring.config.import=",
                 "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
                 "spring.kafka.consumer.group-id=payment-refund-integration-test",
-                "application.security.jwt.secret-key=dGVzdFNlY3JldEtleUZvclRlc3RpbmdPbmx5Tm90Rm9yUHJvZHVjdGlvblVzYWdlMDAwMDAwMDAwMDAwMDAwMA=="
+                "application.security.jwt.secret-key=dGVzdFNlY3JldEtleUZvclRlc3RpbmdPbmx5Tm90Rm9yUHJvZHVjdGlvblVzYWdlMDAwMDAwMDAwMDAwMDAwMA==",
+                // Drain fast so the publish assertion doesn't wait the default 5s.
+                "payment.outbox.poll-interval-ms=500"
         })
 @Testcontainers
 @EmbeddedKafka(
@@ -56,7 +73,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                 "transaction.state.log.min.isr=1",
                 "log.index.size.max.bytes=1048576"
         })
-@DisplayName("Payment Refund Integration — Fase 6 (Testcontainers PostgreSQL + EmbeddedKafka)")
+@DisplayName("Payment Refund Integration — Fase 6 + 6.1 (Testcontainers PostgreSQL + EmbeddedKafka)")
 class PaymentRefundIntegrationTest {
 
     @Container
@@ -75,8 +92,10 @@ class PaymentRefundIntegrationTest {
 
     private static final String TENANT = "test-tenant";
 
-    @Autowired PaymentService    paymentService;
-    @Autowired PaymentRepository paymentRepository;
+    @Autowired PaymentService         paymentService;
+    @Autowired PaymentRepository      paymentRepository;
+    @Autowired PaymentOutboxRepository outboxRepository;
+    @Autowired EmbeddedKafkaBroker    embeddedKafka;
 
     @BeforeEach
     void setUp() {
@@ -85,6 +104,7 @@ class PaymentRefundIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        outboxRepository.deleteAll();
         paymentRepository.deleteAll();
         TenantContext.clear();
     }
@@ -102,8 +122,8 @@ class PaymentRefundIntegrationTest {
     }
 
     @Test
-    @DisplayName("refunding an AUTHORIZED payment flips status to REFUNDED in the real row")
-    void refundFlipsStatusInDatabase() {
+    @DisplayName("refunding an AUTHORIZED payment flips the row to REFUNDED and writes ONE outbox row")
+    void refundFlipsStatusAndWritesOutbox() {
         Integer paymentId = persistAuthorizedPayment("ORD-REFUND-001");
         assertThat(paymentRepository.findById(paymentId).orElseThrow().getStatus())
                 .isEqualTo(PaymentStatus.AUTHORIZED);
@@ -113,10 +133,47 @@ class PaymentRefundIntegrationTest {
         assertThat(response.status()).isEqualTo("REFUNDED");
         assertThat(paymentRepository.findById(paymentId).orElseThrow().getStatus())
                 .isEqualTo(PaymentStatus.REFUNDED);
+
+        // findAll() — status-independent — because the scheduler may have already
+        // flipped the row PENDING→PUBLISHED by the time we assert (lesson from
+        // OrderRefundIntegrationTest).
+        long refundRows = outboxRepository.findAll().stream()
+                .filter(o -> o.getTopic().equals("payment.refunded")
+                        && o.getCorrelationId().equals("ORD-REFUND-001"))
+                .count();
+        assertThat(refundRows)
+                .as("exactly one payment.refunded outbox row for this order")
+                .isEqualTo(1);
     }
 
     @Test
-    @DisplayName("a second refund attempt is rejected with 409 and does not re-mutate the row")
+    @DisplayName("the outbox publisher drains the refund event to the broker (real consumer receives it)")
+    void publisherDeliversRefundEventToBroker() {
+        try (Consumer<String, String> consumer = newConsumer("payment.refunded")) {
+            Integer paymentId = persistAuthorizedPayment("ORD-REFUND-PUB");
+
+            paymentService.refundPayment(paymentId);
+
+            ConsumerRecord<String, String> record =
+                    KafkaTestUtils.getSingleRecord(consumer, "payment.refunded", Duration.ofSeconds(15));
+
+            assertThat(record.key())
+                    .as("partition key is the order reference")
+                    .isEqualTo("ORD-REFUND-PUB");
+            assertThat(record.value())
+                    .as("raw JSON event carries the order reference and payment id")
+                    .contains("ORD-REFUND-PUB", "\"paymentId\":" + paymentId);
+
+            // And the source row is now marked PUBLISHED.
+            boolean published = outboxRepository.findAll().stream()
+                    .anyMatch(o -> o.getCorrelationId().equals("ORD-REFUND-PUB")
+                            && o.getStatus() == PaymentOutboxEvent.OutboxStatus.PUBLISHED);
+            assertThat(published).as("outbox row flipped to PUBLISHED after delivery").isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("a second refund attempt is rejected with 409 and writes no extra outbox row")
     void secondRefundIsRejected() {
         Integer paymentId = persistAuthorizedPayment("ORD-REFUND-002");
         paymentService.refundPayment(paymentId);
@@ -126,12 +183,26 @@ class PaymentRefundIntegrationTest {
 
         assertThat(paymentRepository.findById(paymentId).orElseThrow().getStatus())
                 .isEqualTo(PaymentStatus.REFUNDED);
+        long refundRows = outboxRepository.findAll().stream()
+                .filter(o -> o.getCorrelationId().equals("ORD-REFUND-002"))
+                .count();
+        assertThat(refundRows).as("only the first refund wrote an outbox row").isEqualTo(1);
     }
 
     @Test
-    @DisplayName("refunding a non-existent payment throws 404")
+    @DisplayName("refunding a non-existent payment throws 404 and writes no outbox row")
     void refundingMissingPaymentThrows404() {
         assertThatThrownBy(() -> paymentService.refundPayment(999_999))
                 .isInstanceOf(PaymentNotFoundException.class);
+        assertThat(outboxRepository.count()).isZero();
+    }
+
+    private Consumer<String, String> newConsumer(String topic) {
+        Map<String, Object> props = KafkaTestUtils.consumerProps(
+                "payment-refund-outbox-verify", "true", embeddedKafka);
+        Consumer<String, String> consumer = new DefaultKafkaConsumerFactory<>(
+                props, new StringDeserializer(), new StringDeserializer()).createConsumer();
+        embeddedKafka.consumeFromAnEmbeddedTopic(consumer, topic);
+        return consumer;
     }
 }

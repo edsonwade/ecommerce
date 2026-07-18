@@ -10,8 +10,11 @@ import code.with.vanilson.paymentservice.domain.PaymentMethod;
 import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.messaging.PaymentNotificationRequest;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxEvent;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxRepository;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
 import code.with.vanilson.tenantcontext.TenantContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.MessageSource;
 
@@ -34,7 +38,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -62,7 +65,9 @@ class PaymentServiceTest {
     @Mock private PaymentMapper       paymentMapper;
     @Mock private NotificationProducer notificationProducer;
     @Mock private MessageSource       messageSource;
-    @Mock private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock private PaymentOutboxRepository outboxRepository;
+    // Real ObjectMapper (with jsr310 for Instant) — the refund serialises a real event.
+    @Spy  private ObjectMapper        objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @InjectMocks
     private PaymentService paymentService;
@@ -313,9 +318,10 @@ class PaymentServiceTest {
     class RefundPayment {
 
         @Test
-        @DisplayName("should refund an AUTHORIZED payment, save REFUNDED, and publish payment.refunded")
-        void shouldRefundAuthorizedPaymentAndPublish() {
+        @DisplayName("should refund an AUTHORIZED payment, save REFUNDED, and write ONE PENDING outbox row")
+        void shouldRefundAuthorizedPaymentAndWriteOutbox() {
             savedPayment.setStatus(code.with.vanilson.paymentservice.domain.PaymentStatus.AUTHORIZED);
+            savedPayment.setTenantId("tenant-test-001");
             when(paymentRepository.findById(1)).thenReturn(Optional.of(savedPayment));
             when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
             when(paymentMapper.toResponse(any(Payment.class))).thenReturn(savedResponse);
@@ -324,18 +330,25 @@ class PaymentServiceTest {
 
             assertThat(result).isNotNull();
 
+            // Payment flipped to REFUNDED
             ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
             verify(paymentRepository).save(captor.capture());
             assertThat(captor.getValue().getStatus())
                     .as("Payment must be set to REFUNDED before saving")
                     .isEqualTo(code.with.vanilson.paymentservice.domain.PaymentStatus.REFUNDED);
 
-            ArgumentCaptor<code.with.vanilson.paymentservice.infrastructure.kafka.PaymentRefundedEvent> eventCaptor =
-                    ArgumentCaptor.forClass(code.with.vanilson.paymentservice.infrastructure.kafka.PaymentRefundedEvent.class);
-            verify(kafkaTemplate).send(org.mockito.ArgumentMatchers.eq("payment.refunded"),
-                    org.mockito.ArgumentMatchers.eq("ORD-2024-001"), eventCaptor.capture());
-            assertThat(eventCaptor.getValue().paymentId()).isEqualTo(1);
-            assertThat(eventCaptor.getValue().orderReference()).isEqualTo("ORD-2024-001");
+            // Exactly one PENDING outbox row for payment.refunded (no direct Kafka send)
+            ArgumentCaptor<PaymentOutboxEvent> outboxCaptor = ArgumentCaptor.forClass(PaymentOutboxEvent.class);
+            verify(outboxRepository, times(1)).save(outboxCaptor.capture());
+            PaymentOutboxEvent outbox = outboxCaptor.getValue();
+            assertThat(outbox.getTopic()).isEqualTo("payment.refunded");
+            assertThat(outbox.getCorrelationId()).isEqualTo("ORD-2024-001");
+            assertThat(outbox.getPartitionKey()).isEqualTo("ORD-2024-001");
+            assertThat(outbox.getTenantId()).isEqualTo("tenant-test-001");
+            assertThat(outbox.getStatus()).isEqualTo(PaymentOutboxEvent.OutboxStatus.PENDING);
+            assertThat(outbox.getPayload())
+                    .as("payload must be the serialised PaymentRefundedEvent")
+                    .contains("\"paymentId\":1", "ORD-2024-001");
         }
 
         @Test
@@ -348,11 +361,11 @@ class PaymentServiceTest {
                     .hasMessageContaining("payment.refund.not.found");
 
             verify(paymentRepository, never()).save(any());
-            verify(kafkaTemplate, never()).send(anyString(), any(), any());
+            verify(outboxRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("should throw PaymentConflictException (409) when payment is already REFUNDED")
+        @DisplayName("should throw PaymentConflictException (409) when already REFUNDED — no outbox row")
         void shouldThrowConflictWhenAlreadyRefunded() {
             savedPayment.setStatus(code.with.vanilson.paymentservice.domain.PaymentStatus.REFUNDED);
             when(paymentRepository.findById(1)).thenReturn(Optional.of(savedPayment));
@@ -362,7 +375,7 @@ class PaymentServiceTest {
                     .hasMessageContaining("payment.refund.invalid.status");
 
             verify(paymentRepository, never()).save(any());
-            verify(kafkaTemplate, never()).send(anyString(), any(), any());
+            verify(outboxRepository, never()).save(any());
         }
     }
 }

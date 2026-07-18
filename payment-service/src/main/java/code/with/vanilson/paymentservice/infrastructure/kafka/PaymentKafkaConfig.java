@@ -63,6 +63,31 @@ public class PaymentKafkaConfig {
         return new KafkaTemplate<>(paymentSagaProducerFactory());
     }
 
+    /**
+     * String-valued producer for the Transactional Outbox (Fase 6.1). The outbox stores
+     * an already-serialised JSON payload; it must go on the wire as raw JSON bytes
+     * (StringSerializer) — NOT through JsonSerializer, which would re-encode the String
+     * as a quoted, escaped value and break the consumer's binding. This mirrors
+     * order-service's outbox template and produces bytes identical to the previous
+     * direct {@code paymentSagaKafkaTemplate.send(PaymentRefundedEvent)} path.
+     */
+    @Bean
+    public ProducerFactory<String, String> outboxProducerFactory() {
+        Map<String, Object> props = new HashMap<>(kafkaProperties.buildProducerProperties(null));
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.RETRIES_CONFIG, 3);
+        props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> outboxKafkaTemplate() {
+        return new KafkaTemplate<>(outboxProducerFactory());
+    }
+
     @Bean
     public ConsumerFactory<String, Object> paymentSagaConsumerFactory() {
         // Start from Spring Boot's fully-merged consumer properties (bootstrap-servers,

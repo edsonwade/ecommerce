@@ -5,12 +5,15 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * PaymentApplication — Entry Point (Phase 3 update)
  * <p>
  * @EnableDiscoveryClient — registers with Eureka.
  * @EnableMultiTenancy    — Phase 4: activates tenant context, Hibernate filter, Feign propagation.
+ * @EnableScheduling      — Fase 6.1: activates PaymentOutboxPublisher's scheduled drain/purge.
+ *                          Without it the outbox would fill and never publish.
  * <p>
  * AppConfig provides @EnableJpaAuditing — not repeated here (Single Responsibility).
  * Phase 3: PaymentSagaConsumer is auto-activated via @KafkaListener.
@@ -23,6 +26,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
 @EnableDiscoveryClient
 @EnableMultiTenancy
+@EnableScheduling
 public class PaymentApplication {
 
     public static void main(String[] args) {

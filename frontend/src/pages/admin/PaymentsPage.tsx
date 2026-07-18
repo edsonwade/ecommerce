@@ -26,7 +26,13 @@ export default function PaymentsPage() {
 
   const refundMut = useMutation({
     mutationFn: (id: number) => paymentsApi.refund(id),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      // Optimistically flip the row to REFUNDED from the mutation's own response, so the
+      // chip updates immediately and is immune to the background refetch's latency
+      // (the refetch below still reconciles). Fixes the "stays Authorized until reload" bug.
+      qc.setQueryData<PaymentResponse[]>([QUERY_KEYS.PAYMENTS], (old) =>
+        (old ?? []).map((p) => (p.paymentId === updated.paymentId ? { ...p, status: 'REFUNDED' } : p)),
+      );
       qc.invalidateQueries({ queryKey: [QUERY_KEYS.PAYMENTS] });
       addToast({ message: 'Payment refunded', variant: 'success' });
       setRefundTarget(null);
