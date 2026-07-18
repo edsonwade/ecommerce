@@ -132,6 +132,36 @@ management:
 
 # JWT secret — must match auth-service and gateway
 application:
+  config:
+    # F7 — order-service base URL for the /internal purchase-verification Feign call (review gate).
+    # Direct service-to-service on services-net (bypasses the gateway), same style as order-service's
+    # customer-url. The /internal/purchases/exists path is appended by OrderClient.
+    order-url: http://${ORDER_SERVICE_HOST:order-service}:8083/api/v1/orders
   security:
     jwt:
       secret-key: ${JWT_SECRET}
+    # F7 — shared secret product-service sends as X-Internal-Token on the /internal call. Same
+    # value order-service validates (docker-compose env dev default / Vault in prod). Never logged.
+    internal-token: ${INTERNAL_SERVICE_TOKEN}
+
+# F7 — Resilience4j + Feign for the order-purchase-verification client.
+# Short timeouts so a slow/absent order-service fails the review POST to 503 (B1 fail-closed) in
+# ~2s instead of hanging the user; CB opens after repeated failures so we stop hammering it.
+resilience4j:
+  circuitbreaker:
+    instances:
+      order-purchase-verification:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 5000
+      order-purchase-verification:
+        connect-timeout: 2000
+        read-timeout: 2000

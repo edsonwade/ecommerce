@@ -24,6 +24,7 @@ vault secrets enable -path=secret kv-v2 2>/dev/null || echo "KV already enabled"
 echo "[vault-init] Writing shared secrets..."
 vault kv put secret/ecommerce/shared \
   jwt_secret="${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}" \
+  internal_service_token="${INTERNAL_SERVICE_TOKEN:-dev-internal-s2s-token-change-me-in-prod}" \
   kafka_username="${KAFKA_USERNAME:-kafka}" \
   kafka_password="${KAFKA_PASSWORD:-kafka-secret}" \
   redis_password="${REDIS_PASSWORD:-redis-secret}"

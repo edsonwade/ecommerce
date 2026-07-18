@@ -89,6 +89,11 @@ application:
   security:
     jwt:
       secret-key: ${JWT_SECRET}
+    # F7 — shared secret guarding the /internal purchase-verification endpoint (X-Internal-Token).
+    # Same injection mechanism as JWT_SECRET: docker-compose env (dev default) / Vault
+    # (secret/ecommerce/shared → internal.service.token) in prod. product-service sends the SAME
+    # value. Blank ⇒ every internal call is rejected (fail-closed). Never logged/exposed.
+    internal-token: ${INTERNAL_SERVICE_TOKEN}
 
 # Resilience4j — Circuit Breakers for CustomerClient (Feign)
 resilience4j:
