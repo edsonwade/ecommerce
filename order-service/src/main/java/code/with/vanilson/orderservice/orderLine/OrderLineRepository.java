@@ -1,11 +1,13 @@
 package code.with.vanilson.orderservice.orderLine;
 
 import code.with.vanilson.orderservice.Order;
+import code.with.vanilson.orderservice.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -81,4 +83,27 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Integer> {
             + "WHERE ol.order.orderId = :orderId AND ol.sellerId = :sellerId")
     List<OrderLine> findByOrderIdAndSellerId(@Param("orderId") Integer orderId,
                                              @Param("sellerId") String sellerId);
+
+    /**
+     * Verified-purchase check backing the F7 review gate ({@code /internal} S2S endpoint).
+     * Returns true iff the customer has at least one order line for the product whose parent
+     * order is in a fulfilled state — the caller passes {@code CONFIRMED/SHIPPED/DELIVERED}, so
+     * unpaid/cancelled/refunded orders never qualify a review.
+     * <p>
+     * Tenant-consistent by construction (T2): {@code productId} belongs to exactly one tenant's
+     * product, so {@code (customerId, productId)} already fixes the tenant — the answer is correct
+     * whether or not the read {@code @Filter} is active on this S2S path.
+     *
+     * @param customerId the buyer's userId (matched against {@code customer_order.customer_id})
+     * @param productId  the product to check
+     * @param statuses   the order states that count as a purchase (fulfilled states)
+     * @return true if a matching fulfilled purchase exists
+     */
+    @Query("SELECT (COUNT(ol) > 0) FROM OrderLine ol "
+            + "WHERE ol.productId = :productId "
+            + "AND ol.order.customerId = :customerId "
+            + "AND ol.order.status IN :statuses")
+    boolean existsPurchasedProduct(@Param("customerId") String customerId,
+                                   @Param("productId") Integer productId,
+                                   @Param("statuses") Collection<OrderStatus> statuses);
 }

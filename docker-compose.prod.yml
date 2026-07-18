@@ -415,6 +415,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in production}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set in production}
       VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
@@ -440,6 +441,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set in production}
       VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped

@@ -676,6 +676,9 @@ services:
       KAFKA_USERNAME: ${KAFKA_USERNAME:-kafka}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
+      # F7 — shared S2S secret product-service sends on /internal purchase checks. MUST match
+      # order-service's value (same default here). Dev default only; set INTERNAL_SERVICE_TOKEN in prod.
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-s2s-token-change-me-in-prod}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
@@ -728,6 +731,9 @@ services:
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-kafka-secret}
       GATEWAY_HOST: gateway-api-service
       JWT_SECRET: ${JWT_SECRET:-bXlTdXBlclNlY3VyZVNlY3JldEtleUZvckpXVEF1dGgxMjM0NTY3ODk=}
+      # F7 — shared S2S secret order-service validates on /internal purchase checks. MUST match
+      # product-service's value (same default here). Dev default only; set INTERNAL_SERVICE_TOKEN in prod.
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-s2s-token-change-me-in-prod}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}
