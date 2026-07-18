@@ -10,8 +10,11 @@ import code.with.vanilson.paymentservice.domain.PaymentMethod;
 import code.with.vanilson.paymentservice.domain.PaymentStatus;
 import code.with.vanilson.paymentservice.exception.PaymentConflictException;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxEvent;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxRepository;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
 import code.with.vanilson.tenantcontext.TenantContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
@@ -38,7 +41,8 @@ public class PaymentStepDefinitions {
     private NotificationProducer notificationProducer;
     private PaymentMapper paymentMapper;
     private MessageSource messageSource;
-    private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    private PaymentOutboxRepository outboxRepository;
+    private ObjectMapper objectMapper;
 
     private PaymentRequest paymentRequest;
     private Integer savedPaymentId;
@@ -57,9 +61,11 @@ public class PaymentStepDefinitions {
         notificationProducer = Mockito.mock(NotificationProducer.class);
         paymentMapper = Mockito.mock(PaymentMapper.class);
         messageSource = Mockito.mock(MessageSource.class);
-        kafkaTemplate = Mockito.mock(org.springframework.kafka.core.KafkaTemplate.class);
+        outboxRepository = Mockito.mock(PaymentOutboxRepository.class);
+        objectMapper = new ObjectMapper().findAndRegisterModules(); // real — serialises the event
 
-        paymentService = new PaymentService(paymentRepository, paymentMapper, notificationProducer, messageSource, kafkaTemplate);
+        paymentService = new PaymentService(paymentRepository, paymentMapper, notificationProducer,
+                messageSource, outboxRepository, objectMapper);
 
         lenient().when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -172,6 +178,7 @@ public class PaymentStepDefinitions {
                 .amount(BigDecimal.valueOf(75.00))
                 .paymentMethod(PaymentMethod.CREDIT_CARD)
                 .status(PaymentStatus.AUTHORIZED)
+                .tenantId("tenant-test-001")
                 .build();
         when(paymentRepository.findById(REFUND_PAYMENT_ID)).thenReturn(Optional.of(refundTargetPayment));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -214,7 +221,12 @@ public class PaymentStepDefinitions {
 
     @Then("a payment.refunded event is published")
     public void a_payment_refunded_event_is_published() {
-        verify(kafkaTemplate).send(eq("payment.refunded"), anyString(), any());
+        // Fase 6.1: no direct Kafka send — the refund writes a PENDING payment.refunded
+        // row to the outbox (the scheduled publisher delivers it off the request thread).
+        ArgumentCaptor<PaymentOutboxEvent> captor = ArgumentCaptor.forClass(PaymentOutboxEvent.class);
+        verify(outboxRepository).save(captor.capture());
+        assertThat(captor.getValue().getTopic()).isEqualTo("payment.refunded");
+        assertThat(captor.getValue().getStatus()).isEqualTo(PaymentOutboxEvent.OutboxStatus.PENDING);
     }
 
     @Then("the refund is rejected as already processed")

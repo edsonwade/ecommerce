@@ -7,13 +7,15 @@ import code.with.vanilson.paymentservice.exception.PaymentNotFoundException;
 import code.with.vanilson.paymentservice.infrastructure.kafka.PaymentRefundedEvent;
 import code.with.vanilson.paymentservice.infrastructure.messaging.NotificationProducer;
 import code.with.vanilson.paymentservice.infrastructure.messaging.PaymentNotificationRequest;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxEvent;
+import code.with.vanilson.paymentservice.infrastructure.outbox.PaymentOutboxRepository;
 import code.with.vanilson.paymentservice.infrastructure.repository.PaymentRepository;
 import code.with.vanilson.tenantcontext.TenantContext;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,18 +67,21 @@ public class PaymentService {
     private final PaymentMapper paymentMapper;
     private final NotificationProducer notificationProducer;
     private final MessageSource messageSource;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final PaymentOutboxRepository outboxRepository;
+    private final ObjectMapper objectMapper;
 
     public PaymentService(PaymentRepository paymentRepository,
                           PaymentMapper paymentMapper,
                           NotificationProducer notificationProducer,
                           MessageSource messageSource,
-                          @Qualifier("paymentSagaKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
+                          PaymentOutboxRepository outboxRepository,
+                          ObjectMapper objectMapper) {
         this.paymentRepository = paymentRepository;
         this.paymentMapper = paymentMapper;
         this.notificationProducer = notificationProducer;
         this.messageSource = messageSource;
-        this.kafkaTemplate = kafkaTemplate;
+        this.outboxRepository = outboxRepository;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -176,10 +181,13 @@ public class PaymentService {
      *   <li>409 {@code payment.refund.invalid.status} — already REFUNDED (refund is one-shot;
      *       a second attempt is rejected before any write, so no CHECK constraint is needed).</li>
      * </ul>
-     * On success: sets {@code REFUNDED}, saves, then publishes {@code payment.refunded}
-     * (Kafka publish outside the persisted state — same "commit first, publish after"
-     * discipline as {@link #processNewPayment}). order-service is the single authority on
-     * order status; this service only reports that the payment side is done.
+     * On success: sets {@code REFUNDED}, saves, and writes a {@code payment.refunded}
+     * row to the transactional outbox <b>in the same transaction</b>. The HTTP request
+     * no longer blocks on a Kafka send — {@code PaymentOutboxPublisher} drains the row to
+     * the broker off the request thread (Fase 6.1: fixes the ~10s refund; the first-send
+     * producer init/metadata cost now lands on the scheduler, never on the user).
+     * order-service is the single authority on order status; this service only records
+     * that the payment side is done.
      *
      * @param paymentId the payment to refund
      * @return the updated PaymentResponse (status REFUNDED)
@@ -206,7 +214,7 @@ public class PaymentService {
                 new Object[]{saved.getPaymentId(), saved.getOrderReference()},
                 LocaleContextHolder.getLocale()));
 
-        publishPaymentRefunded(saved);
+        writeRefundOutbox(saved);
 
         return paymentMapper.toResponse(saved);
     }
@@ -273,13 +281,16 @@ public class PaymentService {
     }
 
     /**
-     * Publishes {@code payment.refunded} keyed by orderReference (same partition-key
-     * convention as {@code PaymentSagaConsumer}'s saga events, so consumers processing the
-     * same order stay ordered).
+     * Writes a {@code payment.refunded} row to the transactional outbox, in the caller's
+     * {@code @Transactional} boundary (atomic with the status change). Keyed by
+     * orderReference (same partition-key convention as the saga events, so events for the
+     * same order stay ordered). {@code PaymentOutboxPublisher} publishes it to Kafka
+     * asynchronously — the HTTP request does not wait for the broker.
      */
-    private void publishPaymentRefunded(Payment payment) {
+    private void writeRefundOutbox(Payment payment) {
+        String eventId = UUID.randomUUID().toString();
         PaymentRefundedEvent event = new PaymentRefundedEvent(
-                UUID.randomUUID().toString(),
+                eventId,
                 payment.getPaymentId(),
                 payment.getOrderId(),
                 payment.getOrderReference(),
@@ -287,6 +298,23 @@ public class PaymentService {
                 Instant.now(),
                 1
         );
-        kafkaTemplate.send(TOPIC_REFUNDED, payment.getOrderReference(), event);
+        try {
+            String payload = objectMapper.writeValueAsString(event);
+            PaymentOutboxEvent outbox = PaymentOutboxEvent.builder()
+                    .eventId(eventId)
+                    .correlationId(payment.getOrderReference())
+                    .tenantId(payment.getTenantId())
+                    .topic(TOPIC_REFUNDED)
+                    .payload(payload)
+                    .partitionKey(payment.getOrderReference())
+                    .status(PaymentOutboxEvent.OutboxStatus.PENDING)
+                    .build();
+            outboxRepository.save(outbox);
+        } catch (JsonProcessingException ex) {
+            // Serialisation of our own record cannot realistically fail; if it does, the
+            // whole refund TX must roll back rather than leave a REFUNDED payment with no event.
+            throw new IllegalStateException(
+                    "Failed to serialise PaymentRefundedEvent for order " + payment.getOrderReference(), ex);
+        }
     }
 }

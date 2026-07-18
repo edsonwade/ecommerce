@@ -3,3 +3,13 @@ spring:
     import: optional:configserver:http://localhost:8888
   application:
     name: payment-service
+
+# Transactional Outbox (Fase 6.1) — tunable without code changes. These are the
+# same values baked as defaults in PaymentOutboxPublisher; documented here so ops
+# can adjust latency-vs-load via config-service overrides.
+payment:
+  outbox:
+    poll-interval-ms: 5000     # how often the publisher drains PENDING rows
+    batch-size: 100            # max rows published per tick (FIFO by created_at)
+    retention-days: 7          # PUBLISHED rows older than this are purged
+    purge-cron: "0 0 3 * * *"  # daily purge at 03:00

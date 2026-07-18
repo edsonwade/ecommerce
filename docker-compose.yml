@@ -434,7 +434,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -502,7 +502,7 @@ services:
       mailhog:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -660,7 +660,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -713,7 +713,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -765,7 +765,7 @@ services:
       zipkin:
         condition: service_started
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-service:8888
       SPRING_CLOUD_CONFIG_USERNAME: config
       SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-config-secret-2024}
@@ -905,12 +905,15 @@ services:
     restart: on-failure
 
   # ============================================================
-  # STARTUP WARM-UP (one-shot, fail-open)
-  # Issues the real hot-path requests once after the gateway is
-  # healthy so the FIRST user never pays JIT/pool cold-start
-  # (measured 0.9–3.3s per endpoint — see
+  # CONTINUOUS WARM-UP (loop, fail-open)
+  # Issues the real hot-path requests after the gateway is healthy
+  # so the FIRST user never pays JIT/pool cold-start (measured
+  # 20–25s first-hits on a 4-core host — see
   # docs/engineering/production-latency-test-2026-07-12.md).
-  # Exits 0 always; the stack keeps running after it finishes.
+  # 2026-07-17: was one-shot ("restart: no") — it warmed the stack
+  # once and exited, so any later service restart left the NEW JVMs
+  # cold forever. Now it stays up and re-warms every 5 minutes, so
+  # restarted services are hot again within one cycle.
   # ============================================================
   warmup:
     image: curlimages/curl:8.7.1
@@ -925,11 +928,13 @@ services:
       WARMUP_TENANT_ID: ${APP_ADMIN_TENANT_ID:-default}
       WARMUP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@obsidian.com}
       WARMUP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-Admin@123!}
+      WARMUP_LOOP: "true"
+      WARMUP_INTERVAL_SECONDS: "300"
     volumes:
       - ./scripts/warmup.sh:/warmup.sh:ro
     entrypoint: [ "sh", "/warmup.sh" ]
     networks: [ services-net ]
-    restart: "no"
+    restart: unless-stopped
 
 # ============================================================
 # NETWORKS — Segmented for security
