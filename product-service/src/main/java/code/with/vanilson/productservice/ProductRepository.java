@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
@@ -106,4 +107,37 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
      * @return number of products pointing at that category
      */
     long countByCategoryId(Integer categoryId);
+
+    /**
+     * Fase 7 Task 7.3 (Decision A1): recomputes a product's denormalised review counters
+     * <strong>from source</strong> — never {@code count = count + 1}.
+     * <p>
+     * Concurrency: the {@code UPDATE} takes a row-lock on the product row, so two concurrent
+     * review writes serialise on it. Each transaction recomputes COUNT/AVG over the committed
+     * {@code product_review} rows plus its own, so under READ COMMITTED the second writer
+     * blocks, then re-reads with the first writer's row already visible — the last committer
+     * always writes the correct aggregate. No version column, no optimistic locking, and the
+     * operation is self-healing: a single recompute restores the truth even after any drift.
+     * <p>
+     * {@code flushAutomatically = true} is load-bearing: it forces the pending review
+     * INSERT/DELETE out to the database <em>before</em> this UPDATE runs, otherwise the
+     * {@code COUNT(*)} would not see the very write that triggered the recompute.
+     * {@code clearAutomatically = true} then drops the now-stale {@code Product} from the
+     * persistence context so a later read in the same transaction sees the new counters.
+     * <p>
+     * {@code COALESCE(..., 0)} covers the last-review-deleted case: AVG over zero rows is NULL,
+     * but the column is NOT NULL and a product without reviews must read 0.0 / 0.
+     *
+     * @param productId the product whose counters are recomputed
+     * @return number of product rows updated (1 when the product exists, 0 otherwise)
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE product
+               SET review_count   = (SELECT COUNT(*) FROM product_review WHERE product_id = :pid),
+                   average_rating = COALESCE((SELECT ROUND(AVG(rating), 1)
+                                              FROM product_review WHERE product_id = :pid), 0)
+             WHERE id = :pid
+            """, nativeQuery = true)
+    int recomputeRatingCounters(@Param("pid") int productId);
 }

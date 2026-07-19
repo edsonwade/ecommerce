@@ -95,7 +95,7 @@ class ProductControllerSecurityTest {
             when(productService.getProductById(anyInt()))
                     .thenReturn(new ProductResponse(
                             1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "system", null,
-                            ProductStatus.ACTIVE));
+                            ProductStatus.ACTIVE, BigDecimal.ZERO, 0));
 
             mockMvc.perform(get(BASE + "/1").header(TENANT_HDR, TENANT_VAL))
                     .andExpect(status().isOk());
@@ -163,7 +163,7 @@ class ProductControllerSecurityTest {
             when(productService.updateProductStatus(1, ProductStatus.SUSPENDED))
                     .thenReturn(new ProductResponse(
                             1, "Widget", "Desc", 5.0, BigDecimal.ONE, 1, "Cat", "CatDesc", "7", null,
-                            ProductStatus.SUSPENDED));
+                            ProductStatus.SUSPENDED, BigDecimal.ZERO, 0));
 
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                             .patch(BASE + "/1/status")

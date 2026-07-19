@@ -432,7 +432,7 @@ class ProductServiceOwnershipTest {
                 Product p = inv.getArgument(0);
                 return new ProductResponse(p.getId(), p.getName(), p.getDescription(),
                         p.getAvailableQuantity(), p.getPrice(), 1, "Electronics", "Devices",
-                        p.getCreatedBy(), null, p.getStatus());
+                        p.getCreatedBy(), null, p.getStatus(), BigDecimal.ZERO, 0);
             });
 
             ProductResponse response = productService.updateProductStatus(5, ProductStatus.SUSPENDED);
@@ -455,7 +455,7 @@ class ProductServiceOwnershipTest {
                 Product p = inv.getArgument(0);
                 return new ProductResponse(p.getId(), p.getName(), p.getDescription(),
                         p.getAvailableQuantity(), p.getPrice(), 1, "Electronics", "Devices",
-                        p.getCreatedBy(), null, p.getStatus());
+                        p.getCreatedBy(), null, p.getStatus(), BigDecimal.ZERO, 0);
             });
 
             ProductResponse response = productService.updateProductStatus(5, ProductStatus.ACTIVE);
@@ -503,7 +503,7 @@ class ProductServiceOwnershipTest {
 
         private ProductResponse suspendedResponse() {
             return new ProductResponse(5, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99),
-                    1, "Electronics", "Devices", "7", null, ProductStatus.SUSPENDED);
+                    1, "Electronics", "Devices", "7", null, ProductStatus.SUSPENDED, BigDecimal.ZERO, 0);
         }
 
         @Test
@@ -568,7 +568,7 @@ class ProductServiceOwnershipTest {
             when(productRepository.findById(6)).thenReturn(Optional.of(active));
             when(productMapper.fromProduct(active)).thenReturn(new ProductResponse(
                     6, "Widget", "A widget", 10.0, BigDecimal.valueOf(9.99),
-                    1, "Electronics", "Devices", "7", null, ProductStatus.ACTIVE));
+                    1, "Electronics", "Devices", "7", null, ProductStatus.ACTIVE, BigDecimal.ZERO, 0));
 
             ProductResponse response = productService.getProductById(6);
 

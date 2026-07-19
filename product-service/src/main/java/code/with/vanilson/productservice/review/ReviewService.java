@@ -1,6 +1,7 @@
 package code.with.vanilson.productservice.review;
 
 import code.with.vanilson.productservice.Product;
+import code.with.vanilson.productservice.ProductCacheKeys;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.ProductStatus;
 import code.with.vanilson.productservice.exception.ProductConflictException;
@@ -10,6 +11,8 @@ import code.with.vanilson.productservice.exception.ReviewVerificationException;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
@@ -41,15 +44,18 @@ public class ReviewService {
     private final ProductRepository productRepository;
     private final OrderClient orderClient;
     private final MessageSource messageSource;
+    private final CacheManager cacheManager;
 
     public ReviewService(ReviewRepository reviewRepository,
                          ProductRepository productRepository,
                          OrderClient orderClient,
-                         MessageSource messageSource) {
+                         MessageSource messageSource,
+                         CacheManager cacheManager) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.orderClient = orderClient;
         this.messageSource = messageSource;
+        this.cacheManager = cacheManager;
     }
 
     // -------------------------------------------------------
@@ -85,6 +91,7 @@ public class ReviewService {
                 .build());
 
         log.info(resolve("review.log.created", saved.getId(), productId, customerId));
+        refreshProductRating(productId);
         return toResponse(saved);
     }
 
@@ -144,15 +151,63 @@ public class ReviewService {
                     resolve("review.delete.forbidden"), "review.delete.forbidden");
         }
 
+        // Captured BEFORE the delete: after it, the entity is detached and we still need the
+        // product whose counters must be recomputed.
+        int productId = review.getProductId();
+
         reviewRepository.delete(review);
         String reason = principal.isAdmin() && !isOwner ? "ADMIN_MODERATION" : "OWNER";
         log.info("[ReviewModeration] review deleted reviewId=[{}] productId=[{}] by userId=[{}] reason=[{}]",
-                reviewId, review.getProductId(), principal.userId(), reason);
+                reviewId, productId, principal.userId(), reason);
+        refreshProductRating(productId);
     }
 
     // -------------------------------------------------------
     // Helpers
     // -------------------------------------------------------
+
+    /**
+     * Fase 7 Task 7.3 (Decision A1): brings the product's denormalised rating counters back in sync
+     * after a review was written or removed, then refreshes the cached detail.
+     * <p>
+     * Runs inside the caller's transaction, so the recompute commits atomically with the review
+     * change — the counters can never be left describing a review set that was rolled back. The
+     * recompute itself is a single row-locking UPDATE that reads COUNT/AVG from source; see
+     * {@link ProductRepository#recomputeRatingCounters(int)} for the concurrency argument.
+     *
+     * @param productId the product whose counters changed
+     */
+    private void refreshProductRating(int productId) {
+        productRepository.recomputeRatingCounters(productId);
+        evictProductDetail(productId);
+        log.info(resolve("review.log.rating.refreshed", productId));
+    }
+
+    /**
+     * Evicts ONLY this product's cached detail entry.
+     * <p>
+     * <strong>Decision A1 — "no-evict" on the catalogue list, and it is deliberate:</strong> the
+     * paginated {@code product-list} cache is intentionally left alone so a review write never
+     * invalidates whole catalogue pages. Product cards therefore show the previous average until the
+     * list TTL expires, while the product detail page is always fresh. That asymmetry is the entire
+     * point: it keeps {@code GET /products} latency flat (the stated goal of the 7b verification)
+     * for a number whose staleness is cosmetic. Do NOT "fix" this by adding an
+     * {@code allEntries = true} evict on {@code product-list}.
+     * <p>
+     * The key is built through {@link ProductCacheKeys} so it matches
+     * {@code ProductService.getProductById}'s {@code @Cacheable} key exactly — a hand-rolled key
+     * (notably one using this class's {@code "default"} tenant fallback instead of {@code "none"})
+     * would silently evict nothing.
+     *
+     * @param productId the product whose cached detail is now stale
+     */
+    private void evictProductDetail(int productId) {
+        Cache cache = cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS);
+        if (cache != null) {
+            cache.evict(ProductCacheKeys.detailKey(
+                    TenantContext.isPresent() ? TenantContext.getCurrentTenantId() : null, productId));
+        }
+    }
 
     private void requireActiveProduct(int productId) {
         Optional<Product> found = TenantContext.isPresent()

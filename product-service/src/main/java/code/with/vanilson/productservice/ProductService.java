@@ -51,8 +51,11 @@ import java.util.Optional;
 @Service
 public class ProductService {
 
-    private static final String CACHE_PRODUCTS = "products";
-    private static final String CACHE_PRODUCT_LIST = "product-list";
+    // Fase 7 (7.3): the literals moved to ProductCacheKeys so ReviewService can evict a product's
+    // cached detail under the exact same name/key. Still compile-time constants, so the
+    // @Cacheable/@CacheEvict annotations below are unaffected.
+    private static final String CACHE_PRODUCTS = ProductCacheKeys.CACHE_PRODUCTS;
+    private static final String CACHE_PRODUCT_LIST = ProductCacheKeys.CACHE_PRODUCT_LIST;
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
@@ -522,7 +525,7 @@ public class ProductService {
      * @return the current tenant id, or {@code "none"} when no tenant is bound (single-tenant dev)
      */
     public String cacheTenantKey() {
-        String tenant = TenantContext.getCurrentTenantId();
-        return (tenant == null || tenant.isBlank()) ? "none" : tenant;
+        // Delegates to ProductCacheKeys (Fase 7 7.3) so this and ReviewService's evict can never drift.
+        return ProductCacheKeys.tenantKey(TenantContext.getCurrentTenantId());
     }
 }

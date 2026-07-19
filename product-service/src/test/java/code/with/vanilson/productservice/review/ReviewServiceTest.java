@@ -1,6 +1,7 @@
 package code.with.vanilson.productservice.review;
 
 import code.with.vanilson.productservice.Product;
+import code.with.vanilson.productservice.ProductCacheKeys;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.ProductStatus;
 import code.with.vanilson.productservice.exception.ProductConflictException;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -58,6 +61,9 @@ class ReviewServiceTest {
     private ProductRepository productRepository;
     private OrderClient orderClient;
     private MessageSource messageSource;
+    // A REAL cache manager (not a mock): Task 7.3's cache policy is about which entries actually
+    // survive a review write, and only a real cache can prove that.
+    private CacheManager cacheManager;
     private ReviewService service;
 
     @BeforeEach
@@ -66,10 +72,13 @@ class ReviewServiceTest {
         productRepository = Mockito.mock(ProductRepository.class);
         orderClient = Mockito.mock(OrderClient.class);
         messageSource = Mockito.mock(MessageSource.class);
+        cacheManager = new ConcurrentMapCacheManager(
+                ProductCacheKeys.CACHE_PRODUCTS, ProductCacheKeys.CACHE_PRODUCT_LIST);
         when(messageSource.getMessage(anyString(), any(), any(Locale.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        service = new ReviewService(reviewRepository, productRepository, orderClient, messageSource);
+        service = new ReviewService(
+                reviewRepository, productRepository, orderClient, messageSource, cacheManager);
 
         TenantContext.setCurrentTenantId(TENANT);
         // Product 1 exists and is ACTIVE by default.
@@ -255,6 +264,104 @@ class ReviewServiceTest {
 
             assertThatThrownBy(() -> service.deleteReview(7L))
                     .isInstanceOf(ProductNotFoundException.class);
+        }
+    }
+
+    /**
+     * Fase 7 Task 7.3 (Decision A1): the denormalised rating counters, and the deliberately
+     * asymmetric cache policy that keeps the catalogue fast.
+     */
+    @Nested
+    @DisplayName("rating counters (Task 7.3)")
+    class RatingCounters {
+
+        /** The exact key ProductService.getProductById caches a detail under. */
+        private final String detailKey = ProductCacheKeys.detailKey(TENANT, PRODUCT_ID);
+
+        /** Seeds both caches so we can observe precisely which one a review write invalidates. */
+        private void seedCaches() {
+            cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS).put(detailKey, "stale-detail");
+            cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCT_LIST).put("all-0-20", "stale-page");
+        }
+
+        private void stubSuccessfulCreate() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(orderClient.hasPurchased("42", PRODUCT_ID)).thenReturn(new PurchaseVerificationResponse(true));
+            when(reviewRepository.existsByProductIdAndCustomerId(PRODUCT_ID, CUSTOMER_ID)).thenReturn(false);
+            when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> {
+                Review r = inv.getArgument(0);
+                r.setId(100L);
+                return r;
+            });
+        }
+
+        @Test
+        @DisplayName("create → recomputes the product's counters from source")
+        void createRecomputes() {
+            stubSuccessfulCreate();
+
+            service.createReview(PRODUCT_ID, new ReviewRequest(5, "Great"));
+
+            verify(productRepository).recomputeRatingCounters(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("delete → recomputes the counters of the deleted review's product")
+        void deleteRecomputes() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(reviewRepository.findById(7L)).thenReturn(Optional.of(
+                    Review.builder().id(7L).productId(PRODUCT_ID).customerId(CUSTOMER_ID)
+                            .rating(4).tenantId(TENANT).createdAt(LocalDateTime.now()).build()));
+
+            service.deleteReview(7L);
+
+            verify(productRepository).recomputeRatingCounters(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("create → evicts THIS product's cached detail, leaves the catalogue list cached (no-evict)")
+        void createEvictsDetailButNotList() {
+            seedCaches();
+            stubSuccessfulCreate();
+
+            service.createReview(PRODUCT_ID, new ReviewRequest(5, "Great"));
+
+            assertThat(cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS).get(detailKey))
+                    .as("product detail must be evicted so the detail page shows the new average immediately")
+                    .isNull();
+            assertThat(cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCT_LIST).get("all-0-20"))
+                    .as("Decision A1 no-evict: catalogue pages must SURVIVE a review write, "
+                            + "so GET /products latency never regresses; cards refresh on TTL")
+                    .isNotNull();
+        }
+
+        @Test
+        @DisplayName("delete → same asymmetry: detail evicted, catalogue list untouched")
+        void deleteEvictsDetailButNotList() {
+            seedCaches();
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(reviewRepository.findById(7L)).thenReturn(Optional.of(
+                    Review.builder().id(7L).productId(PRODUCT_ID).customerId(CUSTOMER_ID)
+                            .rating(4).tenantId(TENANT).createdAt(LocalDateTime.now()).build()));
+
+            service.deleteReview(7L);
+
+            assertThat(cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS).get(detailKey)).isNull();
+            assertThat(cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCT_LIST).get("all-0-20")).isNotNull();
+        }
+
+        @Test
+        @DisplayName("rejected write (never purchased) → no recompute, no eviction")
+        void rejectedWriteLeavesEverythingAlone() {
+            seedCaches();
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(orderClient.hasPurchased("42", PRODUCT_ID)).thenReturn(new PurchaseVerificationResponse(false));
+
+            assertThatThrownBy(() -> service.createReview(PRODUCT_ID, new ReviewRequest(4, null)))
+                    .isInstanceOf(ProductForbiddenException.class);
+
+            verify(productRepository, never()).recomputeRatingCounters(anyInt());
+            assertThat(cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS).get(detailKey)).isNotNull();
         }
     }
 }

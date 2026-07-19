@@ -79,7 +79,8 @@ public class ProductControllerTest {
         // Set up test data
         product = new Product(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0));
         productResponse = new ProductResponse(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1,
-                "Category Name", "Category Description", "1", null, ProductStatus.ACTIVE);
+                "Category Name", "Category Description", "1", null, ProductStatus.ACTIVE,
+                BigDecimal.ZERO, 0);
         productRequest = new ProductRequest(1, "Product 1", "Description 1", 100.0, BigDecimal.valueOf(100.0), 1);
 
         // Mapper always returns the test product so service mocks receive a non-null Product
@@ -130,6 +131,36 @@ public class ProductControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("Fase 7: product JSON exposes the denormalised rating counters (detail)")
+    public void testProductResponseExposesRatingCounters() throws Exception {
+        ProductResponse rated = new ProductResponse(1, "Product 1", "Description 1", 100.0,
+                BigDecimal.valueOf(100.0), 1, "Category Name", "Category Description", "1", null,
+                ProductStatus.ACTIVE, new BigDecimal("4.5"), 12);
+        when(productService.getProductById(1)).thenReturn(rated);
+
+        mockMvc.perform(get("/api/v1/products/1")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.averageRating").value(4.5))
+                .andExpect(jsonPath("$.reviewCount").value(12));
+    }
+
+    @Test
+    @DisplayName("Fase 7: a product with no reviews serialises as 0 / 0, never null")
+    public void testProductResponseZeroRatingCounters() throws Exception {
+        // productResponse is built in setUp with BigDecimal.ZERO / 0.
+        when(productService.getProductById(1)).thenReturn(productResponse);
+
+        mockMvc.perform(get("/api/v1/products/1")
+                        .header("X-Tenant-ID", "test-tenant-123")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.averageRating").value(0))
+                .andExpect(jsonPath("$.reviewCount").value(0));
     }
 
     @Test

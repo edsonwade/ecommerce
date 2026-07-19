@@ -78,6 +78,44 @@ class ProductMapperTest {
     }
 
     @Test
+    @DisplayName("Fase 7: a product is born with 0.0 / 0 ratings whichever constructor built it")
+    void testRatingCounters_DefaultToZero() {
+        // Guards the @Builder.Default trap: the field initializer is stripped from every
+        // hand-written constructor, so a null averageRating would hit the NOT NULL column on save.
+        Product byConstructor =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+        assertEquals(0, BigDecimal.ZERO.compareTo(byConstructor.getAverageRating()));
+        assertEquals(0, byConstructor.getReviewCount());
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(new Product().getAverageRating()));
+
+        Product byBuilder = Product.builder()
+                .name("Built").description("Via builder")
+                .availableQuantity(1.0).price(BigDecimal.ONE)
+                .category(category)
+                .build();
+        assertEquals(0, BigDecimal.ZERO.compareTo(byBuilder.getAverageRating()));
+        assertEquals(0, byBuilder.getReviewCount());
+    }
+
+    @Test
+    @DisplayName("Fase 7: the denormalised rating counters reach the response (toProductResp + fromProduct)")
+    void testRatingCounters_CarriedIntoResponse() {
+        Product product =
+                new Product(1, "Product Name", "Product Description", 10.0, BigDecimal.valueOf(100.0), category);
+        product.setAverageRating(new BigDecimal("4.5"));
+        product.setReviewCount(12);
+
+        ProductResponse viaResp = productMapper.toProductResp(product);
+        assertEquals(0, new BigDecimal("4.5").compareTo(viaResp.averageRating()));
+        assertEquals(12, viaResp.reviewCount());
+
+        ProductResponse viaToResponse = productMapper.toProductResponse(product);
+        assertEquals(0, new BigDecimal("4.5").compareTo(viaToResponse.averageRating()));
+        assertEquals(12, viaToResponse.reviewCount());
+    }
+
+    @Test
     @DisplayName("Convert Product to ProductRequest - Expect success")
     void testToProductRequest_Success() {
         // Arrange

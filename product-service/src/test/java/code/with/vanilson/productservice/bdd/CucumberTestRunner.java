@@ -33,6 +33,7 @@ import org.junit.platform.suite.api.Suite;
 @SelectClasspathResource("features/category_management.feature")
 @SelectClasspathResource("features/refund_restock.feature")
 @SelectClasspathResource("features/product_reviews.feature")
+@SelectClasspathResource("features/catalog_rating.feature")
 @ConfigurationParameter(key = Constants.GLUE_PROPERTY_NAME,
         value = "code.with.vanilson.productservice.bdd")
 @ConfigurationParameter(key = Constants.PLUGIN_PROPERTY_NAME,

@@ -1,6 +1,7 @@
 package code.with.vanilson.productservice.bdd;
 
 import code.with.vanilson.productservice.Product;
+import code.with.vanilson.productservice.ProductCacheKeys;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.ProductStatus;
 import code.with.vanilson.productservice.exception.ProductConflictException;
@@ -22,6 +23,7 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.mockito.Mockito;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.MessageSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -80,7 +82,11 @@ public class ReviewSteps {
             return r;
         });
 
-        reviewService = new ReviewService(reviewRepository, productRepository, orderClient, messageSource);
+        // Fase 7 (7.3): a real (in-memory) cache manager — ReviewService evicts a product's cached
+        // detail after a review changes its rating counters.
+        reviewService = new ReviewService(reviewRepository, productRepository, orderClient, messageSource,
+                new ConcurrentMapCacheManager(
+                        ProductCacheKeys.CACHE_PRODUCTS, ProductCacheKeys.CACHE_PRODUCT_LIST));
 
         // NOTE: do NOT set TenantContext here. This @Before runs before EVERY scenario in the shared
         // Cucumber glue package, and setting the tenant ThreadLocal leaked into other suites

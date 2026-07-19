@@ -137,7 +137,9 @@ public class ProductMapper {
                         product.getCategory().getDescription(),
                         product.getCreatedBy(),
                         product.getImageUrl(),
-                        product.getStatus()))
+                        product.getStatus(),
+                        product.getAverageRating(),
+                        product.getReviewCount()))
                 .toList();
     }
 
@@ -157,7 +159,9 @@ public class ProductMapper {
                 product.getCategory().getDescription(),
                 product.getCreatedBy(),
                 product.getImageUrl(),
-                product.getStatus());
+                product.getStatus(),
+                product.getAverageRating(),
+                product.getReviewCount());
     }
 
     protected ProductResponse fromProduct(Product product) {
@@ -179,7 +183,9 @@ public class ProductMapper {
                 product.getCategory().getDescription(),
                 product.getCreatedBy(),
                 product.getImageUrl(),
-                product.getStatus());
+                product.getStatus(),
+                product.getAverageRating(),
+                product.getReviewCount());
     }
 
     public ProductPurchaseResponse toproductPurchaseResponse(Product product, double quantity) {
@@ -219,7 +225,9 @@ public class ProductMapper {
                 product.getCategory().getDescription(),
                 product.getCreatedBy(),
                 product.getImageUrl(),
-                product.getStatus()
+                product.getStatus(),
+                product.getAverageRating(),
+                product.getReviewCount()
         );
     }
 
