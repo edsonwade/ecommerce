@@ -63,6 +63,8 @@ notes/
 .playwright-mcp
 .qodo
 
+graphify-out/
+/graphify-out/**
 
 diagramas/
 
