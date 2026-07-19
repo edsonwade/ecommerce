@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -319,6 +321,21 @@ class ReviewServiceTest {
         }
 
         @Test
+        @DisplayName("recompute is preceded by the row-lock, as its own statement (lost-update guard)")
+        void recomputeTakesTheRowLockFirst() {
+            stubSuccessfulCreate();
+
+            service.createReview(PRODUCT_ID, new ReviewRequest(5, "Great"));
+
+            // Order is the fix, not an implementation detail: locking inside the UPDATE would let
+            // the sub-SELECTs keep the pre-lock snapshot and silently drop concurrent reviews.
+            // ReviewConcurrencyIntegrationTest proves it against real PostgreSQL; this pins it cheaply.
+            InOrder inOrder = inOrder(productRepository);
+            inOrder.verify(productRepository).lockProductForRatingRecompute(PRODUCT_ID);
+            inOrder.verify(productRepository).recomputeRatingCounters(PRODUCT_ID);
+        }
+
+        @Test
         @DisplayName("create → evicts THIS product's cached detail, leaves the catalogue list cached (no-evict)")
         void createEvictsDetailButNotList() {
             seedCaches();
@@ -362,6 +379,115 @@ class ReviewServiceTest {
 
             verify(productRepository, never()).recomputeRatingCounters(anyInt());
             assertThat(cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS).get(detailKey)).isNotNull();
+        }
+    }
+
+    /**
+     * Fase 7 Task 7.4a: the eligibility probe that decides whether the storefront renders the
+     * "write a review" form. Its contract differs from createReview in one deliberate way — a
+     * verification outage is reported, not thrown — so that difference is asserted explicitly.
+     */
+    @Nested
+    @DisplayName("getEligibility (Task 7.4a)")
+    class GetEligibility {
+
+        @Test
+        @DisplayName("verified purchase, no review yet → ELIGIBLE")
+        void eligibleWhenPurchasedAndUnreviewed() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(reviewRepository.findByProductIdAndCustomerId(PRODUCT_ID, CUSTOMER_ID))
+                    .thenReturn(Optional.empty());
+            when(orderClient.hasPurchased("42", PRODUCT_ID)).thenReturn(new PurchaseVerificationResponse(true));
+
+            ReviewEligibilityResponse result = service.getEligibility(PRODUCT_ID);
+
+            assertThat(result.canReview()).isTrue();
+            assertThat(result.reason()).isEqualTo(ReviewEligibilityResponse.Reason.ELIGIBLE);
+            assertThat(result.existingReview()).isNull();
+        }
+
+        @Test
+        @DisplayName("already reviewed → ALREADY_REVIEWED, carries the existing review, skips verification")
+        void alreadyReviewedShortCircuits() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(reviewRepository.findByProductIdAndCustomerId(PRODUCT_ID, CUSTOMER_ID))
+                    .thenReturn(Optional.of(Review.builder().id(11L).productId(PRODUCT_ID)
+                            .customerId(CUSTOMER_ID).rating(4).comment("Solid")
+                            .tenantId(TENANT).createdAt(LocalDateTime.now()).build()));
+
+            ReviewEligibilityResponse result = service.getEligibility(PRODUCT_ID);
+
+            assertThat(result.canReview()).isFalse();
+            assertThat(result.reason()).isEqualTo(ReviewEligibilityResponse.Reason.ALREADY_REVIEWED);
+            assertThat(result.existingReview().comment()).isEqualTo("Solid");
+            // The existing review is decisive on its own — no reason to pay for a remote call.
+            verify(orderClient, never()).hasPurchased(anyString(), anyInt());
+        }
+
+        @Test
+        @DisplayName("never purchased → NOT_PURCHASED")
+        void notPurchased() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(reviewRepository.findByProductIdAndCustomerId(PRODUCT_ID, CUSTOMER_ID))
+                    .thenReturn(Optional.empty());
+            when(orderClient.hasPurchased("42", PRODUCT_ID)).thenReturn(new PurchaseVerificationResponse(false));
+
+            ReviewEligibilityResponse result = service.getEligibility(PRODUCT_ID);
+
+            assertThat(result.canReview()).isFalse();
+            assertThat(result.reason()).isEqualTo(ReviewEligibilityResponse.Reason.NOT_PURCHASED);
+        }
+
+        @Test
+        @DisplayName("order-service down → VERIFICATION_UNAVAILABLE, NOT a 503 (the page must still render)")
+        void verificationOutageIsReportedNotThrown() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(reviewRepository.findByProductIdAndCustomerId(PRODUCT_ID, CUSTOMER_ID))
+                    .thenReturn(Optional.empty());
+            when(orderClient.hasPurchased("42", PRODUCT_ID))
+                    .thenThrow(CallNotPermittedException.class);
+
+            ReviewEligibilityResponse result = service.getEligibility(PRODUCT_ID);
+
+            assertThat(result.canReview())
+                    .as("an outage may never grant the right to review")
+                    .isFalse();
+            assertThat(result.reason()).isEqualTo(ReviewEligibilityResponse.Reason.VERIFICATION_UNAVAILABLE);
+        }
+
+        @Test
+        @DisplayName("suspended product → 404, same as every other review read")
+        void suspendedProductIs404() {
+            authenticateAs(CUSTOMER_ID, "USER");
+            when(productRepository.findByIdAndTenantId(PRODUCT_ID, TENANT)).thenReturn(Optional.of(
+                    Product.builder().id(PRODUCT_ID).name("Widget")
+                            .status(ProductStatus.SUSPENDED).tenantId(TENANT).createdBy("9001").build()));
+
+            assertThatThrownBy(() -> service.getEligibility(PRODUCT_ID))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+    }
+
+    /**
+     * Fase 7 Task 7.4a: the ADMIN moderation feed. The service itself is thin — the guarantee worth
+     * asserting here is that it scopes by tenant rather than returning every review in the table.
+     */
+    @Nested
+    @DisplayName("getAllForModeration (Task 7.4a)")
+    class GetAllForModeration {
+
+        @Test
+        @DisplayName("scopes the query to the caller's tenant")
+        void scopesByTenant() {
+            Page<AdminReviewResponse> page = new PageImpl<>(List.of(new AdminReviewResponse(
+                    1L, PRODUCT_ID, "Widget", CUSTOMER_ID, 5, "Great", LocalDateTime.now())));
+            when(reviewRepository.findAllForModeration(eq(TENANT), any())).thenReturn(page);
+
+            Page<AdminReviewResponse> result = service.getAllForModeration(PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).singleElement()
+                    .satisfies(r -> assertThat(r.productName()).isEqualTo("Widget"));
+            verify(reviewRepository).findAllForModeration(eq(TENANT), any());
         }
     }
 }

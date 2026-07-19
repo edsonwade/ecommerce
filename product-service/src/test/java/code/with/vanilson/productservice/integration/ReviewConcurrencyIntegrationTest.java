@@ -38,11 +38,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -56,11 +57,21 @@ import static org.mockito.Mockito.when;
  * {@link CountDownLatch}), against a real PostgreSQL (Testcontainers, never H2 — an in-memory DB
  * would not reproduce the row-lock this proves).
  * <p>
- * What it proves that a mock never could: the recompute-from-source UPDATE in
- * {@code ProductRepository.recomputeRatingCounters} takes a row-lock on the product, so concurrent
- * review transactions serialise on it and each one re-reads COUNT/AVG with the previous writer's row
- * already visible. The last committer therefore writes the correct aggregate — no lost updates, no
- * drift, and no version column. A naive {@code count = count + 1} would fail here.
+ * What it proves that a mock never could: {@code ReviewService.refreshProductRating} takes the
+ * product row-lock as a <em>separate statement</em> ({@code lockProductForRatingRecompute}) before
+ * the recompute-from-source UPDATE, so a blocked writer resumes into a fresh READ COMMITTED snapshot
+ * in which the previous writer's review row is visible. The last committer therefore writes the
+ * correct aggregate — no lost updates, no drift, and no version column.
+ * <p>
+ * This test caught the version where the lock lived <em>inside</em> the UPDATE: PostgreSQL re-checked
+ * only the locked product row against the newer snapshot and kept the statement's original snapshot
+ * for the {@code product_review} sub-SELECTs, so 8 simultaneous reviews recorded a review_count of 3.
+ * A naive {@code count = count + 1} would fail here too.
+ * <p>
+ * It then caught the fix's own regression: the split-out lock was first written as {@code FOR UPDATE},
+ * which conflicts with the {@code FOR KEY SHARE} lock the review INSERT already holds on the same
+ * product row via its foreign key — 8 reviewers deadlocked and 6 were aborted. The lock must be
+ * {@code FOR NO KEY UPDATE}. Both regressions are invisible to a mock and to a single-threaded test.
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -173,7 +184,10 @@ class ReviewConcurrencyIntegrationTest {
         ExecutorService pool = Executors.newFixedThreadPool(REVIEWERS);
         CountDownLatch startGate = new CountDownLatch(1);
         CountDownLatch finished = new CountDownLatch(REVIEWERS);
-        AtomicInteger failures = new AtomicInteger();
+        // Failures are collected WITH their cause, not counted. A bare count told us only that
+        // "6 of 8 reviewers failed" and hid the actual reason (a PostgreSQL deadlock between the
+        // FK's FOR KEY SHARE lock and the recompute's row-lock) behind three diagnosis rounds.
+        Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
 
         try {
             for (int i = 0; i < REVIEWERS; i++) {
@@ -184,7 +198,7 @@ class ReviewConcurrencyIntegrationTest {
                         startGate.await();          // release every thread at the same instant
                         runReviewer(customerId, rating);
                     } catch (Exception ex) {
-                        failures.incrementAndGet();
+                        failures.add(ex);
                     } finally {
                         finished.countDown();
                     }
@@ -199,7 +213,11 @@ class ReviewConcurrencyIntegrationTest {
             pool.shutdownNow();
         }
 
-        assertThat(failures.get()).as("no reviewer should fail").isZero();
+        assertThat(failures)
+                .as("no reviewer should fail — a CannotAcquireLockException here means the recompute "
+                        + "row-lock conflicts with the review INSERT's foreign-key FOR KEY SHARE lock")
+                .extracting(t -> t.getClass().getSimpleName() + ": " + t.getMessage())
+                .isEmpty();
         assertThat(reviewRepository.count()).isEqualTo(REVIEWERS);
 
         TenantContext.setCurrentTenantId(TENANT);

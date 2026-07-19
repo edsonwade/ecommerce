@@ -129,6 +129,57 @@ public class ReviewService {
         return reviewRepository.findByProductId(productId, pageable).map(this::toResponse);
     }
 
+    /**
+     * Tells the caller whether they may review this product, so the storefront can show or hide the
+     * form up front instead of discovering the answer from a rejected POST.
+     * <p>
+     * The guard order deliberately mirrors {@link #createReview} — product must be live (404), then
+     * "already reviewed" wins over the purchase check. Checking the existing review first also saves a
+     * remote call in the common case of revisiting a product you already rated.
+     * <p>
+     * <strong>Not fail-closed, and that is the point:</strong> a verification outage yields
+     * {@link ReviewEligibilityResponse.Reason#VERIFICATION_UNAVAILABLE} with HTTP 200, so the product
+     * page still renders with the form hidden. Only {@link #createReview} decides what is accepted,
+     * and it still answers 503 — this method can never grant the right to write, only withhold it.
+     */
+    @Transactional(readOnly = true)
+    public ReviewEligibilityResponse getEligibility(int productId) {
+        requireActiveProduct(productId);
+        SecurityPrincipal principal = requirePrincipal();
+        long customerId = principal.userId();
+
+        Optional<Review> existing = reviewRepository.findByProductIdAndCustomerId(productId, customerId);
+        if (existing.isPresent()) {
+            return ReviewEligibilityResponse.alreadyReviewed(toResponse(existing.get()));
+        }
+
+        PurchaseVerificationResponse verification;
+        try {
+            verification = orderClient.hasPurchased(String.valueOf(customerId), productId);
+        } catch (Exception ex) {
+            // Same broad catch as verifyPurchase, different outcome: this is a read used to render a
+            // page, so an outage hides the form (200) instead of failing the request (503).
+            log.warn("[ReviewService] eligibility check unavailable productId=[{}] customerId=[{}] cause=[{}]",
+                    productId, customerId, ex.getClass().getSimpleName());
+            return ReviewEligibilityResponse.verificationUnavailable();
+        }
+
+        return verification != null && verification.purchased()
+                ? ReviewEligibilityResponse.eligible()
+                : ReviewEligibilityResponse.notPurchased();
+    }
+
+    /**
+     * Every review in the current tenant, for ADMIN moderation. Paginated by the project convention
+     * (C2). Role enforcement lives on the controller ({@code @PreAuthorize}) plus an explicit
+     * authenticated matcher in the security chain — see {@code ProductSecurityConfig}, where a
+     * blanket public rule on {@code GET /api/v1/products/**} makes an unmatched GET world-readable.
+     */
+    @Transactional(readOnly = true)
+    public Page<AdminReviewResponse> getAllForModeration(Pageable pageable) {
+        return reviewRepository.findAllForModeration(currentTenant(), pageable);
+    }
+
     // -------------------------------------------------------
     // DELETE (moderation / owner)
     // -------------------------------------------------------
@@ -171,13 +222,19 @@ public class ReviewService {
      * after a review was written or removed, then refreshes the cached detail.
      * <p>
      * Runs inside the caller's transaction, so the recompute commits atomically with the review
-     * change — the counters can never be left describing a review set that was rolled back. The
-     * recompute itself is a single row-locking UPDATE that reads COUNT/AVG from source; see
-     * {@link ProductRepository#recomputeRatingCounters(int)} for the concurrency argument.
+     * change — the counters can never be left describing a review set that was rolled back.
+     * <p>
+     * Two statements, in this order, and the order is load-bearing: first take the product
+     * row-lock, then recompute COUNT/AVG from source. Folding the lock into the UPDATE would
+     * lose concurrent writes, because PostgreSQL re-evaluates only the locked target row against
+     * the newer snapshot and keeps the statement's original snapshot for the
+     * {@code product_review} sub-SELECTs. Locking first makes the recompute a fresh statement
+     * with a fresh snapshot. See {@link ProductRepository#recomputeRatingCounters(int)}.
      *
      * @param productId the product whose counters changed
      */
     private void refreshProductRating(int productId) {
+        productRepository.lockProductForRatingRecompute(productId);
         productRepository.recomputeRatingCounters(productId);
         evictProductDetail(productId);
         log.info(resolve("review.log.rating.refreshed", productId));

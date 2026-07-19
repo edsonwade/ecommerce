@@ -52,6 +52,13 @@ public class ProductSecurityConfig {
                 // also BEFORE the public GET /** rule, or it would be world-readable.
                 // ADMIN role is enforced via @PreAuthorize on the controller method.
                 .requestMatchers(HttpMethod.GET, "/api/v1/products/admin").authenticated()
+                // Fase 7 (7.4a): both review GETs must also precede the public GET /** rule.
+                // The moderation feed exposes every review in the tenant and the eligibility probe
+                // answers about the CALLER — left unmatched, the blanket permitAll below would make
+                // both world-readable (and the eligibility one would have no principal at all).
+                // ADMIN / authenticated is enforced via @PreAuthorize on ReviewController.
+                .requestMatchers(HttpMethod.GET, "/api/v1/products/reviews/admin").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/v1/products/*/reviews/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
                 // Fase 4: category catalogue is publicly readable (the storefront dropdown);
                 // create/update/delete fall through to authenticated() below and are locked

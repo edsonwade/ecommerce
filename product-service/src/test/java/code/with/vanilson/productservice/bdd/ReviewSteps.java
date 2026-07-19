@@ -10,6 +10,7 @@ import code.with.vanilson.productservice.exception.ReviewVerificationException;
 import code.with.vanilson.productservice.review.OrderClient;
 import code.with.vanilson.productservice.review.PurchaseVerificationResponse;
 import code.with.vanilson.productservice.review.Review;
+import code.with.vanilson.productservice.review.ReviewEligibilityResponse;
 import code.with.vanilson.productservice.review.ReviewRepository;
 import code.with.vanilson.productservice.review.ReviewRequest;
 import code.with.vanilson.productservice.review.ReviewResponse;
@@ -60,6 +61,7 @@ public class ReviewSteps {
     private ReviewService reviewService;
 
     private ReviewResponse created;
+    private ReviewEligibilityResponse eligibility;
     private boolean deleted;
     private Exception caught;
 
@@ -93,6 +95,7 @@ public class ReviewSteps {
         // (e.g. ProductStatusSteps), flipping getProductById onto the tenant-scoped query and 404-ing.
         // The tenant is set only inside this suite's own steps, via authenticateAs().
         created = null;
+        eligibility = null;
         deleted = false;
         caught = null;
     }
@@ -127,6 +130,15 @@ public class ReviewSteps {
         when(reviewRepository.existsByProductIdAndCustomerId(productId, customerId)).thenReturn(true);
     }
 
+    /** Task 7.4a: the eligibility probe returns the review itself, so it needs findBy..., not existsBy... */
+    @Given("review feature: customer {long} already has review {long} on product {int}")
+    public void customer_already_has_review(Long customerId, Long reviewId, Integer productId) {
+        when(reviewRepository.findByProductIdAndCustomerId(productId, customerId)).thenReturn(Optional.of(
+                Review.builder().id(reviewId).productId(productId).customerId(customerId)
+                        .rating(4).comment("from BDD").tenantId(TENANT)
+                        .createdAt(LocalDateTime.now()).build()));
+    }
+
     @Given("review feature: a review {long} by customer {long} on product {int} exists")
     public void a_review_exists(Long reviewId, Long customerId, Integer productId) {
         when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(
@@ -156,6 +168,16 @@ public class ReviewSteps {
     public void customer_deletes_review(Long customerId, Long reviewId) {
         authenticateAs(customerId, "USER");
         invokeDelete(reviewId);
+    }
+
+    @When("review feature: customer {long} checks whether they can review product {int}")
+    public void customer_checks_eligibility(Long customerId, Integer productId) {
+        authenticateAs(customerId, "USER");
+        try {
+            eligibility = reviewService.getEligibility(productId);
+        } catch (Exception e) {
+            caught = e;
+        }
     }
 
     // ---- Then ----
@@ -196,6 +218,23 @@ public class ReviewSteps {
     public void delete_rejected_forbidden() {
         assertThat(caught).isInstanceOf(ProductForbiddenException.class);
         assertThat(((ProductForbiddenException) caught).getMessageKey()).isEqualTo("review.delete.forbidden");
+    }
+
+    @Then("review feature: the verdict is {word}")
+    public void the_verdict_is(String reason) {
+        assertThat(caught)
+                .as("the eligibility probe must answer, never throw — the product page depends on it")
+                .isNull();
+        assertThat(eligibility).isNotNull();
+        assertThat(eligibility.reason().name()).isEqualTo(reason);
+        assertThat(eligibility.canReview())
+                .isEqualTo(ReviewEligibilityResponse.Reason.ELIGIBLE.name().equals(reason));
+    }
+
+    @Then("review feature: the verdict carries the existing review")
+    public void the_verdict_carries_existing_review() {
+        assertThat(eligibility.existingReview()).isNotNull();
+        assertThat(eligibility.existingReview().rating()).isEqualTo(4);
     }
 
     // ---- Helpers ----
