@@ -81,13 +81,35 @@ public class Product {
     @Builder.Default
     private ProductStatus status = ProductStatus.ACTIVE;
 
+    /**
+     * Fase 7 (Task 7.3, Decision A1): denormalised review counters.
+     * <p>
+     * The catalogue renders stars straight off these two columns — zero query cost on every
+     * list/search/detail read, instead of aggregating {@code product_review} per page. They are
+     * NOT a cache: {@code ReviewService} recomputes them from source (COUNT/AVG over
+     * {@code product_review}) inside the same transaction as each review write/delete, so they
+     * are race-safe and self-healing. Never null — a product with no reviews reads 0.0 / 0,
+     * mirroring the {@code NOT NULL DEFAULT 0} in {@code V14__add_rating_counters_to_product.sql}.
+     */
+    @Column(name = "average_rating", nullable = false, precision = 2, scale = 1)
+    @Builder.Default
+    private BigDecimal averageRating = BigDecimal.ZERO;
+
+    @Column(name = "review_count", nullable = false)
+    @Builder.Default
+    private int reviewCount = 0;
+
     // Fase 3: Lombok's @Builder.Default moves the field initializer into the builder
     // ONLY — it is stripped from every constructor, so without setting it here each
     // hand-written constructor (and the no-args one JPA uses) would leave status null,
     // then fail the NOT NULL column on save. Every constructor therefore stamps ACTIVE
     // explicitly so a product is genuinely "born ACTIVE regardless of how it was built".
+    // Fase 7 (7.3): averageRating has exactly the same trap — it is a BigDecimal, so a
+    // stripped initializer leaves it null against a NOT NULL column. reviewCount is a
+    // primitive int and falls back to 0 on its own, so only averageRating needs stamping.
     public Product() {
         this.status = ProductStatus.ACTIVE;
+        this.averageRating = BigDecimal.ZERO;
     }
 
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price) {
@@ -97,6 +119,7 @@ public class Product {
         this.availableQuantity = availableQuantity;
         this.price = price;
         this.status = ProductStatus.ACTIVE;
+        this.averageRating = BigDecimal.ZERO;
     }
 
     public Product(String name, String description, double availableQuantity, BigDecimal price) {
@@ -105,6 +128,7 @@ public class Product {
         this.availableQuantity = availableQuantity;
         this.price = price;
         this.status = ProductStatus.ACTIVE;
+        this.averageRating = BigDecimal.ZERO;
     }
 
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price,
@@ -116,6 +140,7 @@ public class Product {
         this.price = price;
         this.category = category;
         this.status = ProductStatus.ACTIVE;
+        this.averageRating = BigDecimal.ZERO;
     }
 
     public Product(Integer id, String name, String description, double availableQuantity, BigDecimal price,
@@ -128,6 +153,7 @@ public class Product {
         this.category = category;
         this.tenantId = tenantId;
         this.status = ProductStatus.ACTIVE;
+        this.averageRating = BigDecimal.ZERO;
     }
 
 }

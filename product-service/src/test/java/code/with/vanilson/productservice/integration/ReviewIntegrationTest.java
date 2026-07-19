@@ -11,6 +11,7 @@ import code.with.vanilson.productservice.exception.ProductNotFoundException;
 import code.with.vanilson.productservice.exception.ReviewVerificationException;
 import code.with.vanilson.productservice.review.OrderClient;
 import code.with.vanilson.productservice.review.PurchaseVerificationResponse;
+import code.with.vanilson.productservice.review.ReviewEligibilityResponse;
 import code.with.vanilson.productservice.review.ReviewRepository;
 import code.with.vanilson.productservice.review.ReviewRequest;
 import code.with.vanilson.productservice.review.ReviewResponse;
@@ -231,5 +232,80 @@ class ReviewIntegrationTest {
 
         assertThatThrownBy(() -> reviewService.getReviews(productId, PageRequest.of(0, 10)))
                 .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    // ---------------------------------------------------------------
+    // Task 7.4a — eligibility probe + ADMIN moderation feed
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("eligibility: bought but not yet reviewed → ELIGIBLE")
+    void eligibleAfterPurchase() {
+        when(orderClient.hasPurchased(anyString(), anyInt())).thenReturn(new PurchaseVerificationResponse(true));
+
+        ReviewEligibilityResponse eligibility = reviewService.getEligibility(productId);
+
+        assertThat(eligibility.canReview()).isTrue();
+        assertThat(eligibility.reason()).isEqualTo(ReviewEligibilityResponse.Reason.ELIGIBLE);
+    }
+
+    @Test
+    @DisplayName("eligibility: after writing → ALREADY_REVIEWED, carrying the persisted review")
+    void alreadyReviewedAfterWriting() {
+        when(orderClient.hasPurchased(anyString(), anyInt())).thenReturn(new PurchaseVerificationResponse(true));
+        reviewService.createReview(productId, new ReviewRequest(4, "solid"));
+
+        ReviewEligibilityResponse eligibility = reviewService.getEligibility(productId);
+
+        assertThat(eligibility.canReview()).isFalse();
+        assertThat(eligibility.reason()).isEqualTo(ReviewEligibilityResponse.Reason.ALREADY_REVIEWED);
+        assertThat(eligibility.existingReview()).isNotNull()
+                .satisfies(r -> assertThat(r.comment()).isEqualTo("solid"));
+    }
+
+    @Test
+    @DisplayName("eligibility: verification down → 200-shaped VERIFICATION_UNAVAILABLE, not a thrown 503")
+    void eligibilityDoesNotFailClosed() {
+        when(orderClient.hasPurchased(anyString(), anyInt())).thenThrow(CallNotPermittedException.class);
+
+        ReviewEligibilityResponse eligibility = reviewService.getEligibility(productId);
+
+        assertThat(eligibility.canReview()).isFalse();
+        assertThat(eligibility.reason()).isEqualTo(ReviewEligibilityResponse.Reason.VERIFICATION_UNAVAILABLE);
+    }
+
+    /**
+     * The moderation query is a JPQL constructor expression over an explicit {@code JOIN Product ON}
+     * — a construct that compiles fine and only fails when Hibernate actually parses it. A real
+     * PostgreSQL run is the only thing that proves it works and that the product name is joined in.
+     */
+    @Test
+    @DisplayName("moderation feed: joins the product name and scopes to the tenant")
+    void moderationFeedJoinsProductName() {
+        when(orderClient.hasPurchased(anyString(), anyInt())).thenReturn(new PurchaseVerificationResponse(true));
+        reviewService.createReview(productId, new ReviewRequest(5, "great"));
+
+        authenticateAs(999L, "ADMIN");
+        var page = reviewService.getAllForModeration(PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).singleElement().satisfies(r -> {
+            assertThat(r.productName()).isEqualTo("Reviewable-Widget");
+            assertThat(r.productId()).isEqualTo(productId);
+            assertThat(r.rating()).isEqualTo(5);
+        });
+    }
+
+    @Test
+    @DisplayName("moderation feed: a review from another tenant is not returned")
+    void moderationFeedExcludesOtherTenants() {
+        when(orderClient.hasPurchased(anyString(), anyInt())).thenReturn(new PurchaseVerificationResponse(true));
+        reviewService.createReview(productId, new ReviewRequest(5, "mine"));
+
+        TenantContext.setCurrentTenantId("some-other-tenant");
+        authenticateAs(999L, "ADMIN");
+
+        assertThat(reviewService.getAllForModeration(PageRequest.of(0, 20)).getContent())
+                .as("moderation must never leak reviews across tenants")
+                .isEmpty();
     }
 }

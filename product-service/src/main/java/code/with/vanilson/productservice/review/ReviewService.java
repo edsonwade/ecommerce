@@ -1,6 +1,7 @@
 package code.with.vanilson.productservice.review;
 
 import code.with.vanilson.productservice.Product;
+import code.with.vanilson.productservice.ProductCacheKeys;
 import code.with.vanilson.productservice.ProductRepository;
 import code.with.vanilson.productservice.ProductStatus;
 import code.with.vanilson.productservice.exception.ProductConflictException;
@@ -10,6 +11,8 @@ import code.with.vanilson.productservice.exception.ReviewVerificationException;
 import code.with.vanilson.tenantcontext.TenantContext;
 import code.with.vanilson.tenantcontext.security.SecurityPrincipal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
@@ -41,15 +44,18 @@ public class ReviewService {
     private final ProductRepository productRepository;
     private final OrderClient orderClient;
     private final MessageSource messageSource;
+    private final CacheManager cacheManager;
 
     public ReviewService(ReviewRepository reviewRepository,
                          ProductRepository productRepository,
                          OrderClient orderClient,
-                         MessageSource messageSource) {
+                         MessageSource messageSource,
+                         CacheManager cacheManager) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.orderClient = orderClient;
         this.messageSource = messageSource;
+        this.cacheManager = cacheManager;
     }
 
     // -------------------------------------------------------
@@ -85,6 +91,7 @@ public class ReviewService {
                 .build());
 
         log.info(resolve("review.log.created", saved.getId(), productId, customerId));
+        refreshProductRating(productId);
         return toResponse(saved);
     }
 
@@ -122,6 +129,57 @@ public class ReviewService {
         return reviewRepository.findByProductId(productId, pageable).map(this::toResponse);
     }
 
+    /**
+     * Tells the caller whether they may review this product, so the storefront can show or hide the
+     * form up front instead of discovering the answer from a rejected POST.
+     * <p>
+     * The guard order deliberately mirrors {@link #createReview} — product must be live (404), then
+     * "already reviewed" wins over the purchase check. Checking the existing review first also saves a
+     * remote call in the common case of revisiting a product you already rated.
+     * <p>
+     * <strong>Not fail-closed, and that is the point:</strong> a verification outage yields
+     * {@link ReviewEligibilityResponse.Reason#VERIFICATION_UNAVAILABLE} with HTTP 200, so the product
+     * page still renders with the form hidden. Only {@link #createReview} decides what is accepted,
+     * and it still answers 503 — this method can never grant the right to write, only withhold it.
+     */
+    @Transactional(readOnly = true)
+    public ReviewEligibilityResponse getEligibility(int productId) {
+        requireActiveProduct(productId);
+        SecurityPrincipal principal = requirePrincipal();
+        long customerId = principal.userId();
+
+        Optional<Review> existing = reviewRepository.findByProductIdAndCustomerId(productId, customerId);
+        if (existing.isPresent()) {
+            return ReviewEligibilityResponse.alreadyReviewed(toResponse(existing.get()));
+        }
+
+        PurchaseVerificationResponse verification;
+        try {
+            verification = orderClient.hasPurchased(String.valueOf(customerId), productId);
+        } catch (Exception ex) {
+            // Same broad catch as verifyPurchase, different outcome: this is a read used to render a
+            // page, so an outage hides the form (200) instead of failing the request (503).
+            log.warn("[ReviewService] eligibility check unavailable productId=[{}] customerId=[{}] cause=[{}]",
+                    productId, customerId, ex.getClass().getSimpleName());
+            return ReviewEligibilityResponse.verificationUnavailable();
+        }
+
+        return verification != null && verification.purchased()
+                ? ReviewEligibilityResponse.eligible()
+                : ReviewEligibilityResponse.notPurchased();
+    }
+
+    /**
+     * Every review in the current tenant, for ADMIN moderation. Paginated by the project convention
+     * (C2). Role enforcement lives on the controller ({@code @PreAuthorize}) plus an explicit
+     * authenticated matcher in the security chain — see {@code ProductSecurityConfig}, where a
+     * blanket public rule on {@code GET /api/v1/products/**} makes an unmatched GET world-readable.
+     */
+    @Transactional(readOnly = true)
+    public Page<AdminReviewResponse> getAllForModeration(Pageable pageable) {
+        return reviewRepository.findAllForModeration(currentTenant(), pageable);
+    }
+
     // -------------------------------------------------------
     // DELETE (moderation / owner)
     // -------------------------------------------------------
@@ -144,15 +202,69 @@ public class ReviewService {
                     resolve("review.delete.forbidden"), "review.delete.forbidden");
         }
 
+        // Captured BEFORE the delete: after it, the entity is detached and we still need the
+        // product whose counters must be recomputed.
+        int productId = review.getProductId();
+
         reviewRepository.delete(review);
         String reason = principal.isAdmin() && !isOwner ? "ADMIN_MODERATION" : "OWNER";
         log.info("[ReviewModeration] review deleted reviewId=[{}] productId=[{}] by userId=[{}] reason=[{}]",
-                reviewId, review.getProductId(), principal.userId(), reason);
+                reviewId, productId, principal.userId(), reason);
+        refreshProductRating(productId);
     }
 
     // -------------------------------------------------------
     // Helpers
     // -------------------------------------------------------
+
+    /**
+     * Fase 7 Task 7.3 (Decision A1): brings the product's denormalised rating counters back in sync
+     * after a review was written or removed, then refreshes the cached detail.
+     * <p>
+     * Runs inside the caller's transaction, so the recompute commits atomically with the review
+     * change — the counters can never be left describing a review set that was rolled back.
+     * <p>
+     * Two statements, in this order, and the order is load-bearing: first take the product
+     * row-lock, then recompute COUNT/AVG from source. Folding the lock into the UPDATE would
+     * lose concurrent writes, because PostgreSQL re-evaluates only the locked target row against
+     * the newer snapshot and keeps the statement's original snapshot for the
+     * {@code product_review} sub-SELECTs. Locking first makes the recompute a fresh statement
+     * with a fresh snapshot. See {@link ProductRepository#recomputeRatingCounters(int)}.
+     *
+     * @param productId the product whose counters changed
+     */
+    private void refreshProductRating(int productId) {
+        productRepository.lockProductForRatingRecompute(productId);
+        productRepository.recomputeRatingCounters(productId);
+        evictProductDetail(productId);
+        log.info(resolve("review.log.rating.refreshed", productId));
+    }
+
+    /**
+     * Evicts ONLY this product's cached detail entry.
+     * <p>
+     * <strong>Decision A1 — "no-evict" on the catalogue list, and it is deliberate:</strong> the
+     * paginated {@code product-list} cache is intentionally left alone so a review write never
+     * invalidates whole catalogue pages. Product cards therefore show the previous average until the
+     * list TTL expires, while the product detail page is always fresh. That asymmetry is the entire
+     * point: it keeps {@code GET /products} latency flat (the stated goal of the 7b verification)
+     * for a number whose staleness is cosmetic. Do NOT "fix" this by adding an
+     * {@code allEntries = true} evict on {@code product-list}.
+     * <p>
+     * The key is built through {@link ProductCacheKeys} so it matches
+     * {@code ProductService.getProductById}'s {@code @Cacheable} key exactly — a hand-rolled key
+     * (notably one using this class's {@code "default"} tenant fallback instead of {@code "none"})
+     * would silently evict nothing.
+     *
+     * @param productId the product whose cached detail is now stale
+     */
+    private void evictProductDetail(int productId) {
+        Cache cache = cacheManager.getCache(ProductCacheKeys.CACHE_PRODUCTS);
+        if (cache != null) {
+            cache.evict(ProductCacheKeys.detailKey(
+                    TenantContext.isPresent() ? TenantContext.getCurrentTenantId() : null, productId));
+        }
+    }
 
     private void requireActiveProduct(int productId) {
         Optional<Product> found = TenantContext.isPresent()

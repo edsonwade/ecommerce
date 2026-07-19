@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.QueryHint;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * ProductRepository — Infrastructure Layer
@@ -106,4 +108,80 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
      * @return number of products pointing at that category
      */
     long countByCategoryId(Integer categoryId);
+
+    /**
+     * Fase 7 Task 7.3 (Decision A1): recomputes a product's denormalised review counters
+     * <strong>from source</strong> — never {@code count = count + 1}.
+     * <p>
+     * Concurrency: this UPDATE alone is <strong>not</strong> enough, and the reason is a
+     * PostgreSQL READ COMMITTED subtlety. When a concurrent writer blocks on the product row
+     * and is then released, PostgreSQL re-checks only the <em>target row</em> against the newer
+     * version (EvalPlanQual); the sub-SELECTs over {@code product_review} still run under the
+     * statement's original snapshot. The blocked writer therefore recomputes COUNT/AVG without
+     * seeing the review the writer ahead of it just committed — a genuine lost update (8
+     * simultaneous reviews landed a review_count of 3 before this was fixed). This is the
+     * documented "an updating command can see the effects of concurrent updates on the rows it
+     * is updating, but not on other rows".
+     * <p>
+     * The fix is to acquire the row-lock in a <em>separate, earlier statement</em> —
+     * {@link #lockProductForRatingRecompute(int)}. Once that returns, the writer ahead has
+     * committed, and the recompute UPDATE that follows is a new statement, so under READ
+     * COMMITTED it takes a fresh snapshot in which that review row IS visible. The last
+     * committer then always writes the correct aggregate. No version column, no optimistic
+     * locking, and the operation stays self-healing: a single recompute restores the truth even
+     * after any drift. Callers MUST take the lock first — see
+     * {@code ReviewService.refreshProductRating}.
+     * <p>
+     * {@code flushAutomatically = true} is load-bearing: it forces the pending review
+     * INSERT/DELETE out to the database <em>before</em> this UPDATE runs, otherwise the
+     * {@code COUNT(*)} would not see the very write that triggered the recompute.
+     * {@code clearAutomatically = true} then drops the now-stale {@code Product} from the
+     * persistence context so a later read in the same transaction sees the new counters.
+     * <p>
+     * {@code COALESCE(..., 0)} covers the last-review-deleted case: AVG over zero rows is NULL,
+     * but the column is NOT NULL and a product without reviews must read 0.0 / 0.
+     *
+     * @param productId the product whose counters are recomputed
+     * @return number of product rows updated (1 when the product exists, 0 otherwise)
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE product
+               SET review_count   = (SELECT COUNT(*) FROM product_review WHERE product_id = :pid),
+                   average_rating = COALESCE((SELECT ROUND(AVG(rating), 1)
+                                              FROM product_review WHERE product_id = :pid), 0)
+             WHERE id = :pid
+            """, nativeQuery = true)
+    int recomputeRatingCounters(@Param("pid") int productId);
+
+    /**
+     * Fase 7 Task 7.3 (Decision A1): serialises concurrent rating recomputes by taking the
+     * product row-lock as its own statement, immediately before
+     * {@link #recomputeRatingCounters(int)}.
+     * <p>
+     * Splitting the lock out of the UPDATE is the whole point: it makes the recompute the
+     * <em>next</em> statement, which under READ COMMITTED opens a fresh snapshot that includes
+     * the review rows committed by whichever writer we were queued behind. Doing the lock and
+     * the aggregate in one statement loses exactly those rows (see the note on
+     * {@link #recomputeRatingCounters(int)}).
+     * <p>
+     * <strong>{@code FOR NO KEY UPDATE}, never {@code FOR UPDATE} — this is a deadlock fix, not a
+     * style choice.</strong> The caller already holds a {@code FOR KEY SHARE} lock on this very
+     * product row: {@code product_review.product_id} is a foreign key to {@code product(id)}, so the
+     * review INSERT earlier in the same transaction takes that lock and holds it until commit.
+     * {@code FOR UPDATE} conflicts with {@code FOR KEY SHARE}, so N concurrent reviewers of one
+     * product would each hold KEY SHARE and each wait for the others' FOR UPDATE — a genuine
+     * N-way deadlock, which PostgreSQL resolves by aborting all but one reviewer (8 simultaneous
+     * reviews produced 6 aborts). {@code FOR NO KEY UPDATE} does not conflict with
+     * {@code FOR KEY SHARE}, so the FK locks are harmless, while it still conflicts with itself —
+     * which is the only serialisation this recompute needs.
+     * <p>
+     * Returns the locked id, or empty when the product no longer exists — the caller can then
+     * skip the recompute instead of relying on the UPDATE's 0-rows-affected.
+     *
+     * @param productId the product to lock for the duration of the calling transaction
+     * @return the product id when a row was locked, empty otherwise
+     */
+    @Query(value = "SELECT id FROM product WHERE id = :pid FOR NO KEY UPDATE", nativeQuery = true)
+    Optional<Integer> lockProductForRatingRecompute(@Param("pid") int productId);
 }

@@ -71,6 +71,36 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getReviews(productId, pageable));
     }
 
+    @Operation(summary = "May the caller review this product? (drives whether the form is shown)",
+            description = "Answers 200 even when purchase verification is down (reason="
+                    + "VERIFICATION_UNAVAILABLE) so the product page still renders; the POST remains "
+                    + "the fail-closed authority.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Eligibility resolved"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "404", description = "Product not found or suspended")
+    })
+    @GetMapping("/{productId}/reviews/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ReviewEligibilityResponse> getMyEligibility(@PathVariable int productId) {
+        return ResponseEntity.ok(reviewService.getEligibility(productId));
+    }
+
+    @Operation(summary = "List every review in the tenant (ADMIN moderation)",
+            description = "Cross-product moderation feed. Use ?page=0&size=20&sort=createdAt,desc.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reviews retrieved"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN")
+    })
+    @GetMapping("/reviews/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<AdminReviewResponse>> getAllReviewsForModeration(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @Parameter(hidden = true) Pageable pageable) {
+        return ResponseEntity.ok(reviewService.getAllForModeration(pageable));
+    }
+
     @Operation(summary = "Delete a review (ADMIN moderation or the review's own author)")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Review deleted"),

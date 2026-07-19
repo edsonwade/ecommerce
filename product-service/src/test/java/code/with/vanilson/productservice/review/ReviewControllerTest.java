@@ -211,4 +211,103 @@ class ReviewControllerTest {
                     .andExpect(status().isForbidden());
         }
     }
+
+    /**
+     * Fase 7 Task 7.4a. These two GETs sit under {@code /api/v1/products/**}, which
+     * {@link ProductSecurityConfig} opens to everyone — they are only protected because they are
+     * matched BEFORE that blanket rule. That makes these tests the guard against a silent
+     * regression: reorder the matchers and the moderation feed becomes world-readable.
+     */
+    @Nested
+    @DisplayName("GET /products/{id}/reviews/me (eligibility, Task 7.4a)")
+    class Eligibility {
+
+        @Test
+        @DisplayName("unauthenticated → 401, NOT public despite the blanket GET /products/** rule")
+        void unauthenticatedRejected() throws Exception {
+            mockMvc.perform(get("/api/v1/products/5/reviews/me").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("authenticated → 200 with the eligibility verdict")
+        void authenticatedGetsVerdict() throws Exception {
+            when(reviewService.getEligibility(anyInt()))
+                    .thenReturn(ReviewEligibilityResponse.eligible());
+
+            mockMvc.perform(get("/api/v1/products/5/reviews/me").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.canReview").value(true))
+                    .andExpect(jsonPath("$.reason").value("ELIGIBLE"));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("verification outage → 200 with VERIFICATION_UNAVAILABLE, never 503")
+        void outageStillRenders() throws Exception {
+            when(reviewService.getEligibility(anyInt()))
+                    .thenReturn(ReviewEligibilityResponse.verificationUnavailable());
+
+            mockMvc.perform(get("/api/v1/products/5/reviews/me").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.canReview").value(false))
+                    .andExpect(jsonPath("$.reason").value("VERIFICATION_UNAVAILABLE"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /products/reviews/admin (moderation feed, Task 7.4a)")
+    class ModerationFeed {
+
+        @Test
+        @DisplayName("unauthenticated → 401")
+        void unauthenticatedRejected() throws Exception {
+            mockMvc.perform(get("/api/v1/products/reviews/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        @DisplayName("authenticated non-admin → 403 (a customer may not read everyone's reviews)")
+        void customerForbidden() throws Exception {
+            mockMvc.perform(get("/api/v1/products/reviews/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "SELLER")
+        @DisplayName("SELLER → 403 (sellers do not moderate — F7 rule)")
+        void sellerForbidden() throws Exception {
+            mockMvc.perform(get("/api/v1/products/reviews/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("ADMIN → 200 with a page carrying the product name")
+        void adminGetsPage() throws Exception {
+            when(reviewService.getAllForModeration(any())).thenReturn(new PageImpl<>(List.of(
+                    new AdminReviewResponse(1L, 5, "Widget", 42L, 5, "Great", LocalDateTime.now()))));
+
+            mockMvc.perform(get("/api/v1/products/reviews/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[0].productName").value("Widget"));
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("the literal /reviews/admin path is not swallowed by GET /{productId}/reviews")
+        void literalPathWinsOverTemplate() throws Exception {
+            when(reviewService.getAllForModeration(any())).thenReturn(new PageImpl<>(List.of()));
+
+            mockMvc.perform(get("/api/v1/products/reviews/admin").header(TENANT_HDR, TENANT_VAL))
+                    .andExpect(status().isOk());
+
+            // If the template had won, getReviews would have been invoked with productId parsed
+            // from "reviews" — which cannot happen, but assert the routing explicitly anyway.
+            org.mockito.Mockito.verify(reviewService, org.mockito.Mockito.never())
+                    .getReviews(anyInt(), any());
+        }
+    }
 }
