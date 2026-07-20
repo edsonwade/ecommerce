@@ -9,6 +9,7 @@ import { useUIStore } from '@stores/ui.store';
 import { ROUTES } from '@utils/constants';
 import { formatCurrency } from '@utils/format';
 import { getCategoryFallbackImage } from '@utils/productImages';
+import StarRating from './StarRating';
 
 interface ProductCardProps {
   product: ProductResponse;
@@ -198,6 +199,14 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           >
             {formatCurrency(product.price)}
           </Typography>
+
+          {/* F7: hidden until the product has at least one review, so the grid stays clean.
+              These come from the cached list payload and lag the product detail until the list
+              TTL expires — that is Decision A1's no-evict trade-off, deliberately not "fixed"
+              by invalidating the catalogue on every review write. */}
+          {(product.reviewCount ?? 0) > 0 && (
+            <StarRating value={product.averageRating ?? 0} count={product.reviewCount} />
+          )}
 
           <Button
             variant="contained"

@@ -100,6 +100,60 @@ export interface ProductResponse {
   imageUrl?: string;
   /** Fase 3: optional — older cached payloads may not carry it. */
   status?: ProductStatus;
+  /**
+   * F7 Task 7.3: denormalised rating counters, recomputed from source on every review write.
+   * Optional for the same reason as `status` — a payload cached before V14 carries neither.
+   * On the catalogue grid these lag behind the product detail until the list TTL expires; that
+   * is Decision A1's deliberate no-evict trade-off, not a bug to fix by invalidating the list.
+   */
+  averageRating?: number;
+  reviewCount?: number;
+}
+
+/** F7: a single published review. Carries no author name by design — the UI shows "verified buyer". */
+export interface ReviewResponse {
+  id: number;
+  productId: number;
+  customerId: number;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+}
+
+export interface ReviewRequest {
+  rating: number;
+  comment?: string;
+}
+
+/** Why the caller may (or may not) review — mirrors the backend enum exactly. */
+export type ReviewEligibilityReason =
+  | 'ELIGIBLE'
+  | 'ALREADY_REVIEWED'
+  | 'NOT_PURCHASED'
+  | 'VERIFICATION_UNAVAILABLE';
+
+/**
+ * F7 Task 7.4a: whether the caller may write a review, so the form is shown or hidden up front.
+ *
+ * `VERIFICATION_UNAVAILABLE` arrives as a 200, not a 503 — when order-service is down the product
+ * page must still render with the form hidden. Treat this as "cannot review right now", never as
+ * an error to surface: the POST remains the fail-closed authority.
+ */
+export interface ReviewEligibility {
+  canReview: boolean;
+  reason: ReviewEligibilityReason;
+  existingReview?: ReviewResponse | null;
+}
+
+/** F7 Task 7.4a: moderation row — a review plus the product name, joined server-side. */
+export interface AdminReviewResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  customerId: number;
+  rating: number;
+  comment?: string;
+  createdAt: string;
 }
 
 export interface ProductPurchaseRequest {

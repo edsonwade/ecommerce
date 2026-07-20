@@ -21,6 +21,8 @@ import { useAuthStore } from '@stores/auth.store';
 import { useUIStore } from '@stores/ui.store';
 import { formatCurrency } from '@utils/format';
 import { getCategoryFallbackImage } from '@utils/productImages';
+import StarRating from '@components/product/StarRating';
+import ReviewsSection from '@components/product/ReviewsSection';
 import type { AppError } from '@api/types';
 
 export default function ProductPage() {
@@ -32,9 +34,16 @@ export default function ProductPage() {
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
 
+  // The route param is a string, but the PRODUCT query key is canonically keyed by the
+  // NUMERIC product id — query keys are compared structurally, so ['product','6702'] and
+  // ['product',6702] are two different cache entries. Keying by string here silently
+  // detached this page from every invalidation raised by the review writers
+  // (ReviewsSection / AdminReviewsPage), which pass product.id as a number.
+  const productId = Number(id);
+
   const { data: product, isLoading, isError } = useQuery({
-    queryKey: [QUERY_KEYS.PRODUCT, id],
-    queryFn: () => productsApi.getById(Number(id)),
+    queryKey: [QUERY_KEYS.PRODUCT, productId],
+    queryFn: () => productsApi.getById(productId),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -191,6 +200,13 @@ export default function ProductPage() {
               >
                 {formatCurrency(product.price)}
               </Typography>
+              {/* F7: denormalised counters straight off the product payload — no extra request.
+                  Hidden entirely until the first review, so a fresh product shows no empty stars. */}
+              {(product.reviewCount ?? 0) > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <StarRating value={product.averageRating ?? 0} count={product.reviewCount} />
+                </Box>
+              )}
             </Box>
 
             <Divider />
@@ -244,6 +260,14 @@ export default function ProductPage() {
           </Box>
         </motion.div>
       </Box>
+
+      {/* F7 Task 7.4b — additive: sits below the existing grid and never touches the
+          add-to-cart flow or its idempotency key above. */}
+      <ReviewsSection
+        productId={product.id}
+        averageRating={product.averageRating}
+        reviewCount={product.reviewCount}
+      />
     </Container>
   );
 }
