@@ -15,6 +15,7 @@ import {
   CreditCard,
   BarChart,
   ManageAccounts,
+  RateReview,
 } from '@mui/icons-material';
 
 const ADMIN_NAV = [
@@ -25,6 +26,7 @@ const ADMIN_NAV = [
   { label: 'Categories', to: ROUTES.ADMIN_CATEGORIES, Icon: Category },
   { label: 'Orders', to: ROUTES.ADMIN_ORDERS, Icon: Receipt },
   { label: 'Payments', to: ROUTES.ADMIN_PAYMENTS, Icon: CreditCard },
+  { label: 'Reviews', to: ROUTES.ADMIN_REVIEWS, Icon: RateReview },
   { label: 'Analytics', to: ROUTES.ADMIN_ANALYTICS, Icon: BarChart },
   { label: 'Account', to: ROUTES.ADMIN_ACCOUNT, Icon: ManageAccounts },
 ];
