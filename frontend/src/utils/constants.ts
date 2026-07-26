@@ -30,6 +30,7 @@ export const ROUTES = {
   ADMIN_ORDERS: '/admin/orders',
   ADMIN_PAYMENTS: '/admin/payments',
   ADMIN_ANALYTICS: '/admin/analytics',
+  ADMIN_REVIEWS: '/admin/reviews',
   ADMIN_ACCOUNT: '/admin/account',
 } as const;
 
@@ -54,4 +55,7 @@ export const QUERY_KEYS = {
   TENANT_FLAGS: 'tenant-flags',
   TENANT_USAGE: 'tenant-usage',
   ACCOUNT: 'account',
+  REVIEWS: 'reviews',
+  REVIEW_ELIGIBILITY: 'review-eligibility',
+  ADMIN_REVIEWS: 'admin-reviews',
 } as const;

@@ -48,9 +48,13 @@ export default function ProductForm() {
   // writes, so the submit is disabled up-front with an explanatory banner.
   const writesLocked = sellerStatus === 'PENDING_APPROVAL' || sellerStatus === 'SUSPENDED';
 
+  // Canonical PRODUCT key type is the NUMERIC id — see the note in ProductPage.tsx.
+  // NaN when creating (no :id), which is harmless: the query is disabled via `isEdit`.
+  const productId = Number(id);
+
   const { data: product, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.PRODUCT, id],
-    queryFn: () => productsApi.getById(Number(id)),
+    queryKey: [QUERY_KEYS.PRODUCT, productId],
+    queryFn: () => productsApi.getById(productId),
     enabled: isEdit,
   });
 
@@ -97,11 +101,11 @@ export default function ProductForm() {
   });
 
   const { mutateAsync: updateProduct } = useMutation({
-    mutationFn: (req: ProductRequest) => productsApi.update(Number(id), req),
+    mutationFn: (req: ProductRequest) => productsApi.update(productId, req),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_PRODUCTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCTS] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCT, id] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCT, productId] });
       addToast({ message: 'Product updated', variant: 'success' });
       navigate(ROUTES.SELLER_PRODUCTS);
     },
