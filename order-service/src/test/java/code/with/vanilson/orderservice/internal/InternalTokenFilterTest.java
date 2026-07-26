@@ -1,5 +1,7 @@
 package code.with.vanilson.orderservice.internal;
 
+import code.with.vanilson.tenantcontext.internal.InternalTokenAuthenticationFilter;
+import code.with.vanilson.tenantcontext.internal.InternalTokenAuthenticator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,7 +14,9 @@ import org.springframework.context.MessageSource;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -136,6 +140,96 @@ class InternalTokenFilterTest {
 
             verify(chain, never()).doFilter(any(), any());
             verify(response).setStatus(401);
+        }
+    }
+
+    /**
+     * Hardening pass: the filter is now an adapter over the shared
+     * {@link InternalTokenAuthenticator}. These tests prove the two capabilities that were missing —
+     * rotation and caller identity — reach the wire through this filter, not just the core.
+     */
+    @Nested
+    @DisplayName("per-caller secrets and rotation (shared authenticator)")
+    class PerCallerAndRotation {
+
+        private static final String CURRENT = "current-secret";
+        private static final String PREVIOUS = "previous-secret";
+
+        @BeforeEach
+        void internalPath() {
+            when(request.getRequestURI()).thenReturn(INTERNAL_PATH);
+        }
+
+        private InternalTokenFilter filterAccepting(String... tokensForProductService) {
+            InternalTokenAuthenticator authenticator = new InternalTokenAuthenticator(
+                    Map.of("product-service", List.of(tokensForProductService)), "", false);
+            return new InternalTokenFilter(authenticator, messageSource, objectMapper);
+        }
+
+        @Test
+        @DisplayName("named caller with its own secret → forwarded, and the caller is published for auditing")
+        void namedCallerPassesThrough() throws Exception {
+            when(request.getHeader(InternalTokenFilter.INTERNAL_TOKEN_HEADER)).thenReturn(CURRENT);
+            when(request.getHeader(InternalTokenAuthenticationFilter.CALLER_HEADER))
+                    .thenReturn("product-service");
+
+            filterAccepting(CURRENT).doFilter(request, response, chain);
+
+            verify(chain, times(1)).doFilter(request, response);
+            verify(request).setAttribute(
+                    InternalTokenAuthenticationFilter.CALLER_ATTRIBUTE, "product-service");
+        }
+
+        @Test
+        @DisplayName("during rotation BOTH the new and the outgoing secret are accepted")
+        void bothSecretsAcceptedDuringRotation() throws Exception {
+            InternalTokenFilter filter = filterAccepting(CURRENT, PREVIOUS);
+
+            when(request.getHeader(InternalTokenFilter.INTERNAL_TOKEN_HEADER)).thenReturn(PREVIOUS);
+            filter.doFilter(request, response, chain);
+
+            when(request.getHeader(InternalTokenFilter.INTERNAL_TOKEN_HEADER)).thenReturn(CURRENT);
+            filter.doFilter(request, response, chain);
+
+            verify(chain, times(2)).doFilter(request, response);
+            verify(response, never()).setStatus(401);
+        }
+
+        @Test
+        @DisplayName("once the outgoing secret is dropped from config it stops working")
+        void retiredSecretRejectedAfterRotation() throws Exception {
+            when(request.getHeader(InternalTokenFilter.INTERNAL_TOKEN_HEADER)).thenReturn(PREVIOUS);
+
+            filterAccepting(CURRENT).doFilter(request, response, chain);
+
+            verify(chain, never()).doFilter(any(), any());
+            verify(response).setStatus(401);
+        }
+
+        @Test
+        @DisplayName("a valid secret presented under someone else's name is rejected as impersonation")
+        void impersonationRejected() throws Exception {
+            when(request.getHeader(InternalTokenFilter.INTERNAL_TOKEN_HEADER)).thenReturn(CURRENT);
+            when(request.getHeader(InternalTokenAuthenticationFilter.CALLER_HEADER))
+                    .thenReturn("cart-service");
+
+            filterAccepting(CURRENT).doFilter(request, response, chain);
+
+            verify(chain, never()).doFilter(any(), any());
+            verify(response).setStatus(401);
+        }
+
+        @Test
+        @DisplayName("the 401 body never echoes the presented secret")
+        void rejectionNeverLeaksTheSecret() throws Exception {
+            when(request.getHeader(InternalTokenFilter.INTERNAL_TOKEN_HEADER)).thenReturn("attacker-guess");
+
+            filterAccepting(CURRENT).doFilter(request, response, chain);
+
+            assertThat(responseBody.toString())
+                    .contains("order.internal.token.invalid")
+                    .doesNotContain("attacker-guess")
+                    .doesNotContain(CURRENT);
         }
     }
 }

@@ -143,6 +143,13 @@ application:
     # F7 — shared secret product-service sends as X-Internal-Token on the /internal call. Same
     # value order-service validates (docker-compose env dev default / Vault in prod). Never logged.
     internal-token: ${INTERNAL_SERVICE_TOKEN}
+    # F7 hardening — this service is a CALLER, so it only needs what it sends: the secret and its own
+    # identity. `caller` is what order-service attributes the call to (X-Internal-Caller) and what its
+    # `accepted` map is keyed by — the two names must match or the call is rejected as impersonation.
+    # During a rotation, flip `token` to the new value only after order-service accepts both.
+    internal:
+      caller: product-service
+      token: ${INTERNAL_SERVICE_TOKEN}
 
 # F7 — Resilience4j + Feign for the order-purchase-verification client.
 # Short timeouts so a slow/absent order-service fails the review POST to 503 (B1 fail-closed) in

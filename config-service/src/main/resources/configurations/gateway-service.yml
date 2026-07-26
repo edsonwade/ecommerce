@@ -406,6 +406,14 @@ gateway:
     - /api/v1/categories/**
     - /actuator/**
     - /fallback/**
+  # Service-to-service paths terminated at the edge by InternalPathBlockFilter (404, before auth).
+  # NOTE: this is NOT the inverse of public-paths. Absence from public-paths only rejects ANONYMOUS
+  # callers; the route predicates (Path=/api/v1/orders/**, /api/v1/customers/**) still match
+  # /internal, so any valid JWT reached those endpoints until this list existed. Real S2S callers are
+  # unaffected — they use direct service URLs on services-net, never the gateway.
+  blocked-paths:
+    - /api/v1/*/internal
+    - /api/v1/*/internal/**
   load-shedding:
     max-concurrent-requests: ${GATEWAY_MAX_CONCURRENT:5000}
 
