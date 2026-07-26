@@ -14,6 +14,7 @@ global:
     redisPassword: "staging-redis-pass"
     vaultToken: "root-token"
     eurekaPassword: "staging-eureka-pass"
+    internalServiceToken: "staging-internal-s2s-token-ci-only"
 
 ingress:
   enabled: true

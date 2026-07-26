@@ -17,6 +17,10 @@ global:
     redisPassword: ""
     vaultToken: ""
     eurekaPassword: ""
+    # F7 — X-Internal-Token shared between order-service and product-service.
+    # MUST be the same value in both; empty here means the chart falls back to the
+    # CI-only default in secret.yaml. See docs/engineering/service-to-service-auth.md.
+    internalServiceToken: ""
 
 ingress:
   enabled: false

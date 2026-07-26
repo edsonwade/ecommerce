@@ -734,6 +734,10 @@ services:
       # F7 — shared S2S secret order-service validates on /internal purchase checks. MUST match
       # product-service's value (same default here). Dev default only; set INTERNAL_SERVICE_TOKEN in prod.
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-s2s-token-change-me-in-prod}
+      # Rotation window: order-service is the side that VALIDATES, so it is the side that must accept
+      # two secrets at once. Set this to the outgoing value while callers are rolled onto the new one,
+      # then clear it. Empty by default — a blank entry is dropped, never treated as a valid secret.
+      INTERNAL_SERVICE_TOKEN_PREVIOUS: ${INTERNAL_SERVICE_TOKEN_PREVIOUS:-}
       VAULT_ENABLED: ${VAULT_ENABLED:-false}
       VAULT_HOST: ${VAULT_HOST:-vault}
       VAULT_TOKEN: ${VAULT_TOKEN:-root-token}

@@ -29,10 +29,12 @@ public class OrderSecurityConfig {
     // endpoints are opened — never /actuator/** (env/heapdump stay protected).
     //
     // /internal/** is permitAll at the Spring Security layer BY DESIGN — the InternalTokenFilter
-    // (X-Internal-Token shared secret) is the authenticator for that path, keeping the JWT filter
-    // off the S2S call (F7 defence-in-depth Layer 3). It is deliberately NOT added to the gateway
-    // public-paths, so an anonymous external caller is still stopped at the gateway (Layer 1); the
-    // real caller (product-service) reaches this service directly on services-net.
+    // (X-Internal-Token shared secret, per-caller) is the authenticator for that path, keeping the JWT
+    // filter off the S2S call (F7 defence-in-depth Layer 3). Layer 1 is the gateway's
+    // InternalPathBlockFilter, which 404s any /internal path at the edge before authentication —
+    // note that absence from gateway public-paths alone was NOT enough, since the route predicate
+    // Path=/api/v1/orders/** also matches /internal. The real caller (product-service) never crosses
+    // the gateway: it reaches this service directly on services-net.
     static final String[] PUBLIC_ENDPOINTS = {
         "/actuator/health/**",
         "/actuator/info",

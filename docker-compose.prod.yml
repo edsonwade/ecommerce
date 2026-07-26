@@ -442,6 +442,9 @@ services:
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:?KAFKA_PASSWORD must be set in production}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in production}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set in production}
+      # Optional, and intentionally NOT using `:?` — set only during a secret rotation, to keep the
+      # outgoing value accepted while callers roll onto the new one. Clear it once they have.
+      INTERNAL_SERVICE_TOKEN_PREVIOUS: ${INTERNAL_SERVICE_TOKEN_PREVIOUS:-}
       VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN must be set in production}
     ports: !reset []
     restart: unless-stopped
