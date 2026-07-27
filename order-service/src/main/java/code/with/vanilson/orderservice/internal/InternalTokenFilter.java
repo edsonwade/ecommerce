@@ -6,11 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.lang.NonNull;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -46,8 +43,14 @@ import java.util.Map;
  * @author vamuhong
  * @version 2.0
  */
+/*
+ * NOT @Component on purpose — declared as an explicit @Bean in OrderSecurityConfig.
+ * A Filter @Component in the application base package is instantiated by EVERY @WebMvcTest slice
+ * in this module, and this one depends on a bean that only tenant-context's auto-configuration
+ * provides. That combination broke every slice context on 2026-07-26 with the opaque
+ * "ApplicationContext failure threshold (1) exceeded". See OrderSecurityConfig#internalTokenFilter.
+ */
 @Slf4j
-@Component
 public class InternalTokenFilter extends InternalTokenAuthenticationFilter {
 
     /**
@@ -67,26 +70,24 @@ public class InternalTokenFilter extends InternalTokenAuthenticationFilter {
             List.of(INTERNAL_PATH_PREFIX, INTERNAL_PATH_PREFIX + "/**");
 
     /**
-     * Primary (Spring-injected) constructor.
+     * Primary constructor, called from {@code OrderSecurityConfig#internalTokenFilter}.
      * <p>
      * The rich {@link InternalTokenAuthenticator} — per-caller secrets plus the rotation window — is
-     * contributed by {@code InternalTokenAutoConfiguration} in tenant-context. It is injected through
-     * an {@link ObjectProvider} <strong>on purpose</strong>: this filter is an order-service
-     * {@code @Component} (in the application base package), so a {@code @WebMvcTest} slice instantiates
-     * it, but a slice does not load tenant-context's auto-configuration and therefore has no
-     * authenticator bean. A hard constructor dependency made every slice context fail to load. The
-     * provider is always injectable; when the bean is genuinely absent the filter falls back to an
-     * authenticator built from the legacy single-secret property, which is fail-closed (blank ⇒ reject
-     * everything) and never invoked in a slice anyway ({@code addFilters = false} / non-internal paths).
-     * <p>
-     * Explicitly {@code @Autowired} because this class offers additional constructors — without the
-     * marker the container cannot choose between them.
+     * contributed by {@code InternalTokenAutoConfiguration} in tenant-context. It is taken as an
+     * {@link ObjectProvider} <strong>on purpose</strong>, as a second line of defence: any context that
+     * builds this filter without tenant-context's auto-configuration (a security slice importing
+     * {@code OrderSecurityConfig}, for instance) has no authenticator bean, and a hard dependency there
+     * fails the whole context. The provider is always injectable; when the bean is genuinely absent the
+     * filter falls back to an authenticator built from the legacy single-secret property, which is
+     * fail-closed — blank secret rejects everything.
+     *
+     * @param legacyToken value of {@code application.security.internal-token}; the {@code @Value}
+     *                    lookup lives on the {@code @Bean} method, not here
      */
-    @Autowired
     public InternalTokenFilter(ObjectProvider<InternalTokenAuthenticator> authenticatorProvider,
                                MessageSource messageSource,
                                ObjectMapper objectMapper,
-                               @Value("${application.security.internal-token:}") String legacyToken) {
+                               String legacyToken) {
         super(authenticatorProvider.getIfAvailable(
                         () -> new InternalTokenAuthenticator(Map.of(), legacyToken, false)),
                 messageSource, objectMapper, GUARDED_PATHS, INVALID_TOKEN_KEY);

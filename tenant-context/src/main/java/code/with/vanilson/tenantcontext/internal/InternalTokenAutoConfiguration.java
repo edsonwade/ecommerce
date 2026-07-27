@@ -33,18 +33,32 @@ import org.springframework.context.annotation.Configuration;
 public class InternalTokenAutoConfiguration {
 
     /**
-     * @param legacyToken the pre-existing {@code application.security.internal-token}. Kept as a
-     *                    first-class input so services already using it keep working untouched while
-     *                    they migrate to the per-caller form.
+     * Builds the authenticator, with one deliberate rule about the legacy secret.
+     * <p>
+     * <strong>The legacy single secret is honoured ONLY while no per-caller secret is configured.</strong>
+     * It exists so a service that has not migrated yet keeps working, not as a permanent parallel way in.
+     * The moment {@code application.security.internal.accepted} names even one caller, the legacy value is
+     * ignored — otherwise a platform-wide shared string, which by construction cannot prove who holds it,
+     * would silently bypass the per-caller identity the map was configured to enforce. Migration is
+     * therefore a one-way door: add the {@code accepted} entry and the weaker credential stops working in
+     * the same deployment, with no separate cleanup step to forget.
+     *
+     * @param legacyToken the pre-existing {@code application.security.internal-token}
      */
     @Bean
     @ConditionalOnMissingBean
     public InternalTokenAuthenticator internalTokenAuthenticator(
             InternalTokenProperties properties,
             @Value("${application.security.internal-token:}") String legacyToken) {
+        boolean perCallerConfigured = properties.getAccepted() != null
+                && properties.getAccepted().values().stream()
+                .filter(java.util.Objects::nonNull)
+                .flatMap(java.util.List::stream)
+                .anyMatch(token -> token != null && !token.isBlank());
+
         return new InternalTokenAuthenticator(
                 properties.getAccepted(),
-                legacyToken,
+                perCallerConfigured ? "" : legacyToken,
                 properties.isRequireCallerHeader());
     }
 }

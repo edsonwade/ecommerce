@@ -21,6 +21,9 @@ global:
     # MUST be the same value in both; empty here means the chart falls back to the
     # CI-only default in secret.yaml. See docs/engineering/service-to-service-auth.md.
     internalServiceToken: ""
+    # Set ONLY during a secret rotation, to the outgoing value; clear it once every caller has
+    # moved to the new one. Blank is dropped by the authenticator, never a valid empty secret.
+    internalServiceTokenPrevious: ""
 
 ingress:
   enabled: false

@@ -9,6 +9,7 @@ import code.with.vanilson.orderservice.orderLine.OrderLine;
 import code.with.vanilson.orderservice.orderLine.OrderLineRepository;
 import code.with.vanilson.orderservice.payment.PaymentMethod;
 import code.with.vanilson.tenantcontext.TenantContext;
+import code.with.vanilson.tenantcontext.internal.InternalTokenAuthenticationFilter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -181,5 +182,30 @@ class InternalPurchaseVerificationIntegrationTest {
                         .header(InternalTokenFilter.INTERNAL_TOKEN_HEADER, "wrong-token")
                         .header(TenantContext.TENANT_HEADER, TENANT))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Mid-upgrade guard for the S2S hardening.
+     * <p>
+     * product-service now sends {@code X-Internal-Caller} on <em>every</em> internal call, while an
+     * environment that has not yet moved to per-caller secrets still authenticates through the legacy
+     * single {@code application.security.internal-token} — which is exactly this test's configuration
+     * ({@code accepted} is unset here, so the legacy value is the one in play). The announced identity
+     * must therefore be accepted rather than treated as a mismatch: a shared platform-wide secret
+     * cannot prove who holds it, so there is no impersonation claim to reject. Were this to break, the
+     * review POST would surface it as a 503 the moment product-service is deployed ahead of the
+     * order-service configuration.
+     */
+    @Test
+    @DisplayName("legacy token + X-Internal-Caller → still 200 (new caller, old config)")
+    void legacyTokenAcceptsAnnouncedCaller() throws Exception {
+        mockMvc.perform(get(EXISTS_PATH)
+                        .param("customerId", "42")
+                        .param("productId", "1")
+                        .header(InternalTokenFilter.INTERNAL_TOKEN_HEADER, TOKEN)
+                        .header(InternalTokenAuthenticationFilter.CALLER_HEADER, "product-service")
+                        .header(TenantContext.TENANT_HEADER, TENANT))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.purchased").value(true));
     }
 }
