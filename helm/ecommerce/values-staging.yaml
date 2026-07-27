@@ -15,6 +15,7 @@ global:
     vaultToken: "root-token"
     eurekaPassword: "staging-eureka-pass"
     internalServiceToken: "staging-internal-s2s-token-ci-only"
+    internalServiceTokenPrevious: ""
 
 ingress:
   enabled: true

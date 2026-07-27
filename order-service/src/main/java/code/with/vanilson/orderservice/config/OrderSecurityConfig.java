@@ -1,8 +1,13 @@
 package code.with.vanilson.orderservice.config;
 
 import code.with.vanilson.orderservice.internal.InternalTokenFilter;
+import code.with.vanilson.tenantcontext.internal.InternalTokenAuthenticator;
 import code.with.vanilson.tenantcontext.security.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -22,7 +27,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class OrderSecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final InternalTokenFilter internalTokenFilter;
 
     // Unauthenticated endpoints: health probes, Prometheus scrape, API docs and the
     // internal service-to-service purchase-verification API (F7). Only specific actuator
@@ -46,8 +50,36 @@ public class OrderSecurityConfig {
         "/api/v1/orders/internal/**"
     };
 
+    /**
+     * Declares the S2S guard as an explicit {@code @Bean} instead of letting it be component-scanned.
+     * <p>
+     * <strong>This is a structural guard, not a style choice.</strong> A {@code @Component} of type
+     * {@link jakarta.servlet.Filter} living in the application base package is instantiated by every
+     * {@code @WebMvcTest} slice in this module — slices include {@code Filter} beans in their type
+     * filters. When such a filter depends on something only an auto-configuration provides (here the
+     * {@code InternalTokenAuthenticator} from tenant-context, which slices never load), the very first
+     * slice context fails and Spring reports
+     * {@code ApplicationContext failure threshold (1) exceeded} for every test afterwards — a message
+     * that names none of the actual causes. That is exactly what happened on 2026-07-26.
+     * <p>
+     * Declaring it here confines it to the contexts that {@code @Import(OrderSecurityConfig.class)}:
+     * slices testing only a controller never build it. Production behaviour is unchanged — Spring Boot
+     * registers any {@code Filter} bean with the servlet container either way.
+     *
+     * @see code.with.vanilson.orderservice.internal.InternalTokenFilter
+     */
     @Bean
-    public SecurityFilterChain orderSecurityChain(HttpSecurity http) throws Exception {
+    public InternalTokenFilter internalTokenFilter(
+            ObjectProvider<InternalTokenAuthenticator> authenticatorProvider,
+            MessageSource messageSource,
+            ObjectMapper objectMapper,
+            @Value("${application.security.internal-token:}") String legacyToken) {
+        return new InternalTokenFilter(authenticatorProvider, messageSource, objectMapper, legacyToken);
+    }
+
+    @Bean
+    public SecurityFilterChain orderSecurityChain(HttpSecurity http,
+                                                  InternalTokenFilter internalTokenFilter) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
