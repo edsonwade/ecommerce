@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
+import { lazyWithReload } from '@utils/lazyWithReload';
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout';
@@ -20,7 +21,7 @@ const PageLoader = () => (
 );
 
 function lazy_page(factory: () => Promise<{ default: React.ComponentType }>) {
-  const Component = lazy(factory);
+  const Component = lazyWithReload(factory);
   return (
     <Suspense fallback={<PageLoader />}>
       <Component />

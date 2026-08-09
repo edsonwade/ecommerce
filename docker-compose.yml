@@ -98,13 +98,19 @@ services:
     # services connect via the docker network (redis:6379) regardless.
     ports:
       - "16379:6379"
-    command: >
-      redis-server
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --save 60 1
-      --loglevel warning
-      --requirepass ${REDIS_PASSWORD:-redis-secret-2024}
+    command:
+      - redis-server
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - "60"
+      - "1"
+      - --loglevel
+      - warning
+      - --requirepass
+      - ${REDIS_PASSWORD:-redis-secret-2024}
     volumes:
       - redis-data:/data
     networks: [ infra-net, services-net ]
@@ -131,7 +137,7 @@ services:
       - postgres-order-data:/var/lib/postgresql/data
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d order_service_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U '${POSTGRES_USERNAME:-vanilson}' -d order_service_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -148,7 +154,7 @@ services:
       - postgres-product-data:/var/lib/postgresql/data
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d product_service_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U '${POSTGRES_USERNAME:-vanilson}' -d product_service_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -165,7 +171,7 @@ services:
       - postgres-payment-data:/var/lib/postgresql/data
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d payment_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U '${POSTGRES_USERNAME:-vanilson}' -d payment_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -182,7 +188,7 @@ services:
       - postgres-auth-data:/var/lib/postgresql/data
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d auth_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U '${POSTGRES_USERNAME:-vanilson}' -d auth_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -199,7 +205,7 @@ services:
       - postgres-tenant-data:/var/lib/postgresql/data
     networks: [ infra-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-vanilson} -d tenant_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U '${POSTGRES_USERNAME:-vanilson}' -d tenant_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -351,6 +357,10 @@ services:
     build:
       context: .
       dockerfile: config-service/Dockerfile
+      # WSL2/Docker Desktop: builder container has no DNS on the default bridge
+      # ("Temporary failure in name resolution" downloading from Maven Central).
+      # Build over the host network, which has working DNS.
+      network: host
     container_name: config-service
     ports:
       - "8888:8888"
@@ -381,6 +391,7 @@ services:
     build:
       context: .
       dockerfile: discovery-service/Dockerfile
+      network: host
     container_name: discovery-service
     ports:
       - "8761:8761"
@@ -421,6 +432,7 @@ services:
     build:
       context: .
       dockerfile: gateway-api-service/Dockerfile
+      network: host
     container_name: gateway-api-service
     ports:
       - "8222:8222"
@@ -472,6 +484,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      network: host
     container_name: frontend
     # Host port 8080 to avoid clashing with the local WSL nginx on 80;
     # nginx inside the container still serves on 80.
@@ -487,6 +500,7 @@ services:
     build:
       context: .
       dockerfile: authentication-service/Dockerfile
+      network: host
     container_name: authentication-service
     ports:
       - "8085:8085"
@@ -551,6 +565,7 @@ services:
     build:
       context: .
       dockerfile: tenant-service/Dockerfile
+      network: host
     container_name: tenant-service
     ports:
       - "8095:8095"
@@ -595,6 +610,7 @@ services:
     build:
       context: .
       dockerfile: customer-service/Dockerfile
+      network: host
     container_name: customer-service
     ports:
       - "8090:8090"
@@ -643,6 +659,7 @@ services:
     build:
       context: .
       dockerfile: product-service/Dockerfile
+      network: host
     container_name: product-service
     ports:
       - "8082:8082"
@@ -699,6 +716,7 @@ services:
     build:
       context: .
       dockerfile: order-service/Dockerfile
+      network: host
     container_name: order-service
     ports:
       - "8083:8083"
@@ -758,6 +776,7 @@ services:
     build:
       context: .
       dockerfile: payment-service/Dockerfile
+      network: host
     container_name: payment-service
     ports:
       - "8086:8086"
@@ -809,6 +828,7 @@ services:
     build:
       context: .
       dockerfile: cart-service/Dockerfile
+      network: host
     container_name: cart-service
     ports:
       - "8091:8091"
@@ -857,6 +877,7 @@ services:
     build:
       context: .
       dockerfile: notification-service/Dockerfile
+      network: host
     container_name: notification-service
     ports:
       - "8040:8040"
