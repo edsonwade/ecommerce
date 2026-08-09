@@ -1,7 +1,7 @@
 # Enterprise E-Commerce Microservices Platform
 
 [![CI/CD Pipeline](https://github.com/vanilson/e-commerce-microservice/actions/workflows/ecommerce-cd.yml/badge.svg)](https://github.com/vanilson/e-commerce-microservice/actions)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.org/projects/jdk/17/)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.1-blue.svg)](https://spring.io/projects/spring-cloud)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -20,9 +20,10 @@ graph TD
 
     subgraph Gateway Filter Chain
         direction LR
-        TF[TenantValidation] --> JF[JWT Auth]
-        JF --> LS[Load Shedding]
-        LS --> RI[RequestId]
+        RI[RequestId] --> IPB[InternalPathBlock]
+        IPB --> JF[JWT Auth]
+        JF --> TF[TenantValidation]
+        TF --> LS[Load Shedding]
     end
 
     Gateway --> Auth["Auth Service :8085"]
@@ -152,9 +153,9 @@ sequenceDiagram
 | **config-service** | 8888 | — | Centralized config, native + Vault backends | Spring Cloud Config |
 | **authentication-service** | 8085 | PostgreSQL | JWT RS256/HS256, RBAC (USER/SELLER/ADMIN), token rotation | Spring Security, JJWT |
 | **customer-service** | 8090 | MongoDB | Redis L2 cache, email uniqueness validation | MongoDB, Redis |
-| **product-service** | 8082 | PostgreSQL | Pessimistic locking inventory, Redis cache, pagination | PostgreSQL, Redis |
+| **product-service** | 8082 | PostgreSQL | Pessimistic locking inventory, verified-buyer reviews + denormalised ratings, Redis cache, pagination | PostgreSQL, Redis |
 | **order-service** | 8083 | PostgreSQL | Choreography saga, transactional outbox, async 202 creation | PostgreSQL, Kafka |
-| **payment-service** | 8086 | PostgreSQL | Idempotent payments (orderReference key), saga step 2 | PostgreSQL, Kafka |
+| **payment-service** | 8086 | PostgreSQL | Idempotent payments (orderReference key), saga step 2, refund transactional outbox | PostgreSQL, Kafka |
 | **cart-service** | 8091 | Redis Sentinel | 24h TTL sessions, high-throughput (200 req/s) | Redis, Spring Data |
 | **notification-service** | 8040 | MongoDB | Kafka consumer, DLQ handler, idempotency guard, async email | MongoDB, Kafka |
 | **gateway-api-service** | 8222 | — | Per-service circuit breakers, tenant-based rate limiting, load shedding | Spring Cloud Gateway |
@@ -165,7 +166,7 @@ sequenceDiagram
 
 | Category | Technology | Version |
 |:---|:---|:---:|
-| **Core Framework** | Spring Boot | 3.2.5 |
+| **Core Framework** | Spring Boot | 3.3.0 |
 | **Cloud Platform** | Spring Cloud | 2023.0.1 |
 | **JVM** | Java (Eclipse Temurin) | 17 |
 | **Service Discovery** | Netflix Eureka | — |
@@ -199,9 +200,11 @@ sequenceDiagram
 
 Each service owns its local transaction and publishes domain events to Kafka. There is no central orchestrator — services react to events autonomously.
 
-### Transactional Outbox (Order Service)
+### Transactional Outbox (Order & Payment Services)
 
-The `OutboxEvent` entity is persisted atomically alongside the order in the same database transaction. A scheduled `OutboxEventPublisher` reads `PENDING` events and publishes them to Kafka, marking them as `PUBLISHED` on success. Max 5 retry attempts per event.
+**Order service:** the `OutboxEvent` entity is persisted atomically alongside the order in the same database transaction. A scheduled `OutboxEventPublisher` reads `PENDING` events and publishes them to Kafka, marking them as `PUBLISHED` on success. Max 5 retry attempts per event.
+
+**Payment service (refunds):** `PaymentOutboxEvent` is written in the refund transaction and drained by a scheduled `PaymentOutboxPublisher` (poll interval 5s, nightly purge), so the `POST /refunds` endpoint returns without paying the Kafka producer's first-send init/metadata cost. A stuck `payment.refunded` event (money refunded but the order never told) is surfaced via a Micrometer queue-depth metric + alerting rather than silently retried forever.
 
 ### Dead Letter Queue
 
@@ -224,10 +227,13 @@ The `OutboxEvent` entity is persisted atomically alongside the order in the same
 | `inventory.insufficient` | InventoryReservationConsumer | OrderSagaConsumer |
 | `payment.authorized` | PaymentSagaConsumer | OrderSagaConsumer |
 | `payment.failed` | PaymentSagaConsumer | OrderSagaConsumer |
+| `payment.refunded` | PaymentOutboxPublisher (payment-service) | PaymentRefundConsumer (order-service, `order-saga-group`) |
+| `order.refunded` | OrderService (order-service) | — (terminal refund-saga audit event) |
 | `order-topic` | OrderProducer | NotificationsConsumer |
 | `payment-topic` | PaymentProducer | NotificationsConsumer |
 | `payment-topic.DLQ` | Kafka (auto) | DlqConsumer |
 | `order-topic.DLQ` | Kafka (auto) | DlqConsumer |
+| `payment.refunded.DLQ` / `order.refunded.DLQ` | Kafka (auto) | — (refund-saga dead letters) |
 
 ### Consumer Groups
 
@@ -252,7 +258,7 @@ A Spring Boot starter that provides full tenant isolation:
 
 ### Gateway Tenant Validation
 
-`TenantValidationFilter` (first filter in the chain) validates every `X-Tenant-ID` header against the tenant-service via `TenantServiceClient` before the request proceeds.
+`TenantValidationFilter` (order `+20`, after JWT authentication) validates every `X-Tenant-Id` header against the tenant-service via `TenantServiceClient` before the request proceeds.
 
 ### Tenant Service
 
@@ -289,10 +295,13 @@ Full SaaS tenant lifecycle management:
 
 ### Gateway Filter Chain (Execution Order)
 
-1. **TenantValidationFilter** — Validates `X-Tenant-ID` via tenant-service
-2. **JwtAuthenticationFilter** — Validates Bearer token from Authorization header
-3. **LoadSheddingFilter** — Rejects requests when >5,000 concurrent connections
-4. **RequestIdFilter** — Injects `X-Request-Id` for distributed tracing
+Order is by each filter's `getOrder()` (the source of truth — equal orders make `GlobalFilter` sequence non-deterministic):
+
+1. **RequestIdFilter** (`HIGHEST_PRECEDENCE`) — Injects `X-Request-Id` for distributed tracing so every later filter and log line carries it
+2. **InternalPathBlockFilter** (`+5`) — Returns **404** (not 403), before authentication, for any `/api/v1/*/internal[/**]` path so no external caller can reach service-to-service endpoints even with a valid JWT
+3. **JwtAuthenticationFilter** (`+10`) — Validates the Bearer token from the Authorization header
+4. **TenantValidationFilter** (`+20`) — Validates `X-Tenant-Id` via tenant-service
+5. **LoadSheddingFilter** (`+30`) — Sheds load / trips the circuit under overload
 
 ### Gateway Resilience (per service)
 
@@ -304,6 +313,15 @@ Full SaaS tenant lifecycle management:
 | Order | 100/s | 50% failure, 30s open | 1 attempt |
 | Product | 100/s | 60% failure, 20s open | 2 attempts |
 | Payment | 20/s | 30% failure, 60s open | None (financial) |
+
+### Service-to-Service (Internal) Authentication
+
+Some endpoints are `/internal` — meant only for one service to call another (e.g. product-service verifying a purchase against order-service). They are secured in two independent layers:
+
+- **Edge block (gateway):** `InternalPathBlockFilter` 404s every `/internal` path at the gateway, so they are unreachable from the browser regardless of role. Legitimate S2S calls travel Feign-direct on `services-net` and never transit the gateway.
+- **Shared internal-token starter (`tenant-context/internal/`):** `InternalTokenAuthenticationFilter` validates an `INTERNAL_SERVICE_TOKEN` bearer on the receiving side; `InternalTokenRequestInterceptor` attaches it (plus an `X-Internal-Caller` identity, impersonation rejected) on the calling side. The token supports **rotation** — N tokens are accepted simultaneously via `INTERNAL_SERVICE_TOKEN_PREVIOUS` for zero-downtime key rollover.
+
+> Being outside `gateway.public-paths` only rejects **anonymous** calls; the route predicates (`Path=/api/v1/orders/**`) also match their `/internal` children, so the edge block — not the public-paths list — is what terminates them.
 
 ### Infrastructure Security
 
@@ -450,6 +468,16 @@ Key self-service auth APIs (full reference in [docs/api/API.md](docs/api/API.md)
 | `/api/v1/auth/account/me` | GET / PATCH | Read or update the authenticated user's identity (email change returns fresh tokens) |
 | `/api/v1/auth/account/change-password` | POST | Change password — revokes all sessions, returns fresh tokens |
 | `/api/v1/auth/account/me` | DELETE | Soft-delete + anonymize own account (USER role only) |
+
+Product reviews & ratings (product-service — a review requires a CONFIRMED purchase; the star average/count are denormalised onto the product response, not returned per review):
+
+| Endpoint | Method | Purpose |
+|:---|:---:|:---|
+| `/api/v1/products/{productId}/reviews` | POST | Create a review (rating 1–5 required, comment ≤2000; 201, fail-closed purchase check → 403/409/503) |
+| `/api/v1/products/{productId}/reviews` | GET | List a product's reviews, paginated (public) |
+| `/api/v1/products/{productId}/reviews/me` | GET | Eligibility probe — drives whether the "write a review" form is shown |
+| `/api/v1/products/reviews/admin` | GET | Cross-product moderation feed (ADMIN only) |
+| `/api/v1/products/reviews/{reviewId}` | DELETE | Delete a review — ADMIN (moderation) or the review's own author (204) |
 
 ---
 
